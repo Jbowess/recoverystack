@@ -32,6 +32,30 @@ function parseMessage(params: Record<string, string | string[] | undefined>) {
   };
 }
 
+function formatDateTime(value?: string | null) {
+  if (!value) return 'n/a';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('en-AU', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+}
+
+function getStatusColor(status?: string | null) {
+  if (!status) return '#6b7280';
+  const normalized = status.toLowerCase();
+  if (normalized === 'ok' || normalized === 'succeeded') return '#166534';
+  if (normalized === 'error' || normalized === 'failed') return '#b91c1c';
+  if (normalized === 'running') return '#92400e';
+  return '#374151';
+}
+
 async function getDashboardData() {
   const [
     { data: newTrends },
@@ -40,6 +64,7 @@ async function getDashboardData() {
     { data: counts },
     { data: deploys },
     { data: pipelineRuns },
+    { data: successfulPipelineRuns },
     { count: trendCount },
     { count: draftCount },
     { count: publishedCount },
@@ -49,8 +74,15 @@ async function getDashboardData() {
     supabaseAdmin.from('pages').select('id,slug,title,template,updated_at').eq('status', 'draft').order('updated_at', { ascending: false }).limit(100),
     supabaseAdmin.from('pages').select('id,slug,title,template,published_at').eq('status', 'published').order('published_at', { ascending: false }).limit(100),
     supabaseAdmin.from('pages').select('template').neq('template', ''),
-    supabaseAdmin.from('deploy_events').select('created_at,status').order('created_at', { ascending: false }).limit(1),
+    supabaseAdmin.from('deploy_events').select('created_at,status,detail').order('created_at', { ascending: false }).limit(1),
     supabaseAdmin.from('pipeline_runs').select('id,pipeline_name,status,started_at,finished_at,duration_ms,error_message').order('started_at', { ascending: false }).limit(1),
+    supabaseAdmin
+      .from('pipeline_runs')
+      .select('finished_at,status,pipeline_name')
+      .eq('status', 'succeeded')
+      .not('finished_at', 'is', null)
+      .order('finished_at', { ascending: false })
+      .limit(1),
     supabaseAdmin.from('trends').select('id', { count: 'exact', head: true }).eq('status', 'new'),
     supabaseAdmin.from('pages').select('id', { count: 'exact', head: true }).eq('status', 'draft'),
     supabaseAdmin.from('pages').select('id', { count: 'exact', head: true }).eq('status', 'published'),
@@ -77,6 +109,7 @@ async function getDashboardData() {
     published: published ?? [],
     byTemplate,
     lastDeploy: deploys?.[0] ?? null,
+    lastSuccessfulBuild: successfulPipelineRuns?.[0] ?? null,
     latestPipelineRun,
     latestPipelineSteps: latestPipelineSteps ?? [],
     totals: {
@@ -97,7 +130,7 @@ export default async function AdminDashboard({
   const message = parseMessage(params);
 
   return (
-    <main>
+    <main style={{ maxWidth: 980, margin: '0 auto', padding: '20px 16px 56px' }}>
       <h1>RecoveryStack Admin</h1>
       <p>Manual gates enforced: trend approval then draft publish.</p>
 
@@ -115,7 +148,7 @@ export default async function AdminDashboard({
         </div>
       ) : null}
 
-      <section>
+      <section style={{ marginTop: 20 }}>
         <h2>Status counts</h2>
         <ul>
           <li>Trends pending approval: {data.totals.trends}</li>
@@ -125,7 +158,38 @@ export default async function AdminDashboard({
         </ul>
       </section>
 
-      <section>
+      <section id="deploy" style={{ marginTop: 24, border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
+        <h2 style={{ marginTop: 0 }}>Deploy status</h2>
+        <p style={{ marginBottom: 8 }}>Telemetry from Vercel deploy hook + pipeline build history.</p>
+
+        <div style={{ marginBottom: 10 }}>
+          <strong>Latest deploy hook event:</strong>{' '}
+          {data.lastDeploy ? (
+            <>
+              <span style={{ color: getStatusColor(data.lastDeploy.status), fontWeight: 600 }}>{data.lastDeploy.status}</span>
+              {' · '}
+              <span>{formatDateTime(data.lastDeploy.created_at)}</span>
+              {data.lastDeploy.detail ? <div style={{ color: '#4b5563', marginTop: 4 }}>{data.lastDeploy.detail}</div> : null}
+            </>
+          ) : (
+            <span>No deploy hook events yet.</span>
+          )}
+        </div>
+
+        <div>
+          <strong>Last successful build:</strong>{' '}
+          {data.lastSuccessfulBuild ? (
+            <>
+              <span>{formatDateTime(data.lastSuccessfulBuild.finished_at)}</span>
+              <span style={{ color: '#4b5563' }}> · {data.lastSuccessfulBuild.pipeline_name}</span>
+            </>
+          ) : (
+            <span>No successful pipeline run found yet.</span>
+          )}
+        </div>
+      </section>
+
+      <section style={{ marginTop: 24 }}>
         <h2>Pipeline</h2>
         <form method="post" action="/api/admin/pipeline">
           <input type="hidden" name="action" value="run_pipeline" />
@@ -138,11 +202,10 @@ export default async function AdminDashboard({
             <>
               <p>
                 <strong>{data.latestPipelineRun.pipeline_name}</strong> · status:{' '}
-                <strong>{data.latestPipelineRun.status}</strong>
+                <strong style={{ color: getStatusColor(data.latestPipelineRun.status) }}>{data.latestPipelineRun.status}</strong>
               </p>
               <p>
-                started: {data.latestPipelineRun.started_at ?? 'n/a'} · finished:{' '}
-                {data.latestPipelineRun.finished_at ?? 'in progress'} · duration(ms):{' '}
+                started: {formatDateTime(data.latestPipelineRun.started_at)} · finished: {formatDateTime(data.latestPipelineRun.finished_at)} · duration(ms):{' '}
                 {data.latestPipelineRun.duration_ms ?? 'n/a'}
               </p>
               {data.latestPipelineRun.error_message ? (
@@ -152,7 +215,7 @@ export default async function AdminDashboard({
                 <ul>
                   {data.latestPipelineSteps.map((step: any) => (
                     <li key={step.id}>
-                      {step.step_name} — {step.status}
+                      {step.step_name} — <span style={{ color: getStatusColor(step.status) }}>{step.status}</span>
                       {typeof step.duration_ms === 'number' ? ` (${step.duration_ms}ms)` : ''}
                       {typeof step.exit_code === 'number' ? ` [exit ${step.exit_code}]` : ''}
                       {step.error_message ? ` — ${step.error_message}` : ''}
@@ -167,12 +230,24 @@ export default async function AdminDashboard({
         </div>
       </section>
 
-      <section>
+      <section style={{ marginTop: 24 }}>
         <h2>Basic analytics</h2>
-        <pre>{JSON.stringify({ pageCountByTemplate: data.byTemplate, lastDeploy: data.lastDeploy }, null, 2)}</pre>
+        {Object.keys(data.byTemplate).length ? (
+          <ul>
+            {Object.entries(data.byTemplate)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([template, count]) => (
+                <li key={template}>
+                  {template}: {count}
+                </li>
+              ))}
+          </ul>
+        ) : (
+          <p>No template stats yet.</p>
+        )}
       </section>
 
-      <section>
+      <section style={{ marginTop: 24 }}>
         <h2>Trend queue (status=new)</h2>
         <ul>
           {data.newTrends.map((trend: any) => (
@@ -191,7 +266,7 @@ export default async function AdminDashboard({
         </ul>
       </section>
 
-      <section>
+      <section style={{ marginTop: 24 }}>
         <h2>Draft queue</h2>
         <ul>
           {data.drafts.map((d: any) => (
@@ -206,7 +281,7 @@ export default async function AdminDashboard({
         </ul>
       </section>
 
-      <section>
+      <section style={{ marginTop: 24 }}>
         <h2>Published (latest)</h2>
         <ul>
           {data.published.slice(0, 30).map((p: any) => (
