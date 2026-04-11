@@ -15,6 +15,7 @@ const supabase =
     : null;
 
 const MAX_ARTIFACT_CHARS = 50_000;
+let telemetryWritable = true;
 
 function truncateArtifactLog(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -22,30 +23,55 @@ function truncateArtifactLog(value: string | null | undefined): string | null {
   return `${value.slice(0, MAX_ARTIFACT_CHARS)}\n\n[truncated ${value.length - MAX_ARTIFACT_CHARS} chars]`;
 }
 
+function isTableMissingError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+
+  const maybeCode = 'code' in error ? String((error as { code?: unknown }).code ?? '') : '';
+  if (maybeCode === '42P01') return true;
+
+  const maybeMessage =
+    'message' in error ? String((error as { message?: unknown }).message ?? '').toLowerCase() : '';
+  return maybeMessage.includes('relation') && maybeMessage.includes('does not exist');
+}
+
 function logTelemetryWarning(context: string, error: unknown) {
   console.warn(`[telemetry] ${context} failed`, error);
+
+  if (isTableMissingError(error) && telemetryWritable) {
+    telemetryWritable = false;
+    console.warn('[telemetry] telemetry tables unavailable; continuing pipeline with telemetry disabled.');
+  }
+}
+
+function canWriteTelemetry() {
+  return Boolean(supabase) && telemetryWritable;
 }
 
 export async function startPipelineRun(pipelineName: string, totalSteps: number): Promise<string | null> {
-  if (!supabase) return null;
+  if (!canWriteTelemetry()) return null;
 
-  const { data, error } = await supabase
-    .from('pipeline_runs')
-    .insert({
-      pipeline_name: pipelineName,
-      status: 'running',
-      started_at: new Date().toISOString(),
-      metadata: { totalSteps },
-    })
-    .select('id')
-    .single();
+  try {
+    const { data, error } = await supabase!
+      .from('pipeline_runs')
+      .insert({
+        pipeline_name: pipelineName,
+        status: 'running',
+        started_at: new Date().toISOString(),
+        metadata: { totalSteps },
+      })
+      .select('id')
+      .single();
 
-  if (error) {
+    if (error) {
+      logTelemetryWarning('startPipelineRun', error);
+      return null;
+    }
+
+    return data?.id ?? null;
+  } catch (error) {
     logTelemetryWarning('startPipelineRun', error);
     return null;
   }
-
-  return data?.id ?? null;
 }
 
 export async function finishPipelineRun(
@@ -54,19 +80,23 @@ export async function finishPipelineRun(
   startedAtMs: number,
   errorMessage?: string,
 ) {
-  if (!supabase || !runId) return;
+  if (!canWriteTelemetry() || !runId) return;
 
-  const { error } = await supabase
-    .from('pipeline_runs')
-    .update({
-      status,
-      finished_at: new Date().toISOString(),
-      duration_ms: Date.now() - startedAtMs,
-      error_message: errorMessage ?? null,
-    })
-    .eq('id', runId);
+  try {
+    const { error } = await supabase!
+      .from('pipeline_runs')
+      .update({
+        status,
+        finished_at: new Date().toISOString(),
+        duration_ms: Date.now() - startedAtMs,
+        error_message: errorMessage ?? null,
+      })
+      .eq('id', runId);
 
-  if (error) logTelemetryWarning('finishPipelineRun', error);
+    if (error) logTelemetryWarning('finishPipelineRun', error);
+  } catch (error) {
+    logTelemetryWarning('finishPipelineRun', error);
+  }
 }
 
 export async function startPipelineStep(
@@ -77,29 +107,34 @@ export async function startPipelineStep(
   total: number,
   command: string,
 ): Promise<string | null> {
-  if (!supabase || !runId) return null;
+  if (!canWriteTelemetry() || !runId) return null;
 
-  const { data, error } = await supabase
-    .from('pipeline_steps')
-    .insert({
-      run_id: runId,
-      step_key: stepKey,
-      step_name: stepName,
-      step_index: index,
-      total_steps: total,
-      command,
-      status: 'running',
-      started_at: new Date().toISOString(),
-    })
-    .select('id')
-    .single();
+  try {
+    const { data, error } = await supabase!
+      .from('pipeline_steps')
+      .insert({
+        run_id: runId,
+        step_key: stepKey,
+        step_name: stepName,
+        step_index: index,
+        total_steps: total,
+        command,
+        status: 'running',
+        started_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
 
-  if (error) {
+    if (error) {
+      logTelemetryWarning('startPipelineStep', error);
+      return null;
+    }
+
+    return data?.id ?? null;
+  } catch (error) {
     logTelemetryWarning('startPipelineStep', error);
     return null;
   }
-
-  return data?.id ?? null;
 }
 
 export async function finishPipelineStep(
@@ -110,19 +145,23 @@ export async function finishPipelineStep(
   exitCode?: number,
   errorMessage?: string,
 ) {
-  if (!supabase || !stepId) return;
+  if (!canWriteTelemetry() || !stepId) return;
 
-  const { error } = await supabase
-    .from('pipeline_steps')
-    .update({
-      status,
-      finished_at: new Date().toISOString(),
-      duration_ms: Date.now() - startedAtMs,
-      artifact_log: truncateArtifactLog(artifactLog),
-      exit_code: typeof exitCode === 'number' ? exitCode : null,
-      error_message: errorMessage ?? null,
-    })
-    .eq('id', stepId);
+  try {
+    const { error } = await supabase!
+      .from('pipeline_steps')
+      .update({
+        status,
+        finished_at: new Date().toISOString(),
+        duration_ms: Date.now() - startedAtMs,
+        artifact_log: truncateArtifactLog(artifactLog),
+        exit_code: typeof exitCode === 'number' ? exitCode : null,
+        error_message: errorMessage ?? null,
+      })
+      .eq('id', stepId);
 
-  if (error) logTelemetryWarning('finishPipelineStep', error);
+    if (error) logTelemetryWarning('finishPipelineStep', error);
+  } catch (error) {
+    logTelemetryWarning('finishPipelineStep', error);
+  }
 }

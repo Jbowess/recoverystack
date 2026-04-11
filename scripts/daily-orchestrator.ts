@@ -88,6 +88,7 @@ async function main() {
 
     await finishPipelineRun(runId, 'succeeded', runStartedAt);
     console.log(`${timestamp()} | Daily orchestration completed successfully`);
+    console.log('SEO generation ready');
   } catch (error) {
     await finishPipelineRun(runId, 'failed', runStartedAt, error instanceof Error ? error.message : String(error));
     throw error;
