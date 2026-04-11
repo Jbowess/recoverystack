@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { getMigrationReadinessReport } from '@/lib/migration-readiness';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
 function parseMessage(params: Record<string, string | string[] | undefined>) {
@@ -77,6 +78,7 @@ async function getDashboardData() {
     { count: draftCount },
     { count: publishedCount },
     { count: refreshQueueCount },
+    migrationReadiness,
   ] = await Promise.all([
     supabaseAdmin.from('trends').select('*').eq('status', 'new').order('created_at', { ascending: false }).limit(100),
     supabaseAdmin.from('pages').select('id,slug,title,template,updated_at').eq('status', 'draft').order('updated_at', { ascending: false }).limit(100),
@@ -101,6 +103,7 @@ async function getDashboardData() {
     supabaseAdmin.from('pages').select('id', { count: 'exact', head: true }).eq('status', 'draft'),
     supabaseAdmin.from('pages').select('id', { count: 'exact', head: true }).eq('status', 'published'),
     supabaseAdmin.from('content_refresh_queue').select('id', { count: 'exact', head: true }).eq('status', 'queued'),
+    getMigrationReadinessReport(),
   ]);
 
   const byTemplate = (counts ?? []).reduce<Record<string, number>>((acc, row: any) => {
@@ -127,6 +130,7 @@ async function getDashboardData() {
     latestPipelineRun,
     latestPipelineSteps: latestPipelineSteps ?? [],
     refreshQueue: refreshQueue ?? [],
+    migrationReadiness,
     totals: {
       trends: trendCount ?? 0,
       drafts: draftCount ?? 0,
@@ -162,6 +166,47 @@ export default async function AdminDashboard({
           ) : null}
         </div>
       ) : null}
+
+      <section style={{ marginTop: 20, border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
+        <h2 style={{ marginTop: 0 }}>Migration readiness</h2>
+        {data.migrationReadiness.ready ? (
+          <p style={{ color: '#166534' }}>All required tables are present ({data.migrationReadiness.requiredTableCount} checked).</p>
+        ) : (
+          <>
+            <p style={{ color: '#b91c1c' }}>
+              Missing {data.migrationReadiness.missingTableCount} required table(s). Run the SQL snippets below in Supabase SQL Editor, then refresh this page.
+            </p>
+            <p style={{ marginTop: 0 }}>
+              API status endpoint:{' '}
+              <code style={{ background: '#f3f4f6', padding: '1px 4px' }}>/api/admin/migration-readiness</code>
+            </p>
+            <ul>
+              {data.migrationReadiness.missingMigrations.map((migration: any) => (
+                <li key={migration.migration} style={{ marginBottom: 14 }}>
+                  <p style={{ margin: '0 0 6px' }}>
+                    <strong>{migration.migration}</strong> ({migration.filePath})
+                    <br />
+                    Missing tables: {migration.missingTables.join(', ')}
+                  </p>
+                  <pre
+                    style={{
+                      background: '#111827',
+                      color: '#f9fafb',
+                      padding: 12,
+                      borderRadius: 6,
+                      overflowX: 'auto',
+                      whiteSpace: 'pre-wrap',
+                      maxHeight: 280,
+                    }}
+                  >
+                    {migration.sqlSnippet}
+                  </pre>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
 
       <section style={{ marginTop: 20 }}>
         <h2>Status counts</h2>
