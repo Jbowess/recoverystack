@@ -15,17 +15,6 @@ if (!supabaseUrl || !serviceRoleKey) {
 
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-const TEMPLATE_ORDER: TemplateType[] = [
-  'pillars',
-  'guides',
-  'alternatives',
-  'protocols',
-  'metrics',
-  'costs',
-  'compatibility',
-  'trends',
-];
-
 const argv = process.argv.slice(2);
 const isDryRun = argv.includes('--dry-run') || process.env.DRY_RUN === '1';
 const shouldPublish = argv.includes('--publish') || process.env.BATCH_PUBLISH === '1';
@@ -45,9 +34,10 @@ function getNumericArg(name: string, fallback: number) {
   return Math.floor(parsed);
 }
 
-const pagesPerTemplate = getNumericArg('per-template', 2);
+const pagesPerRun = getNumericArg('pages', 8);
 const maxRetries = getNumericArg('retries', 3);
 const rateLimitMs = getNumericArg('rate-limit-ms', 400);
+const evergreenRatio = Math.max(0, Math.min(1, Number(process.env.BATCH_EVERGREEN_RATIO ?? 0.7)));
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -64,7 +54,9 @@ async function withRetries<T>(label: string, action: () => PromiseLike<T>): Prom
     } catch (error) {
       lastError = error;
       const waitMs = Math.min(rateLimitMs * 2 ** attempt, 8000);
-      console.warn(`[retry ${attempt}/${maxRetries}] ${label} failed: ${error instanceof Error ? error.message : String(error)}. waiting ${waitMs}ms`);
+      console.warn(
+        `[retry ${attempt}/${maxRetries}] ${label} failed: ${error instanceof Error ? error.message : String(error)}. waiting ${waitMs}ms`,
+      );
       if (attempt >= maxRetries) break;
       await sleep(waitMs);
     }
@@ -73,16 +65,23 @@ async function withRetries<T>(label: string, action: () => PromiseLike<T>): Prom
   throw lastError instanceof Error ? lastError : new Error(`${label} failed after retries`);
 }
 
-type TrendRow = {
+type QueueRow = {
   id: string;
-  term: string;
+  cluster_name: string;
+  intent: string | null;
+  primary_keyword: string;
+  template_id: 'comparison' | 'guide' | 'protocol';
+  priority: number | null;
+  source: 'evergreen' | 'trend';
+  status: 'new' | 'queued' | 'generated' | 'published' | 'skipped';
   score: number | null;
-  competition: string | null;
-  status: string | null;
+  metadata: Record<string, unknown> | null;
 };
 
 type DraftSeed = {
-  trendId: string;
+  queueId: string;
+  clusterName: string;
+  source: 'evergreen' | 'trend';
   term: string;
   template: TemplateType;
   slug: string;
@@ -90,83 +89,66 @@ type DraftSeed = {
   h1: string;
   metaDescription: string;
   primaryKeyword: string;
-  pillarSlug?: string;
 };
 
-function templateCopy(template: TemplateType, term: string) {
-  const byTemplate: Record<TemplateType, { title: string; h1: string; meta: string }> = {
-    pillars: {
-      title: `${term}: RecoveryStack expert hub`,
-      h1: `${term}: RecoveryStack expert hub`,
-      meta: `Evidence-first hub for ${term} with practical implementation guidance and comparison pathways.`,
-    },
-    guides: {
-      title: `How to apply ${term}: practical guide for recovery and performance`,
-      h1: `How to apply ${term}: practical guide`,
-      meta: `Step-by-step guide to apply ${term}, avoid common mistakes, and improve outcomes.`,
-    },
-    alternatives: {
-      title: `${term} alternatives: evidence-backed options and tradeoffs`,
-      h1: `${term} alternatives and tradeoffs`,
-      meta: `Compare leading alternatives to ${term} with pros, cons, and athlete fit.`,
-    },
-    protocols: {
+function mapTemplate(templateId: QueueRow['template_id']): TemplateType {
+  if (templateId === 'protocol') return 'protocols';
+  // comparison + guide both use guide-style generation.
+  return 'guides';
+}
+
+function templateCopy(templateId: QueueRow['template_id'], term: string) {
+  if (templateId === 'comparison') {
+    return {
+      title: `${term}: comparison, tradeoffs, and best fit`,
+      h1: `${term}: comparison and tradeoffs`,
+      meta: `Compare ${term} options with practical tradeoffs, budget fit, and recovery outcomes.`,
+    };
+  }
+
+  if (templateId === 'protocol') {
+    return {
       title: `${term} protocol: implementation plan for training cycles`,
       h1: `${term} implementation protocol`,
       meta: `A practical ${term} protocol covering setup, cadence, and adjustment checkpoints.`,
-    },
-    metrics: {
-      title: `${term} metrics that matter: what to track and why`,
-      h1: `${term} metrics that matter`,
-      meta: `Decode ${term} metrics, benchmark ranges, and actions to take from each signal.`,
-    },
-    costs: {
-      title: `${term} costs explained: ownership, hidden fees, and ROI`,
-      h1: `${term} cost breakdown`,
-      meta: `Understand total cost of ${term}, ongoing fees, and where value compounds over time.`,
-    },
-    compatibility: {
-      title: `${term} compatibility guide: devices, apps, and workflow fit`,
-      h1: `${term} compatibility guide`,
-      meta: `Check ${term} compatibility across devices, integrations, and athlete workflows.`,
-    },
-    trends: {
-      title: `What is ${term}? evidence, use-cases, and limitations`,
-      h1: `What is ${term}?`,
-      meta: `A balanced breakdown of ${term}, including use-cases, risks, and practical next steps.`,
-    },
-  };
-
-  return byTemplate[template];
-}
-
-function buildSeeds(topTrends: TrendRow[]) {
-  const seeds: DraftSeed[] = [];
-
-  for (const template of TEMPLATE_ORDER) {
-    const selected = topTrends.slice(0, pagesPerTemplate);
-
-    for (const trend of selected) {
-      const termSlug = slugify(trend.term);
-      const slug = template === 'pillars' ? `${termSlug}-hub` : `${template}-${termSlug}`;
-      const copy = templateCopy(template, trend.term);
-      const pillarSlug = `${termSlug}-hub`;
-
-      seeds.push({
-        trendId: trend.id,
-        term: trend.term,
-        template,
-        slug,
-        title: copy.title,
-        h1: copy.h1,
-        metaDescription: copy.meta,
-        primaryKeyword: trend.term,
-        pillarSlug: template === 'pillars' ? undefined : pillarSlug,
-      });
-    }
+    };
   }
 
-  return seeds;
+  return {
+    title: `How to apply ${term}: practical guide for recovery and performance`,
+    h1: `How to apply ${term}: practical guide`,
+    meta: `Step-by-step guide to apply ${term}, avoid common mistakes, and improve outcomes.`,
+  };
+}
+
+function canonicalKeywordSlug(keyword: string): string {
+  const normalized = slugify(keyword)
+    .replace(/\b(guide|guides|best|vs|versus|review|reviews|comparison|compare|how-to|how|202\d)\b/g, '')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-|-$/g, '');
+
+  return normalized || slugify(keyword);
+}
+
+function buildSeed(row: QueueRow): DraftSeed {
+  const termSlug = slugify(row.primary_keyword);
+  const template = mapTemplate(row.template_id);
+  const slugPrefix = row.template_id === 'protocol' ? 'protocols' : row.template_id === 'comparison' ? 'compare' : 'guides';
+  const slug = `${slugPrefix}-${termSlug}`;
+  const copy = templateCopy(row.template_id, row.primary_keyword);
+
+  return {
+    queueId: row.id,
+    clusterName: row.cluster_name,
+    source: row.source,
+    term: row.primary_keyword,
+    template,
+    slug,
+    title: copy.title,
+    h1: copy.h1,
+    metaDescription: copy.meta,
+    primaryKeyword: row.primary_keyword,
+  };
 }
 
 function runScript(script: string, args: string[] = []) {
@@ -183,84 +165,147 @@ function runScript(script: string, args: string[] = []) {
   }
 }
 
-async function run() {
-  console.log(
-    `[batch-generate] start dryRun=${isDryRun} publish=${shouldPublish} perTemplate=${pagesPerTemplate} retries=${maxRetries} rateLimitMs=${rateLimitMs}`,
-  );
-
-  const { data: queued, error: queuedError } = await withRetries('load queued trends', () =>
+async function loadQueueCandidates(source: 'evergreen' | 'trend', limit: number): Promise<QueueRow[]> {
+  const { data, error } = await withRetries(`load ${source} queue`, () =>
     supabase
-      .from('trends')
-      .select('id,term,score,competition,status')
-      .eq('status', 'queued')
+      .from('keyword_queue')
+      .select('id,cluster_name,intent,primary_keyword,template_id,priority,source,status,score,metadata')
+      .in('status', ['new', 'queued'])
+      .eq('source', source)
+      .order('priority', { ascending: false, nullsFirst: false })
       .order('score', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: true })
-      .limit(Math.max(pagesPerTemplate * 3, pagesPerTemplate)),
+      .limit(limit),
   );
 
-  if (queuedError) throw queuedError;
+  if (error) throw error;
+  return (data ?? []) as QueueRow[];
+}
 
-  const topTrends = (queued ?? []) as TrendRow[];
-  if (!topTrends.length) {
-    console.log('[batch-generate] no queued trends found. nothing to do.');
+async function loadExistingPageKeywordSlugs(limit = 500): Promise<Set<string>> {
+  const { data, error } = await withRetries('load existing page keywords', () =>
+    supabase.from('pages').select('primary_keyword').not('primary_keyword', 'is', null).limit(limit),
+  );
+
+  if (error) throw error;
+
+  const out = new Set<string>();
+  for (const row of data ?? []) {
+    const keyword = (row.primary_keyword as string | null) ?? '';
+    if (!keyword) continue;
+    out.add(canonicalKeywordSlug(keyword));
+  }
+  return out;
+}
+
+async function markQueueStatus(ids: string[], status: QueueRow['status'], metadataPatch?: Record<string, unknown>) {
+  if (!ids.length) return;
+
+  if (!metadataPatch) {
+    const payload: Record<string, unknown> = { status };
+    if (status === 'generated') payload.last_generated_at = new Date().toISOString();
+    const { error } = await supabase.from('keyword_queue').update(payload).in('id', ids);
+    if (error) throw error;
     return;
   }
 
-  const selected = topTrends.slice(0, pagesPerTemplate);
-  const seeds = buildSeeds(selected);
+  // Per-row metadata updates when patch is dynamic.
+  for (const id of ids) {
+    const { data, error: fetchError } = await supabase.from('keyword_queue').select('metadata').eq('id', id).single();
+    if (fetchError) throw fetchError;
 
-  console.log(`[batch-generate] selected trends=${selected.length}; planned drafts=${seeds.length}`);
+    const metadata = { ...((data?.metadata as Record<string, unknown> | null) ?? {}), ...metadataPatch };
+    const payload: Record<string, unknown> = { status, metadata };
+    if (status === 'generated') payload.last_generated_at = new Date().toISOString();
+
+    const { error } = await supabase.from('keyword_queue').update(payload).eq('id', id);
+    if (error) throw error;
+  }
+}
+
+async function run() {
+  const trendRatio = 1 - evergreenRatio;
+  console.log(
+    `[batch-generate] start dryRun=${isDryRun} publish=${shouldPublish} pages=${pagesPerRun} evergreenRatio=${evergreenRatio.toFixed(2)} trendRatio=${trendRatio.toFixed(2)} retries=${maxRetries} rateLimitMs=${rateLimitMs}`,
+  );
+
+  const evergreenTarget = Math.max(1, Math.round(pagesPerRun * evergreenRatio));
+  const trendTarget = Math.max(1, pagesPerRun - evergreenTarget);
+
+  const [evergreenRows, trendRows, existingKeywordSlugs] = await Promise.all([
+    loadQueueCandidates('evergreen', Math.max(evergreenTarget * 3, evergreenTarget)),
+    loadQueueCandidates('trend', Math.max(trendTarget * 3, trendTarget)),
+    loadExistingPageKeywordSlugs(),
+  ]);
+
+  const selectedRows: QueueRow[] = [];
+  const skippedRows: QueueRow[] = [];
+  const seenCanonical = new Set(existingKeywordSlugs);
+
+  const pickRows = (rows: QueueRow[], target: number) => {
+    for (const row of rows) {
+      if (selectedRows.length >= pagesPerRun) break;
+      const canonical = canonicalKeywordSlug(row.primary_keyword);
+      if (!canonical || seenCanonical.has(canonical)) {
+        skippedRows.push(row);
+        continue;
+      }
+
+      seenCanonical.add(canonical);
+      selectedRows.push(row);
+      if (selectedRows.filter((r) => r.source === row.source).length >= target) continue;
+    }
+  };
+
+  pickRows(evergreenRows, evergreenTarget);
+  pickRows(trendRows, trendTarget);
+
+  if (selectedRows.length < pagesPerRun) {
+    const topUps = [...evergreenRows, ...trendRows];
+    for (const row of topUps) {
+      if (selectedRows.length >= pagesPerRun) break;
+      if (selectedRows.some((x) => x.id === row.id)) continue;
+      const canonical = canonicalKeywordSlug(row.primary_keyword);
+      if (!canonical || seenCanonical.has(canonical)) continue;
+      seenCanonical.add(canonical);
+      selectedRows.push(row);
+    }
+  }
+
+  if (!selectedRows.length) {
+    console.log('[batch-generate] no eligible keyword_queue rows found. nothing to do.');
+    return;
+  }
+
+  const seeds = selectedRows.map(buildSeed);
+  console.log(
+    `[batch-generate] selected queued keywords=${selectedRows.length} (evergreen=${selectedRows.filter((r) => r.source === 'evergreen').length}, trend=${selectedRows.filter((r) => r.source === 'trend').length}); skippedDuplicates=${skippedRows.length}`,
+  );
 
   if (isDryRun) {
     for (const seed of seeds) {
       console.log(
-        `[dry-run] draft ${seed.template} slug=${seed.slug} keyword="${seed.primaryKeyword}"${seed.pillarSlug ? ` pillar=${seed.pillarSlug}` : ''}`,
+        `[dry-run] draft ${seed.template} slug=${seed.slug} keyword="${seed.primaryKeyword}" cluster=${seed.clusterName} source=${seed.source}`,
       );
     }
-  } else {
-    const pillarSeeds = seeds.filter((seed) => seed.template === 'pillars');
-    const clusterSeeds = seeds.filter((seed) => seed.template !== 'pillars');
 
-    const pillarIdBySlug = new Map<string, string>();
-
-    for (const seed of pillarSeeds) {
-      const { data, error } = await withRetries(`upsert pillar page ${seed.slug}`, () =>
-        supabase
-          .from('pages')
-          .upsert(
-            {
-              slug: seed.slug,
-              template: seed.template,
-              title: seed.title,
-              meta_description: seed.metaDescription,
-              h1: seed.h1,
-              intro: `Draft pending generation for ${seed.term}.`,
-              primary_keyword: seed.primaryKeyword,
-              status: 'draft',
-            },
-            { onConflict: 'slug' },
-          )
-          .select('id,slug')
-          .single(),
-      );
-
-      if (error || !data) {
-        throw new Error(`Failed to upsert pillar '${seed.slug}': ${error?.message ?? 'no row returned'}`);
+    if (skippedRows.length) {
+      for (const row of skippedRows.slice(0, 20)) {
+        console.log(`[dry-run] skipped duplicate keyword="${row.primary_keyword}" cluster=${row.cluster_name}`);
       }
-
-      pillarIdBySlug.set(seed.slug, data.id as string);
-      await sleep(rateLimitMs);
     }
 
-    for (const seed of clusterSeeds) {
-      const pillarId = seed.pillarSlug ? pillarIdBySlug.get(seed.pillarSlug) : null;
+    console.log('[batch-generate] dry-run: skipping DB updates, content generation, quality gate, linker verify, and publish.');
+    return;
+  }
 
-      if (!pillarId) {
-        throw new Error(`Missing pillar id for cluster page '${seed.slug}' (pillarSlug=${seed.pillarSlug ?? 'n/a'})`);
-      }
+  await markQueueStatus(selectedRows.map((r) => r.id), 'queued');
 
-      const { error } = await withRetries(`upsert cluster page ${seed.slug}`, () =>
-        supabase.from('pages').upsert(
+  for (const seed of seeds) {
+    const { data, error } = await withRetries(`upsert page ${seed.slug}`, () =>
+      supabase
+        .from('pages')
+        .upsert(
           {
             slug: seed.slug,
             template: seed.template,
@@ -269,33 +314,51 @@ async function run() {
             h1: seed.h1,
             intro: `Draft pending generation for ${seed.term}.`,
             primary_keyword: seed.primaryKeyword,
-            pillar_id: pillarId,
             status: 'draft',
           },
           { onConflict: 'slug' },
-        ),
-      );
-
-      if (error) {
-        throw new Error(`Failed to upsert cluster page '${seed.slug}': ${error.message}`);
-      }
-
-      await sleep(rateLimitMs);
-    }
-
-    const usedTrendIds = Array.from(new Set(selected.map((trend) => trend.id)));
-    const { error: trendStatusError } = await withRetries('mark trends in_generation', () =>
-      supabase.from('trends').update({ status: 'in_generation' }).in('id', usedTrendIds),
+        )
+        .select('id,slug,status')
+        .single(),
     );
 
-    if (trendStatusError) {
-      throw new Error(`Failed to update trend statuses: ${trendStatusError.message}`);
+    if (error || !data) {
+      throw new Error(`Failed to upsert page '${seed.slug}': ${error?.message ?? 'no row returned'}`);
     }
+
+    const existingMeta = selectedRows.find((r) => r.id === seed.queueId)?.metadata ?? {};
+    const metadata = {
+      ...(existingMeta ?? {}),
+      generated_slug: seed.slug,
+      generated_page_id: data.id,
+      generated_template: seed.template,
+      generated_at: new Date().toISOString(),
+    };
+
+    const { error: queueUpdateError } = await supabase
+      .from('keyword_queue')
+      .update({ status: 'generated', metadata, last_generated_at: new Date().toISOString() })
+      .eq('id', seed.queueId);
+
+    if (queueUpdateError) {
+      throw new Error(`Failed to update keyword_queue generated status for '${seed.primaryKeyword}': ${queueUpdateError.message}`);
+    }
+
+    await sleep(rateLimitMs);
   }
 
-  if (isDryRun) {
-    console.log('[batch-generate] dry-run: skipping content generation, quality gate, linker verify, and publish.');
-    return;
+  if (skippedRows.length) {
+    const nowIso = new Date().toISOString();
+    for (const row of skippedRows) {
+      const metadata = {
+        ...((row.metadata ?? {}) as Record<string, unknown>),
+        skipped_reason: 'near_duplicate_keyword_slug',
+        skipped_at: nowIso,
+      };
+
+      const { error } = await supabase.from('keyword_queue').update({ status: 'skipped', metadata }).eq('id', row.id);
+      if (error) throw error;
+    }
   }
 
   runScript('scripts/content-generator.ts');
@@ -304,11 +367,21 @@ async function run() {
 
   if (shouldPublish) {
     runScript('scripts/deploy.ts');
+
+    const generatedIds = selectedRows.map((r) => r.id);
+    const { error: publishMarkError } = await supabase
+      .from('keyword_queue')
+      .update({ status: 'published' })
+      .in('id', generatedIds)
+      .eq('status', 'generated');
+
+    if (publishMarkError) {
+      throw new Error(`Failed to mark generated queue rows as published: ${publishMarkError.message}`);
+    }
   } else {
     console.log('[batch-generate] publish skipped (pass --publish or set BATCH_PUBLISH=1).');
   }
 
-  console.log('SEO generation ready');
   console.log('[batch-generate] SEO generation ready');
   console.log('[batch-generate] complete');
 }
