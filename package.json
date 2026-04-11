@@ -1,0 +1,39 @@
+{
+  "name": "recoverystack",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "trend:scrape": "tsx scripts/trend-scraper.ts",
+    "gap:analyze": "tsx scripts/gap-analyzer.ts",
+    "content:generate": "tsx scripts/content-generator.ts",
+    "links:rebuild": "tsx scripts/linker.ts",
+    "quality:gate": "tsx scripts/quality-gate.ts",
+    "deploy:trigger": "tsx scripts/deploy.ts",
+    "daily:run": "tsx scripts/daily-orchestrator.ts",
+    "pipeline:run": "npm run daily:run",
+    "gsc:sync": "tsx scripts/gsc-sync.ts",
+    "content:refresh": "tsx scripts/content-refresh.ts",
+    "nightly:run": "tsx scripts/nightly-run.ts",
+    "smoke:seed": "tsx scripts/smoke-seed.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.8",
+    "dotenv": "^17.4.1",
+    "next": "15.2.0",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.9",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

@@ -1,0 +1,9 @@
+# Template: Comparison Guide (guides)
+- Open with a concise intro of 60 words max.
+- Build a mandatory verdict block with exactly 3 bullets in order:
+  1) Best for: ...
+  2) Avoid if: ...
+  3) Bottom line: ...
+- Include a comparison_table with slots for: RecoveryStack Smart Ring, named competitor, price/TCO, data quality, and coaching fit.
+- Include at least 4 FAQs with direct practical answers.
+- Mandatory CTA context: ring + $1/mo newsletter + free protocol PDF.
