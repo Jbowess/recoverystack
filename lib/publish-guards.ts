@@ -58,9 +58,28 @@ function collectStrings(value: unknown): string[] {
   return [];
 }
 
+function normalizeForCtaCounting(value: string): string {
+  return value
+    .replace(/https?:\/\/\S+/gi, ' ')
+    .replace(/\/[a-z0-9\-_/]+/gi, ' ')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .toLowerCase();
+}
+
 function countWord(text: string, word: string): number {
   const regex = new RegExp(`\\b${word}\\b`, 'gi');
   return text.match(regex)?.length ?? 0;
+}
+
+export function countRequiredCtaMentions(page: Pick<QualityPageInput, 'body_json' | 'title' | 'intro'>): Record<'ring' | 'newsletter' | 'pdf', number> {
+  const raw = collectStrings([page.body_json, page.title, page.intro]).join('\n');
+  const haystack = normalizeForCtaCounting(raw);
+
+  return {
+    ring: countWord(haystack, 'ring'),
+    newsletter: countWord(haystack, 'newsletter'),
+    pdf: countWord(haystack, 'pdf'),
+  };
 }
 
 function isDescriptiveAnchor(anchor: string): boolean {
@@ -97,15 +116,14 @@ export function validatePublishSchemas(page: Pick<QualityPageInput, 'body_json' 
 
 export function validateRequiredCtas(page: QualityPageInput): string[] {
   const errors: string[] = [];
-  const haystack = collectStrings([page.body_json, page.title, page.intro]).join('\n').toLowerCase();
+  const counts = countRequiredCtaMentions(page);
 
-  const required = ['ring', 'newsletter', 'pdf'] as const;
-  for (const keyword of required) {
-    const count = countWord(haystack, keyword);
+  (Object.keys(counts) as Array<keyof typeof counts>).forEach((keyword) => {
+    const count = counts[keyword];
     if (count !== 1) {
       errors.push(`required CTA mention '${keyword}' must appear exactly once (found ${count})`);
     }
-  }
+  });
 
   return errors;
 }

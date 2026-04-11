@@ -16,23 +16,23 @@ async function run() {
     throw new Error(`Unable to load pages for quality gate: ${error.message}`);
   }
 
-  const failures: Array<{ slug: string; errors: string[] }> = [];
+  const failures: Array<{ id: string; slug: string; template: string | null; errors: string[] }> = [];
 
   for (const page of pages ?? []) {
     const errors = runPublishGuards(page);
     if (errors.length) {
-      failures.push({ slug: page.slug, errors });
+      failures.push({ id: page.id, slug: page.slug, template: page.template ?? null, errors });
     }
   }
 
   if (failures.length) {
     console.error(`Quality gate failed for ${failures.length} page(s):`);
-    for (const failure of failures) {
-      console.error(`\n- ${failure.slug}`);
-      for (const err of failure.errors) {
+    failures.forEach((failure, index) => {
+      console.error(`\n[${index + 1}/${failures.length}] ${failure.slug} (template=${failure.template ?? 'unknown'}, id=${failure.id})`);
+      failure.errors.forEach((err) => {
         console.error(`  • ${err}`);
-      }
-    }
+      });
+    });
     process.exit(1);
   }
 

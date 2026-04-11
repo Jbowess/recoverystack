@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
+import { countRequiredCtaMentions } from '@/lib/publish-guards';
 
 config({ path: '.env.local' });
 
@@ -86,6 +87,54 @@ function promptPathForTemplate(template: string) {
   return join(process.cwd(), 'content-prompts', byTemplate[template] ?? 'comparison.md');
 }
 
+function extractJsonObject(text: string): unknown {
+  const trimmed = text.trim();
+
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  const source = fenced?.[1]?.trim() || trimmed;
+
+  const firstBrace = source.indexOf('{');
+  if (firstBrace < 0) {
+    throw new Error('No JSON object found in model response');
+  }
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = firstBrace; i < source.length; i += 1) {
+    const ch = source[i];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === '\\') {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (ch === '{') {
+      depth += 1;
+    } else if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        const candidate = source.slice(firstBrace, i + 1);
+        return JSON.parse(candidate);
+      }
+    }
+  }
+
+  throw new Error('Could not find a complete JSON object in model response');
+}
+
 function deterministicChecks(template: string, content: z.infer<typeof GeneratedSchema>): string[] {
   const errors: string[] = [];
   const rule = TEMPLATE_RULES[template] ?? {};
@@ -131,6 +180,14 @@ function deterministicChecks(template: string, content: z.infer<typeof Generated
       }
     }
   }
+
+  const ctaCounts = countRequiredCtaMentions(content);
+  (Object.keys(ctaCounts) as Array<keyof typeof ctaCounts>).forEach((keyword) => {
+    const count = ctaCounts[keyword];
+    if (count !== 1) {
+      errors.push(`required CTA mention '${keyword}' must appear exactly once (found ${count})`);
+    }
+  });
 
   return errors;
 }
@@ -233,6 +290,7 @@ async function run() {
 
     let attempts = 0;
     let valid = false;
+    const attemptErrors: string[] = [];
 
     while (attempts < 4 && !valid) {
       attempts += 1;
@@ -252,13 +310,17 @@ async function run() {
       ].join('\n\n');
 
       const text = await generateWithBestAvailable(prompt);
-      if (includesBanned(text)) continue;
+      if (includesBanned(text)) {
+        attemptErrors.push(`attempt ${attempts}: generated banned phrase`);
+        continue;
+      }
 
       try {
-        const parsed = JSON.parse(text);
+        const parsed = extractJsonObject(text);
         const generated = GeneratedSchema.parse(parsed);
         const structuralErrors = deterministicChecks(page.template, generated);
         if (structuralErrors.length > 0) {
+          attemptErrors.push(`attempt ${attempts}: ${structuralErrors.join('; ')}`);
           continue;
         }
 
@@ -272,9 +334,15 @@ async function run() {
           })
           .eq('id', page.id);
         valid = true;
-      } catch {
-        // regenerate
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        attemptErrors.push(`attempt ${attempts}: ${message}`);
       }
+    }
+
+    if (!valid) {
+      console.error(`Failed to generate page '${page.slug}' (${page.template}) after ${attempts} attempts:`);
+      attemptErrors.forEach((err) => console.error(`  - ${err}`));
     }
   }
 
