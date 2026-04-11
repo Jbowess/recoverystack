@@ -4,6 +4,12 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { countRequiredCtaMentions } from '@/lib/publish-guards';
+import {
+  fetchRecentFingerprints,
+  replacePrimaryKeyword,
+  selectRandomComponents,
+  type SelectedComponents,
+} from '@/lib/component-library';
 
 config({ path: '.env.local' });
 
@@ -135,6 +141,39 @@ function extractJsonObject(text: string): unknown {
   }
 
   throw new Error('Could not find a complete JSON object in model response');
+}
+
+function normalizeLayoutToken(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+function applyLayoutOrder(
+  sections: Array<z.infer<typeof BodySchema>['sections'][number]>,
+  layoutOrder: string[],
+) {
+  if (!layoutOrder.length) return sections;
+
+  const sectionByKey = new Map<string, (typeof sections)[number]>();
+  for (const section of sections) {
+    sectionByKey.set(normalizeLayoutToken(section.id), section);
+    sectionByKey.set(normalizeLayoutToken(section.heading), section);
+  }
+
+  const used = new Set<string>();
+  const ordered: typeof sections = [];
+
+  for (const token of layoutOrder) {
+    const match = sectionByKey.get(normalizeLayoutToken(token));
+    if (!match || used.has(match.id)) continue;
+    ordered.push(match);
+    used.add(match.id);
+  }
+
+  for (const section of sections) {
+    if (!used.has(section.id)) ordered.push(section);
+  }
+
+  return ordered;
 }
 
 function deterministicChecks(template: string, content: z.infer<typeof GeneratedSchema>): string[] {
@@ -310,8 +349,18 @@ async function run() {
     let valid = false;
     const attemptErrors: string[] = [];
 
+    const recentFingerprints = await fetchRecentFingerprints(supabase, 5);
+
     while (attempts < 4 && !valid) {
       attempts += 1;
+
+      const selectedComponents: SelectedComponents = await selectRandomComponents({
+        supabase,
+        template: page.template,
+        primaryKeyword: page.primary_keyword ?? '',
+        recentFingerprints,
+      });
+
       const prompt = [
         promptTemplate,
         `Template: ${page.template}`,
@@ -323,6 +372,11 @@ async function run() {
         `If FAQs are included for this template, minimum FAQ count is ${rule.minFaqs ?? 0}.`,
         `Comparison slots required for this template: ${rule.requiresComparisonSlots ? 'yes' : 'no'}.`,
         'Mention RecoveryStack Smart Ring exactly once, newsletter exactly once, free PDF exactly once in natural context.',
+        `Selected intro hook component JSON: ${JSON.stringify(selectedComponents.introHook.content)}`,
+        `Selected verdict style component JSON: ${JSON.stringify(selectedComponents.verdictStyle.content)}`,
+        `Selected newsletter offer component JSON: ${JSON.stringify(selectedComponents.newsletterOffer.content)}`,
+        `Selected layout pattern component JSON: ${JSON.stringify(selectedComponents.layoutPattern.content)}`,
+        `Required section layout order: ${JSON.stringify(selectedComponents.layoutOrder)}`,
         `SERP gap JSON: ${JSON.stringify(gapRows?.[0] ?? {})}`,
         `Product specs JSON: ${JSON.stringify(products ?? [])}`,
       ].join('\n\n');
@@ -336,21 +390,69 @@ async function run() {
       try {
         const parsed = extractJsonObject(text);
         const generated = GeneratedSchema.parse(parsed);
-        const structuralErrors = deterministicChecks(page.template, generated);
+
+        const intro = replacePrimaryKeyword(generated.intro, page.primary_keyword ?? '');
+        const bodyWithKeyword = replacePrimaryKeyword(generated.body_json, page.primary_keyword ?? '');
+        const orderedSections = applyLayoutOrder(bodyWithKeyword.sections, selectedComponents.layoutOrder);
+
+        const enrichedBody = {
+          ...bodyWithKeyword,
+          sections: orderedSections,
+          generation_metadata: {
+            component_ids: {
+              intro_hook: selectedComponents.introHook.id,
+              verdict_style: selectedComponents.verdictStyle.id,
+              newsletter_offer: selectedComponents.newsletterOffer.id,
+              layout_pattern: selectedComponents.layoutPattern.id,
+            },
+            layout_order: selectedComponents.layoutOrder,
+            layout_fingerprint: selectedComponents.fingerprint,
+          },
+        };
+
+        const enriched = {
+          intro,
+          body_json: enrichedBody,
+        };
+
+        const structuralErrors = deterministicChecks(page.template, enriched as z.infer<typeof GeneratedSchema>);
         if (structuralErrors.length > 0) {
           attemptErrors.push(`attempt ${attempts}: ${structuralErrors.join('; ')}`);
           continue;
         }
 
-        await supabase
+        const { error: pageUpdateError } = await supabase
           .from('pages')
           .update({
-            intro: generated.intro,
-            body_json: generated.body_json,
+            intro: enriched.intro,
+            body_json: enriched.body_json,
             status: 'published',
             published_at: new Date().toISOString(),
           })
           .eq('id', page.id);
+
+        if (pageUpdateError) {
+          throw pageUpdateError;
+        }
+
+        const { error: fingerprintError } = await supabase.from('generated_page_fingerprints').insert({
+          page_id: page.id,
+          page_slug: page.slug,
+          template: page.template,
+          fingerprint: selectedComponents.fingerprint,
+          component_ids: {
+            intro_hook: selectedComponents.introHook.id,
+            verdict_style: selectedComponents.verdictStyle.id,
+            newsletter_offer: selectedComponents.newsletterOffer.id,
+            layout_pattern: selectedComponents.layoutPattern.id,
+          },
+          layout_order: selectedComponents.layoutOrder,
+        });
+
+        if (fingerprintError) {
+          throw fingerprintError;
+        }
+
         valid = true;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
