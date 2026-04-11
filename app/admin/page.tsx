@@ -196,7 +196,7 @@ export default async function AdminDashboard({
         <ul>
           {data.drafts.map((d: any) => (
             <li key={d.id}>
-              <Link href={`/${d.template}/${d.slug}`}>{d.title}</Link>
+              <Link href={`/${d.template}/${d.slug}` as any}>{d.title}</Link>
               <form method="post" action={`/api/admin/drafts/${d.id}`} style={{ display: 'inline-block', marginLeft: 8 }}>
                 <input type="hidden" name="action" value="publish" />
                 <button type="submit">Publish</button>
@@ -211,7 +211,7 @@ export default async function AdminDashboard({
         <ul>
           {data.published.slice(0, 30).map((p: any) => (
             <li key={p.id}>
-              <Link href={`/${p.template}/${p.slug}`}>{p.title}</Link>
+              <Link href={`/${p.template}/${p.slug}` as any}>{p.title}</Link>
             </li>
           ))}
         </ul>
