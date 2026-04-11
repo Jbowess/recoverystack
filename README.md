@@ -139,6 +139,28 @@ Notes:
 - Link verification mode (no writes; fails on generic anchors or invalid cluster link counts):
   - `npm run links:rebuild -- --verify`
 
+## Anti-spam randomization + component library operations
+
+RecoveryStack avoids repetitive page structures by combining weighted component selection with fingerprint checks:
+
+- `lib/component-library.ts` selects one active row per required kind from `component_library`.
+- Selection is weighted (`weight` field), so higher-performing snippets are preferred while still allowing variety.
+- `{{Primary_Keyword}}` placeholders are filled at render time.
+- A layout fingerprint is generated from selected component IDs + layout order and compared against recent fingerprints to avoid repeating near-identical builds.
+- If a collision is found, selection retries (bounded attempts) before failing fast.
+
+### Extending `component_library` safely over time
+
+1. Add new snippets as new `(cluster, name)` pairs.
+2. Keep existing names stable so historical references and analytics remain consistent.
+3. Tune `weight` gradually (small increments) as performance data accumulates.
+4. Use tags for cohorting and experiments (`A/B`, intent labels, campaign labels).
+5. Keep `layout_pattern.layout_json` valid and ordered so fingerprinting stays deterministic.
+
+Admin controls now include:
+- Reseeding `component_library` via idempotent upsert (`cluster,name` conflict target).
+- Enqueueing top trends into `keyword_queue` while skipping already queued keywords.
+
 ## Next phase targets
 - Build full content renderer with schema.org + FAQ blocks
 - Implement production Supabase access layer (service-role writer + RLS)

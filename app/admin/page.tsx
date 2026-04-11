@@ -15,6 +15,8 @@ function parseMessage(params: Record<string, string | string[] | undefined>) {
     refresh_rejectd: 'Refresh item rejected.',
     refresh_deferd: 'Refresh item deferred.',
     page_regenerated: 'Page regenerated and revalidated.',
+    component_library_reseeded: 'Component library reseed completed safely (idempotent upsert).',
+    keyword_queue_seeded: 'Top trends were queued into keyword_queue.',
   };
 
   const errorMessages: Record<string, string> = {
@@ -26,6 +28,8 @@ function parseMessage(params: Record<string, string | string[] | undefined>) {
     publish_validation_failed: 'Publish blocked by validation guards.',
     pipeline_start_failed: 'Could not start daily pipeline.',
     page_regenerate_failed: 'Could not regenerate selected page.',
+    component_library_reseed_failed: 'Could not reseed component library.',
+    keyword_queue_seed_failed: 'Could not queue top trends.',
   };
 
   return {
@@ -64,6 +68,51 @@ function getStatusColor(status?: string | null) {
   return '#374151';
 }
 
+function countBy(rows: any[], key: string) {
+  return rows.reduce<Record<string, number>>((acc, row) => {
+    const value = String(row?.[key] ?? 'unknown').trim() || 'unknown';
+    acc[value] = (acc[value] ?? 0) + 1;
+    return acc;
+  }, {});
+}
+
+function numericSummary(rows: any[]) {
+  if (!rows.length) return { rowCount: 0, numericFields: {} as Record<string, { min: number; max: number; avg: number }> };
+
+  const buckets = new Map<string, number[]>();
+  for (const row of rows) {
+    for (const [key, value] of Object.entries(row ?? {})) {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        const list = buckets.get(key) ?? [];
+        list.push(value);
+        buckets.set(key, list);
+      }
+    }
+  }
+
+  const numericFields: Record<string, { min: number; max: number; avg: number }> = {};
+  for (const [key, list] of buckets.entries()) {
+    if (!list.length) continue;
+    const min = Math.min(...list);
+    const max = Math.max(...list);
+    const avg = list.reduce((sum, n) => sum + n, 0) / list.length;
+    numericFields[key] = { min, max, avg: Number(avg.toFixed(3)) };
+  }
+
+  return {
+    rowCount: rows.length,
+    numericFields,
+  };
+}
+
+async function safeSelect(table: string, columns: string, limit = 1000) {
+  const response = await supabaseAdmin.from(table).select(columns).limit(limit);
+  if (response.error) {
+    return { data: [], error: response.error.message };
+  }
+  return { data: response.data ?? [], error: null as string | null };
+}
+
 async function getDashboardData() {
   const [
     { data: newTrends },
@@ -79,6 +128,9 @@ async function getDashboardData() {
     { count: publishedCount },
     { count: refreshQueueCount },
     migrationReadiness,
+    componentLibraryRows,
+    keywordQueueRows,
+    clusterMetricsRows,
   ] = await Promise.all([
     supabaseAdmin.from('trends').select('*').eq('status', 'new').order('created_at', { ascending: false }).limit(100),
     supabaseAdmin.from('pages').select('id,slug,title,template,updated_at').eq('status', 'draft').order('updated_at', { ascending: false }).limit(100),
@@ -104,6 +156,9 @@ async function getDashboardData() {
     supabaseAdmin.from('pages').select('id', { count: 'exact', head: true }).eq('status', 'published'),
     supabaseAdmin.from('content_refresh_queue').select('id', { count: 'exact', head: true }).eq('status', 'queued'),
     getMigrationReadinessReport(),
+    safeSelect('component_library', 'cluster,active'),
+    safeSelect('keyword_queue', 'status,source'),
+    safeSelect('cluster_metrics', '*', 300),
   ]);
 
   const byTemplate = (counts ?? []).reduce<Record<string, number>>((acc, row: any) => {
@@ -119,6 +174,11 @@ async function getDashboardData() {
         .eq('run_id', latestPipelineRun.id)
         .order('step_index', { ascending: true })
     : { data: [] as any[] };
+
+  const componentByCluster = countBy(componentLibraryRows.data, 'cluster');
+  const keywordByStatus = countBy(keywordQueueRows.data, 'status');
+  const keywordBySource = countBy(keywordQueueRows.data, 'source');
+  const clusterMetricsSummary = numericSummary(clusterMetricsRows.data);
 
   return {
     newTrends: newTrends ?? [],
@@ -136,6 +196,21 @@ async function getDashboardData() {
       drafts: draftCount ?? 0,
       published: publishedCount ?? 0,
       refreshQueue: refreshQueueCount ?? 0,
+    },
+    componentLibrary: {
+      byCluster: componentByCluster,
+      total: componentLibraryRows.data.length,
+      error: componentLibraryRows.error,
+    },
+    keywordQueue: {
+      byStatus: keywordByStatus,
+      bySource: keywordBySource,
+      total: keywordQueueRows.data.length,
+      error: keywordQueueRows.error,
+    },
+    clusterMetrics: {
+      summary: clusterMetricsSummary,
+      error: clusterMetricsRows.error,
     },
   };
 }
@@ -216,6 +291,101 @@ export default async function AdminDashboard({
           <li>Published pages: {data.totals.published}</li>
           <li>Refresh queue (queued): {data.totals.refreshQueue}</li>
         </ul>
+      </section>
+
+      <section style={{ marginTop: 24, border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
+        <h2 style={{ marginTop: 0 }}>Component & keyword cluster controls</h2>
+        <p style={{ marginTop: 0, color: '#4b5563' }}>Operational controls for component library reseeding and keyword queue filling.</p>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <form method="post" action="/api/admin/cluster-systems">
+            <input type="hidden" name="action" value="reseed_component_library" />
+            <button type="submit">Reseed component_library</button>
+          </form>
+          <form method="post" action="/api/admin/cluster-systems">
+            <input type="hidden" name="action" value="enqueue_top_trends" />
+            <input type="hidden" name="limit" value="25" />
+            <button type="submit">Enqueue top trends → keyword_queue</button>
+          </form>
+        </div>
+      </section>
+
+      <section style={{ marginTop: 24 }}>
+        <h2>New system visibility</h2>
+
+        <h3 style={{ marginBottom: 6 }}>component_library counts by cluster</h3>
+        {data.componentLibrary.error ? (
+          <p style={{ color: '#92400e' }}>{data.componentLibrary.error}</p>
+        ) : (
+          <>
+            <p style={{ color: '#4b5563' }}>Total rows: {data.componentLibrary.total}</p>
+            <ul>
+              {Object.entries(data.componentLibrary.byCluster)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([cluster, count]) => (
+                  <li key={cluster}>
+                    {cluster}: {count}
+                  </li>
+                ))}
+            </ul>
+          </>
+        )}
+
+        <h3 style={{ marginBottom: 6 }}>keyword_queue counts</h3>
+        {data.keywordQueue.error ? (
+          <p style={{ color: '#92400e' }}>{data.keywordQueue.error}</p>
+        ) : (
+          <>
+            <p style={{ color: '#4b5563' }}>Total rows: {data.keywordQueue.total}</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <strong>By status</strong>
+                <ul>
+                  {Object.entries(data.keywordQueue.byStatus)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([status, count]) => (
+                      <li key={status}>
+                        {status}: {count}
+                      </li>
+                    ))}
+                </ul>
+              </div>
+              <div>
+                <strong>By source</strong>
+                <ul>
+                  {Object.entries(data.keywordQueue.bySource)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([source, count]) => (
+                      <li key={source}>
+                        {source}: {count}
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            </div>
+          </>
+        )}
+
+        <h3 style={{ marginBottom: 6 }}>cluster_metrics summary</h3>
+        {data.clusterMetrics.error ? (
+          <p style={{ color: '#92400e' }}>{data.clusterMetrics.error}</p>
+        ) : (
+          <>
+            <p style={{ color: '#4b5563' }}>Rows sampled: {data.clusterMetrics.summary.rowCount}</p>
+            {Object.keys(data.clusterMetrics.summary.numericFields).length ? (
+              <ul>
+                {Object.entries(data.clusterMetrics.summary.numericFields)
+                  .sort(([a], [b]) => a.localeCompare(b))
+                  .map(([field, stats]) => (
+                    <li key={field}>
+                      {field}: min {stats.min} · avg {stats.avg} · max {stats.max}
+                    </li>
+                  ))}
+              </ul>
+            ) : (
+              <p>No numeric fields found in sampled cluster_metrics rows.</p>
+            )}
+          </>
+        )}
       </section>
 
       <section id="deploy" style={{ marginTop: 24, border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
