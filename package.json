@@ -19,6 +19,7 @@
     "gsc:sync": "tsx scripts/gsc-sync.ts",
     "content:refresh": "tsx scripts/content-refresh.ts",
     "nightly:run": "tsx scripts/nightly-run.ts",
+    "batch:generate": "tsx scripts/batch-generate.ts",
     "smoke:seed": "tsx scripts/smoke-seed.ts"
   },
   "dependencies": {
