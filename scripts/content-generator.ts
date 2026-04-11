@@ -60,6 +60,8 @@ const ollamaFallback = process.env.OLLAMA_MODEL_FALLBACK ?? 'qwen2.5-coder:7b';
 const ollamaBaseUrl = process.env.OLLAMA_BASE_URL ?? 'http://127.0.0.1:11434';
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const targetPageId = process.env.CONTENT_GENERATE_PAGE_ID?.trim();
+const targetPageSlug = process.env.CONTENT_GENERATE_PAGE_SLUG?.trim();
 
 function includesBanned(text: string) {
   const lower = text.toLowerCase();
@@ -273,11 +275,27 @@ async function generateWithBestAvailable(prompt: string) {
   }
 }
 
+async function loadPagesForGeneration() {
+  let query = supabase.from('pages').select('*');
+
+  if (targetPageId) {
+    query = query.eq('id', targetPageId).in('status', ['draft', 'published']);
+  } else if (targetPageSlug) {
+    query = query.eq('slug', targetPageSlug).in('status', ['draft', 'published']);
+  } else {
+    query = query.eq('status', 'draft').limit(20);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data ?? [];
+}
+
 async function run() {
-  const { data: drafts } = await supabase.from('pages').select('*').eq('status', 'draft').limit(20);
+  const pages = await loadPagesForGeneration();
   const { data: products } = await supabase.from('products').select('*');
 
-  for (const page of drafts ?? []) {
+  for (const page of pages) {
     const promptTemplate = readFileSync(promptPathForTemplate(page.template), 'utf8');
     const { data: gapRows } = await supabase
       .from('content_gaps')
@@ -346,7 +364,9 @@ async function run() {
     }
   }
 
-  console.log(`Generation pass complete. provider=${mode} openaiModel=${openaiModel} ollamaPrimary=${ollamaPrimary}`);
+  console.log(
+    `Generation pass complete. pages=${pages.length} targetPageId=${targetPageId ?? ''} targetPageSlug=${targetPageSlug ?? ''} provider=${mode} openaiModel=${openaiModel} ollamaPrimary=${ollamaPrimary}`,
+  );
 }
 
 run().catch((e) => {

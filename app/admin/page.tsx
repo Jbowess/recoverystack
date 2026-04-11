@@ -10,14 +10,21 @@ function parseMessage(params: Record<string, string | string[] | undefined>) {
     trend_approved: 'Trend approved and draft created.',
     draft_published: 'Draft published successfully.',
     pipeline_started: 'Daily pipeline started in the background.',
+    refresh_approved: 'Refresh item approved and page moved to draft.',
+    refresh_rejectd: 'Refresh item rejected.',
+    refresh_deferd: 'Refresh item deferred.',
+    page_regenerated: 'Page regenerated and revalidated.',
   };
 
   const errorMessages: Record<string, string> = {
     invalid_action: 'Invalid action.',
     not_draft: 'Only drafts can be published.',
     trend_not_found: 'Trend not found.',
+    refresh_item_not_found: 'Refresh queue item not found.',
+    page_not_found: 'Page not found.',
     publish_validation_failed: 'Publish blocked by validation guards.',
     pipeline_start_failed: 'Could not start daily pipeline.',
+    page_regenerate_failed: 'Could not regenerate selected page.',
   };
 
   return {
@@ -65,6 +72,7 @@ async function getDashboardData() {
     { data: deploys },
     { data: pipelineRuns },
     { data: successfulPipelineRuns },
+    { data: refreshQueue },
     { count: trendCount },
     { count: draftCount },
     { count: publishedCount },
@@ -83,6 +91,12 @@ async function getDashboardData() {
       .not('finished_at', 'is', null)
       .order('finished_at', { ascending: false })
       .limit(1),
+    supabaseAdmin
+      .from('content_refresh_queue')
+      .select('id,page_id,slug,reason,status,queued_at,processed_at,stale_days,low_traffic')
+      .eq('status', 'queued')
+      .order('queued_at', { ascending: false })
+      .limit(100),
     supabaseAdmin.from('trends').select('id', { count: 'exact', head: true }).eq('status', 'new'),
     supabaseAdmin.from('pages').select('id', { count: 'exact', head: true }).eq('status', 'draft'),
     supabaseAdmin.from('pages').select('id', { count: 'exact', head: true }).eq('status', 'published'),
@@ -112,6 +126,7 @@ async function getDashboardData() {
     lastSuccessfulBuild: successfulPipelineRuns?.[0] ?? null,
     latestPipelineRun,
     latestPipelineSteps: latestPipelineSteps ?? [],
+    refreshQueue: refreshQueue ?? [],
     totals: {
       trends: trendCount ?? 0,
       drafts: draftCount ?? 0,
@@ -267,6 +282,31 @@ export default async function AdminDashboard({
       </section>
 
       <section style={{ marginTop: 24 }}>
+        <h2>Refresh queue (status=queued)</h2>
+        <ul>
+          {data.refreshQueue.map((item: any) => (
+            <li key={item.id}>
+              <strong>{item.slug}</strong> — {item.reason}
+              {typeof item.stale_days === 'number' ? ` (${item.stale_days}d stale)` : ''}
+              {item.low_traffic ? ' · low traffic' : ''}
+              <form method="post" action={`/api/admin/refresh-queue/${item.id}`} style={{ display: 'inline-block', marginLeft: 8 }}>
+                <input type="hidden" name="action" value="approve" />
+                <button type="submit">Approve refresh</button>
+              </form>
+              <form method="post" action={`/api/admin/refresh-queue/${item.id}`} style={{ display: 'inline-block', marginLeft: 8 }}>
+                <input type="hidden" name="action" value="reject" />
+                <button type="submit">Reject</button>
+              </form>
+              <form method="post" action={`/api/admin/refresh-queue/${item.id}`} style={{ display: 'inline-block', marginLeft: 8 }}>
+                <input type="hidden" name="action" value="defer" />
+                <button type="submit">Defer</button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section style={{ marginTop: 24 }}>
         <h2>Draft queue</h2>
         <ul>
           {data.drafts.map((d: any) => (
@@ -275,6 +315,10 @@ export default async function AdminDashboard({
               <form method="post" action={`/api/admin/drafts/${d.id}`} style={{ display: 'inline-block', marginLeft: 8 }}>
                 <input type="hidden" name="action" value="publish" />
                 <button type="submit">Publish</button>
+              </form>
+              <form method="post" action={`/api/admin/pages/${d.id}/regenerate`} style={{ display: 'inline-block', marginLeft: 8 }}>
+                <input type="hidden" name="action" value="regenerate" />
+                <button type="submit">Regenerate</button>
               </form>
             </li>
           ))}
@@ -287,6 +331,10 @@ export default async function AdminDashboard({
           {data.published.slice(0, 30).map((p: any) => (
             <li key={p.id}>
               <Link href={`/${p.template}/${p.slug}` as any}>{p.title}</Link>
+              <form method="post" action={`/api/admin/pages/${p.id}/regenerate`} style={{ display: 'inline-block', marginLeft: 8 }}>
+                <input type="hidden" name="action" value="regenerate" />
+                <button type="submit">Regenerate</button>
+              </form>
             </li>
           ))}
         </ul>
