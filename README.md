@@ -13,6 +13,19 @@ Phase 1 scaffold is complete:
 3. Fill required env values
 4. Run `npm run dev`
 
+## Production runtime hardening
+RecoveryStack now validates required runtime env vars with clear error messages during production startup.
+
+Required runtime vars:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `REVALIDATE_SECRET`
+- `CRON_SECRET`
+- `ADMIN_PASSWORD`
+
+If any are missing, startup fails with an explicit `[env] Missing required runtime environment variable(s)` error listing exactly which keys need to be configured.
+
 ## Daily orchestration runbook
 Use the unified orchestration script to run the full daily content pipeline in order:
 
@@ -90,6 +103,18 @@ jobs:
 - To use Vercel cron, create a protected route (for example `/api/cron/nightly`) that triggers the same pipeline logic server-side.
 - Add your cron schedule in `vercel.json`, then configure `CRON_SECRET` and required pipeline env vars in the Vercel project settings.
 - Keep one scheduler as the source of truth (GitHub Actions **or** Vercel cron) to avoid duplicate nightly runs.
+
+## Health endpoint
+Use `GET /api/health` for deployment health checks.
+
+Response includes:
+- `env`: runtime env validation status (`ok` + `missing` keys)
+- `db`: Supabase connectivity probe status
+- `pipeline.latestRun`: latest `pipeline_runs` record (status/timestamps/duration/error)
+
+Status codes:
+- `200` when env validation and DB probe are healthy
+- `503` when env validation fails or DB probe/latest-run lookup fails
 
 ### Run individual steps
 ```bash

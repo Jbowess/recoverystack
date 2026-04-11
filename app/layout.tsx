@@ -1,5 +1,10 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { assertRuntimeEnv } from '@/lib/runtime-env';
+
+if (process.env.NODE_ENV === 'production') {
+  assertRuntimeEnv('application startup');
+}
 
 const SITE_URL = process.env.SITE_URL ?? 'https://recoverystack.io';
 

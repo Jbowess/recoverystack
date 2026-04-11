@@ -1,8 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 import type { PageRecord, TemplateType } from '@/lib/types';
+import { assertRuntimeEnv } from '@/lib/runtime-env';
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://placeholder.supabase.co';
-const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'placeholder-anon-key';
+assertRuntimeEnv('supabase client initialization');
+
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const supabase = createClient(url, anon);
 
