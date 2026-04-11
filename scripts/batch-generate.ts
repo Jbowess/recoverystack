@@ -308,6 +308,7 @@ async function run() {
     console.log('[batch-generate] publish skipped (pass --publish or set BATCH_PUBLISH=1).');
   }
 
+  console.log('[batch-generate] SEO generation ready');
   console.log('[batch-generate] complete');
 }
 

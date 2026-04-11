@@ -6,6 +6,17 @@ config({ path: '.env.local' });
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 const isDryRun = process.argv.includes('--dry-run') || process.env.DRY_RUN === '1';
 
+async function insertDeployEvent(payload: { status: 'ok' | 'error'; detail: string }) {
+  try {
+    const { error } = await supabase.from('deploy_events').insert(payload);
+    if (error) {
+      console.warn(`[telemetry] deploy_events insert failed: ${error.message}`);
+    }
+  } catch (error) {
+    console.warn('[telemetry] deploy_events insert failed', error);
+  }
+}
+
 async function revalidateSlug(slug: string, template: string) {
   const site = process.env.SITE_URL ?? 'http://localhost:3000';
   const secret = process.env.REVALIDATE_SECRET ?? 'dry-run-secret';
@@ -38,7 +49,7 @@ async function run() {
   const detail = `revalidated=${(changed ?? []).length}${isDryRun ? ' (dry-run)' : ''}`;
 
   if (!isDryRun) {
-    await supabase.from('deploy_events').insert({ status: 'ok', detail });
+    await insertDeployEvent({ status: 'ok', detail });
   }
 
   console.log(`${isDryRun ? '[dry-run] ' : ''}Revalidated ${(changed ?? []).length} pages`);
@@ -46,7 +57,7 @@ async function run() {
 
 run().catch(async (e) => {
   if (!isDryRun) {
-    await supabase.from('deploy_events').insert({ status: 'error', detail: String(e) });
+    await insertDeployEvent({ status: 'error', detail: String(e) });
   }
   console.error(e);
   process.exit(1);
