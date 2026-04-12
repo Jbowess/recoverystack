@@ -145,6 +145,80 @@ function extractJsonObject(text: string): unknown {
   throw new Error('Could not find a complete JSON object in model response');
 }
 
+function normalizeGeneratedPayload(input: unknown): unknown {
+  if (!input || typeof input !== 'object') return input;
+
+  const root = { ...(input as Record<string, unknown>) };
+  const body = {
+    ...((root.body_json && typeof root.body_json === 'object' ? root.body_json : {}) as Record<string, unknown>),
+  };
+
+  const comparisonTable = body.comparison_table;
+  if (Array.isArray(comparisonTable)) {
+    if (comparisonTable.length > 0 && Array.isArray(comparisonTable[0])) {
+      const rows = comparisonTable as unknown[];
+      body.comparison_table = {
+        headers: (rows[0] as unknown[]).map((cell) => String(cell ?? '')),
+        rows: rows.slice(1).map((row) => (Array.isArray(row) ? row.map((cell) => String(cell ?? '')) : [String(row ?? '')])),
+      };
+    } else {
+      const tableRows = comparisonTable.filter((row): row is Record<string, unknown> => !!row && typeof row === 'object' && !Array.isArray(row));
+      if (tableRows.length) {
+        const headers = Object.keys(tableRows[0]);
+        body.comparison_table = {
+          headers,
+          rows: tableRows.map((row) => headers.map((h) => String((row as Record<string, unknown>)[h] ?? ''))),
+        };
+      }
+    }
+  }
+
+  const faqs = body.faqs;
+  if (Array.isArray(faqs)) {
+    body.faqs = faqs
+      .map((item) => {
+        if (typeof item === 'string') {
+          const q = item.includes('?') ? `${item.split('?')[0]}?` : item;
+          const a = item.includes('?') ? item.split('?').slice(1).join('?').trim() : item;
+          return { q: q.trim(), a: (a || 'Answer pending.').trim() };
+        }
+
+        if (item && typeof item === 'object') {
+          const obj = item as Record<string, unknown>;
+          const q = String(obj.q ?? obj.question ?? '').trim();
+          const a = String(obj.a ?? obj.answer ?? '').trim();
+          if (!q && !a) return null;
+          return { q: q || 'Common question', a: a || 'Answer pending.' };
+        }
+
+        return null;
+      })
+      .filter((x): x is { q: string; a: string } => Boolean(x));
+  }
+
+  if (!Array.isArray(body.sections)) {
+    body.sections = [
+      {
+        id: 'overview',
+        heading: 'Overview',
+        kind: 'paragraphs',
+        content: ['Practical guidance focused on implementation, trade-offs, and outcomes.'],
+      },
+    ];
+  }
+
+  if (!Array.isArray(body.verdict) || body.verdict.length < 3) {
+    body.verdict = [
+      'Best for: athletes who need practical recovery guidance',
+      'Avoid if: you want one-size-fits-all advice',
+      'Bottom line: use this as a baseline and personalize based on response',
+    ];
+  }
+
+  root.body_json = body;
+  return root;
+}
+
 function normalizeLayoutToken(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
@@ -391,7 +465,8 @@ async function run() {
 
       try {
         const parsed = extractJsonObject(text);
-        const generated = GeneratedSchema.parse(parsed);
+        const normalized = normalizeGeneratedPayload(parsed);
+        const generated = GeneratedSchema.parse(normalized);
 
         const intro = replacePrimaryKeyword(generated.intro, page.primary_keyword ?? '');
         const bodyWithKeyword = replacePrimaryKeyword(generated.body_json, page.primary_keyword ?? '');
