@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import type { InternalLink, PageRecord } from '@/lib/types';
-import { articleSchema, breadcrumbSchema, faqSchema, productSchema } from '@/lib/schema-org';
+import { articleSchema, breadcrumbSchema, faqSchema, productSchema, newsArticleSchema, howToSchema } from '@/lib/schema-org';
 
 const SITE = process.env.SITE_URL ?? 'https://recoverystack.io';
 const SITE_NAME = 'RecoveryStack.io';
@@ -47,7 +47,13 @@ export function buildSchemaBundle(page: PageRecord, path: string) {
   const url = `${SITE}${path}`;
   const out: unknown[] = [];
 
-  out.push(articleSchema(page, url));
+  // Use NewsArticle for trends, standard Article for everything else
+  if (page.template === 'trends') {
+    out.push(newsArticleSchema(page, url));
+  } else {
+    out.push(articleSchema(page, url));
+  }
+
   out.push(
     breadcrumbSchema([
       { name: 'Home', url: SITE },
@@ -55,6 +61,11 @@ export function buildSchemaBundle(page: PageRecord, path: string) {
       { name: page.title, url },
     ]),
   );
+
+  // HowTo schema for protocols
+  if (page.template === 'protocols') {
+    out.push(howToSchema(page, url));
+  }
 
   const faqs = page.body_json?.faqs ?? [];
   if (faqs.length > 0) out.push(faqSchema(faqs));

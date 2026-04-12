@@ -59,6 +59,16 @@ type SerpOrganicResult = {
   snippet?: string;
 };
 
+type PeopleAlsoAskItem = {
+  question: string;
+  snippet?: string;
+  link?: string;
+};
+
+type SerpRelatedSearch = {
+  query: string;
+};
+
 function normalizeTokens(text: string) {
   return text
     .toLowerCase()
@@ -141,12 +151,34 @@ async function fetchTopSerp(keyword: string) {
   const payload = await response.json();
   const organic = (payload?.organic_results ?? []) as SerpOrganicResult[];
 
-  return organic.slice(0, 5).map((r) => ({
-    position: r.position,
-    title: r.title,
-    link: r.link,
-    snippet: r.snippet,
-  }));
+  // Extract People Also Ask questions
+  const rawPaa = payload?.related_questions ?? [];
+  const peopleAlsoAsk: PeopleAlsoAskItem[] = (Array.isArray(rawPaa) ? rawPaa : [])
+    .filter((item: any) => item?.question && typeof item.question === 'string')
+    .slice(0, 8)
+    .map((item: any) => ({
+      question: String(item.question),
+      snippet: item.snippet ? String(item.snippet) : undefined,
+      link: item.link ? String(item.link) : undefined,
+    }));
+
+  // Extract Related Searches
+  const rawRelated = payload?.related_searches ?? [];
+  const relatedSearches: SerpRelatedSearch[] = (Array.isArray(rawRelated) ? rawRelated : [])
+    .filter((item: any) => item?.query && typeof item.query === 'string')
+    .slice(0, 10)
+    .map((item: any) => ({ query: String(item.query) }));
+
+  return {
+    organic: organic.slice(0, 5).map((r) => ({
+      position: r.position,
+      title: r.title,
+      link: r.link,
+      snippet: r.snippet,
+    })),
+    peopleAlsoAsk,
+    relatedSearches,
+  };
 }
 
 async function loadPendingKeywords(): Promise<KeywordTarget[]> {
@@ -197,21 +229,23 @@ async function run() {
 
   for (const target of targets) {
     try {
-      const organic = await fetchTopSerp(target.keyword);
-      if (!organic || organic.length === 0) {
+      const serp = await fetchTopSerp(target.keyword);
+      if (!serp || serp.organic.length === 0) {
         console.log(`No SERP results for: ${target.keyword}`);
         continue;
       }
 
-      const headingGaps = extractHeadingCandidates(organic);
-      const missingEntities = extractEntityGaps(target.keyword, organic);
+      const headingGaps = extractHeadingCandidates(serp.organic);
+      const missingEntities = extractEntityGaps(target.keyword, serp.organic);
 
       const serpSnapshot = {
         source: target.source,
         queried_at: new Date().toISOString(),
         keyword: target.keyword,
         heading_gaps: headingGaps,
-        top_results: organic,
+        top_results: serp.organic,
+        people_also_ask: serp.peopleAlsoAsk,
+        related_searches: serp.relatedSearches,
       };
 
       const { error } = await supabase.from('content_gaps').insert({

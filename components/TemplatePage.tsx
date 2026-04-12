@@ -1,7 +1,10 @@
 import CompatibilityCheckerWidget from '@/components/CompatibilityCheckerWidget';
 import ConversionBox from '@/components/ConversionBox';
 import ExitIntentModal from '@/components/ExitIntentModal';
+import NewsletterForm from '@/components/NewsletterForm';
 import PillarLink from '@/components/PillarLink';
+import ReadingProgressBar from '@/components/ReadingProgressBar';
+import TableOfContents from '@/components/TableOfContents';
 import type { InternalLink, PageBodySection, PageRecord } from '@/lib/types';
 
 type Props = {
@@ -148,14 +151,26 @@ function renderSections(page: PageRecord) {
   ));
 }
 
+function buildTocItems(page: PageRecord): Array<{ id: string; text: string }> {
+  const sections = page.body_json?.sections ?? [];
+  const items = sections.map((s) => ({ id: `section-${s.id}`, text: s.heading }));
+  if ((page.body_json?.verdict ?? []).length > 0) {
+    items.push({ id: 'verdict-heading', text: 'RecoveryStack Verdict' });
+  }
+  return items;
+}
+
 export default function TemplatePage({ page, pillarLink, siblingLinks, schemaJsonLd }: Props) {
   const verdict = page.body_json?.verdict ?? [];
   const publishedDate = formatDate(page.published_at ?? page.updated_at);
   const readTime = estimateReadTime(page);
   const backTo = `/${page.template}`;
+  const tocItems = buildTocItems(page);
 
   return (
     <div className="rs-shell">
+      <ReadingProgressBar />
+
       <header className="rs-navbar" role="banner">
         <div className="rs-container rs-navbar-inner">
           <a href="/" className="rs-logo">RECOVERYSTACK</a>
@@ -179,15 +194,30 @@ export default function TemplatePage({ page, pillarLink, siblingLinks, schemaJso
               <h1>{page.h1}</h1>
               <p className="rs-meta">{publishedDate} · {readTime}</p>
               <p className="rs-excerpt">{page.intro ?? page.meta_description}</p>
+
+              {/* Social proof / trust signals */}
+              <div className="rs-trust-bar">
+                <span className="rs-trust-item">Reviewed by RecoveryStack Editorial Team</span>
+                <span className="rs-trust-divider" aria-hidden="true">·</span>
+                <span className="rs-trust-item">Evidence-based</span>
+                <span className="rs-trust-divider" aria-hidden="true">·</span>
+                <span className="rs-trust-item">Last updated {publishedDate}</span>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       <main className="rs-main-section">
-        <div className="rs-container">
-          <article className="rs-article rs-prose" aria-label="Article content">
-            {renderSections(page)}
+        <div className="rs-container rs-article-layout">
+          {/* Sticky sidebar TOC on desktop */}
+          <aside className="rs-toc-sidebar">
+            <TableOfContents items={tocItems} />
+          </aside>
+
+          <div className="rs-article-column">
+            <article className="rs-article rs-prose" aria-label="Article content">
+              {renderSections(page)}
 
             {verdict.length > 0 ? (
               <section aria-labelledby="verdict-heading">
@@ -236,14 +266,10 @@ export default function TemplatePage({ page, pillarLink, siblingLinks, schemaJso
           <section className="rs-article rs-card rs-newsletter" aria-labelledby="newsletter-heading">
             <h2 id="newsletter-heading">Get elite recovery intelligence weekly</h2>
             <p className="rs-excerpt">Evidence-backed protocols, device insights, and practical playbooks for performance-focused athletes.</p>
-            <form action="#" method="post">
-              <label htmlFor="newsletter-email" className="rs-meta">Email address</label>
-              <div className="rs-form-row">
-                <input id="newsletter-email" className="rs-input" type="email" placeholder="you@example.com" required />
-                <button type="submit" className="rs-btn-primary">Subscribe</button>
-              </div>
-            </form>
+            <NewsletterForm pageTemplate={page.template} />
           </section>
+
+          </div>{/* close rs-article-column */}
         </div>
       </main>
 
@@ -291,7 +317,7 @@ export default function TemplatePage({ page, pillarLink, siblingLinks, schemaJso
         <script key={idx} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(item) }} />
       ))}
 
-      <ExitIntentModal />
+      <ExitIntentModal pageTemplate={page.template} />
     </div>
   );
 }

@@ -413,3 +413,185 @@ img {
 .rs-card strong {
   color: #e2e8f0;
 }
+
+/* ── Reading progress bar ── */
+.rs-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  z-index: 50;
+  background: transparent;
+}
+
+.rs-progress-fill {
+  height: 100%;
+  background: linear-gradient(to right, var(--rs-accent), var(--rs-accent-hover));
+  transition: width 120ms ease-out;
+}
+
+/* ── Article layout with sidebar TOC ── */
+.rs-article-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+.rs-article-column {
+  min-width: 0;
+}
+
+.rs-toc-sidebar {
+  display: none;
+}
+
+@media (min-width: 1200px) {
+  .rs-article-layout {
+    grid-template-columns: 1fr 220px;
+    gap: 48px;
+  }
+
+  .rs-toc-sidebar {
+    display: block;
+    order: 1;
+  }
+
+  .rs-article-column {
+    order: 0;
+  }
+}
+
+/* ── Table of contents ── */
+.rs-toc {
+  position: sticky;
+  top: 80px;
+}
+
+.rs-toc-heading {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--rs-text-muted);
+  margin: 0 0 12px;
+}
+
+.rs-toc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 1px solid var(--rs-border);
+}
+
+.rs-toc-list li {
+  margin: 0;
+}
+
+.rs-toc-link {
+  display: block;
+  padding: 6px 0 6px 14px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--rs-text-dim);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  margin-left: -1px;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.rs-toc-link:hover {
+  color: var(--rs-text-secondary);
+}
+
+.rs-toc-active {
+  color: var(--rs-accent) !important;
+  border-left-color: var(--rs-accent);
+}
+
+/* ── Trust bar ── */
+.rs-trust-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.rs-trust-item {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--rs-text-muted);
+}
+
+.rs-trust-divider {
+  color: var(--rs-text-dim);
+  font-size: 12px;
+}
+
+/* ── Exit intent modal overlay ── */
+.rs-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  padding: 24px;
+}
+
+.rs-modal {
+  position: relative;
+  max-width: 480px;
+  width: 100%;
+  background: var(--rs-surface);
+  border: 1px solid var(--rs-border);
+  border-radius: 16px;
+  padding: 32px;
+}
+
+.rs-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: transparent;
+  border: none;
+  color: var(--rs-text-muted);
+  font-size: 24px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.rs-modal-close:hover {
+  color: var(--rs-text);
+}
+
+.rs-modal-body {
+  text-align: center;
+}
+
+.rs-modal-heading {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+  color: var(--rs-text);
+}
+
+.rs-modal-subtext {
+  color: var(--rs-text-secondary);
+  font-size: 14px;
+  margin: 0 0 16px;
+}
+
+.rs-modal-disclaimer {
+  margin-top: 12px;
+  color: var(--rs-text-dim);
+  font-size: 12px;
+}
+
+/* ── Newsletter success state ── */
+.rs-newsletter-success {
+  text-align: center;
+  padding: 20px 0;
+}

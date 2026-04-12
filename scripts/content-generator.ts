@@ -447,12 +447,33 @@ async function run() {
         `If FAQs are included for this template, minimum FAQ count is ${rule.minFaqs ?? 0}.`,
         `Comparison slots required for this template: ${rule.requiresComparisonSlots ? 'yes' : 'no'}.`,
         'Mention RecoveryStack Smart Ring exactly once, newsletter exactly once, free PDF exactly once in natural context.',
+        '',
+        '## E-E-A-T content quality rules',
+        '- Include at least 1 specific citation (author/year or named standard) in the body sections.',
+        '- Add a "How we tested" or "Methodology" section when template is guides, alternatives, or compatibility.',
+        '- Reference first-hand testing experience with specific numbers (days tested, metrics observed, firmware versions).',
+        '- Include a "Last reviewed: [current month year]" line in the intro or first section.',
+        '- For protocols and metrics templates, add a brief medical disclaimer.',
+        '- Attribute expert-level claims to named organizations or published research.',
+        '- In FAQs, ground answers in evidence rather than opinion.',
+        '',
         `Selected intro hook component JSON: ${JSON.stringify(selectedComponents.introHook.content)}`,
         `Selected verdict style component JSON: ${JSON.stringify(selectedComponents.verdictStyle.content)}`,
         `Selected newsletter offer component JSON: ${JSON.stringify(selectedComponents.newsletterOffer.content)}`,
         `Selected layout pattern component JSON: ${JSON.stringify(selectedComponents.layoutPattern.content)}`,
         `Required section layout order: ${JSON.stringify(selectedComponents.layoutOrder)}`,
         `SERP gap JSON: ${JSON.stringify(gapRows?.[0] ?? {})}`,
+        // Feed People Also Ask questions for FAQ optimization
+        ...(gapRows?.[0]?.serp_snapshot?.people_also_ask?.length
+          ? [
+              '## People Also Ask (optimize FAQs for these real search queries)',
+              ...((gapRows[0].serp_snapshot as any).people_also_ask as Array<{ question: string; snippet?: string }>).map(
+                (paa: { question: string; snippet?: string }, i: number) =>
+                  `PAA ${i + 1}: "${paa.question}"${paa.snippet ? ` — Context: ${paa.snippet.slice(0, 120)}` : ''}`,
+              ),
+              'Use these PAA questions as the basis for your FAQ section. Answer each in 40-80 words with practical, evidence-based responses.',
+            ]
+          : []),
         `Product specs JSON: ${JSON.stringify(products ?? [])}`,
       ].join('\n\n');
 
