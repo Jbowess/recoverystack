@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import './globals.css';
 
 const SITE_URL = process.env.SITE_URL ?? 'https://recoverystack.io';
 
