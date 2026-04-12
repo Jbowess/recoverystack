@@ -7,6 +7,7 @@ type QualityPageInput = {
   template?: string | null;
   title?: string | null;
   intro?: string | null;
+  meta_description?: string | null;
 };
 
 const bannedPhrases = [
@@ -15,6 +16,13 @@ const bannedPhrases = [
   'unleash',
   'revolutionary',
   "in today's fast-paced world",
+  'dive into',
+  'dive deep',
+  'look no further',
+  'without further ado',
+  'in this article we will',
+  'are you looking for',
+  'buckle up',
 ] as const;
 
 const genericAnchors = ['click here', 'read more', 'learn more', 'this article', 'here'];
@@ -175,11 +183,150 @@ export function runPublishGuards(page: QualityPageInput): string[] {
     ...validatePublishSchemas(page),
     ...validateRequiredCtas(page),
     ...validateInternalLinks(page),
+    ...validateContentDepth(page),
+    ...validateTitleAndMeta(page),
+    ...validateEeatSignals(page),
   ];
 
   const banned = lintBannedPhrases([page.body_json, page.title, page.intro]);
   if (banned.length) {
     errors.push(`banned phrases found: ${banned.join(', ')}`);
+  }
+
+  return errors;
+}
+
+// ── Content depth checks ──
+
+const MIN_BODY_WORDS: Record<string, number> = {
+  pillars: 1200,
+  guides: 800,
+  alternatives: 700,
+  protocols: 600,
+  metrics: 500,
+  costs: 500,
+  compatibility: 500,
+  trends: 400,
+};
+
+const DEFAULT_MIN_WORDS = 400;
+
+function countWords(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+/**
+ * Flesch Reading Ease approximation.
+ * 60-70 = standard; below 30 = very difficult; above 80 = easy.
+ * SEO target: 45-75 (accessible but not dumbed down).
+ */
+function fleschReadingEase(text: string): number {
+  const sentences = text.split(/[.!?]+/).filter((s) => s.trim().length > 0);
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  const syllables = words.reduce((sum, word) => sum + estimateSyllables(word), 0);
+
+  if (sentences.length === 0 || words.length === 0) return 0;
+
+  const avgSentenceLength = words.length / sentences.length;
+  const avgSyllablesPerWord = syllables / words.length;
+
+  return 206.835 - 1.015 * avgSentenceLength - 84.6 * avgSyllablesPerWord;
+}
+
+function estimateSyllables(word: string): number {
+  const w = word.toLowerCase().replace(/[^a-z]/g, '');
+  if (w.length <= 3) return 1;
+  let count = w.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, '').match(/[aeiouy]{1,2}/g)?.length ?? 0;
+  return Math.max(1, count);
+}
+
+export function validateContentDepth(page: QualityPageInput): string[] {
+  const errors: string[] = [];
+  const allText = collectStrings([page.body_json, page.intro]).join(' ');
+  const wordCount = countWords(allText);
+  const template = page.template ?? '';
+  const minWords = MIN_BODY_WORDS[template] ?? DEFAULT_MIN_WORDS;
+
+  if (wordCount < minWords) {
+    errors.push(`content too thin: ${wordCount} words (minimum ${minWords} for ${template || 'default'})`);
+  }
+
+  // Check section count
+  const sections = (page.body_json as any)?.sections;
+  if (Array.isArray(sections) && sections.length < 3) {
+    errors.push(`too few sections: ${sections.length} (minimum 3)`);
+  }
+
+  // Readability check
+  if (wordCount > 100) {
+    const score = fleschReadingEase(allText);
+    if (score < 25) {
+      errors.push(`readability too difficult: Flesch score ${score.toFixed(0)} (minimum 25)`);
+    }
+    if (score > 85) {
+      errors.push(`readability too simplistic: Flesch score ${score.toFixed(0)} (maximum 85)`);
+    }
+  }
+
+  return errors;
+}
+
+// ── Title & meta description validation ──
+
+export function validateTitleAndMeta(page: QualityPageInput): string[] {
+  const errors: string[] = [];
+
+  if (page.title) {
+    const titleLen = page.title.length;
+    if (titleLen > 60) {
+      errors.push(`title too long: ${titleLen} chars (max 60, Google truncates beyond this)`);
+    }
+    if (titleLen < 20) {
+      errors.push(`title too short: ${titleLen} chars (min 20)`);
+    }
+  } else {
+    errors.push('title is required');
+  }
+
+  if (page.meta_description) {
+    const metaLen = page.meta_description.length;
+    if (metaLen > 160) {
+      errors.push(`meta_description too long: ${metaLen} chars (max 160)`);
+    }
+    if (metaLen < 50) {
+      errors.push(`meta_description too short: ${metaLen} chars (min 50)`);
+    }
+  }
+
+  return errors;
+}
+
+// ── E-E-A-T signal validation ──
+
+const CITATION_PATTERNS = [
+  /\b\d{4}\b/,                           // Year reference (e.g. "2024")
+  /et\s+al\.?/i,                         // "et al."
+  /\b(?:study|research|findings|journal|published|according to)\b/i,
+  /\b(?:ACSM|WHO|FDA|NIH|NSCA|ESC)\b/,  // Named authorities
+  /\b(?:peer[- ]reviewed|meta[- ]analysis|clinical trial|randomized)\b/i,
+];
+
+export function validateEeatSignals(page: QualityPageInput): string[] {
+  const errors: string[] = [];
+  const allText = collectStrings([page.body_json]).join(' ');
+
+  // Check for at least one citation-like pattern
+  const hasCitation = CITATION_PATTERNS.some((pattern) => pattern.test(allText));
+  if (!hasCitation) {
+    errors.push('E-E-A-T: no citation or authority reference found in content (expected year, study reference, or named authority)');
+  }
+
+  // For protocols/metrics, check for disclaimer
+  if (page.template === 'protocols' || page.template === 'metrics') {
+    const hasDisclaimer = /\b(?:disclaimer|not\s+medical\s+advice|consult\s+(?:a\s+)?(?:doctor|physician|professional))\b/i.test(allText);
+    if (!hasDisclaimer) {
+      errors.push(`E-E-A-T: ${page.template} template requires a medical disclaimer`);
+    }
   }
 
   return errors;

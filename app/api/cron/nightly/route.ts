@@ -1,11 +1,8 @@
-import { constants as fsConstants } from 'node:fs';
-import { mkdir, open, readFile, rm } from 'node:fs/promises';
+import { createClient } from '@supabase/supabase-js';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { NextRequest, NextResponse } from 'next/server';
 
-const LOCK_DIR = path.join(process.cwd(), '.locks');
-const LOCK_PATH = path.join(LOCK_DIR, 'nightly-cron.lock');
 const DEFAULT_LOCK_TTL_MS = 4 * 60 * 60 * 1000;
 
 type LockData = {
@@ -17,6 +14,13 @@ function getLockTtlMs(): number {
   const raw = process.env.NIGHTLY_CRON_LOCK_TTL_MS;
   const parsed = raw ? Number(raw) : NaN;
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_LOCK_TTL_MS;
+}
+
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
 }
 
 function extractProvidedSecret(req: NextRequest): string {
@@ -32,52 +36,49 @@ function extractProvidedSecret(req: NextRequest): string {
   );
 }
 
+// ── Supabase-based distributed lock (works on serverless) ──
+
+const LOCK_NAME = 'nightly-cron';
+
 async function acquireLock(ttlMs: number): Promise<{ acquired: true } | { acquired: false; reason: 'running'; lock: LockData | null }> {
-  await mkdir(LOCK_DIR, { recursive: true });
+  const supabase = getSupabase();
+  const now = Date.now();
 
-  try {
-    const file = await open(LOCK_PATH, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY);
-    const payload: LockData = {
-      startedAt: Date.now(),
-      createdBy: 'api/cron/nightly',
-    };
-    await file.writeFile(JSON.stringify(payload));
-    await file.close();
-    return { acquired: true };
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
+  // Try to read existing lock
+  const { data: existing } = await supabase
+    .from('cron_locks')
+    .select('lock_data')
+    .eq('lock_name', LOCK_NAME)
+    .single();
 
-    if (code !== 'EEXIST') {
-      throw error;
-    }
-
-    let existing: LockData | null = null;
-    try {
-      const raw = await readFile(LOCK_PATH, 'utf8');
-      existing = JSON.parse(raw) as LockData;
-    } catch {
-      // If lock is unreadable, treat as currently running to fail safe.
-      return { acquired: false, reason: 'running', lock: null };
-    }
-
-    const startedAt = Number(existing.startedAt);
-    const isStale = Number.isFinite(startedAt) && Date.now() - startedAt > ttlMs;
+  if (existing?.lock_data) {
+    const lockData = existing.lock_data as LockData;
+    const isStale = Number.isFinite(lockData.startedAt) && now - lockData.startedAt > ttlMs;
 
     if (!isStale) {
-      return { acquired: false, reason: 'running', lock: existing };
+      return { acquired: false, reason: 'running', lock: lockData };
     }
-
-    await rm(LOCK_PATH, { force: true });
-
-    const retryFile = await open(LOCK_PATH, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY);
-    const payload: LockData = {
-      startedAt: Date.now(),
-      createdBy: 'api/cron/nightly',
-    };
-    await retryFile.writeFile(JSON.stringify(payload));
-    await retryFile.close();
-    return { acquired: true };
+    // Stale lock — delete and re-acquire
+    await supabase.from('cron_locks').delete().eq('lock_name', LOCK_NAME);
   }
+
+  // Try to insert lock (unique constraint prevents race conditions)
+  const payload: LockData = { startedAt: now, createdBy: 'api/cron/nightly' };
+  const { error } = await supabase
+    .from('cron_locks')
+    .insert({ lock_name: LOCK_NAME, lock_data: payload });
+
+  if (error) {
+    // Another process grabbed it
+    return { acquired: false, reason: 'running', lock: null };
+  }
+
+  return { acquired: true };
+}
+
+async function releaseLock() {
+  const supabase = getSupabase();
+  await supabase.from('cron_locks').delete().eq('lock_name', LOCK_NAME);
 }
 
 async function handleNightlyTrigger(req: NextRequest) {
@@ -120,7 +121,7 @@ async function handleNightlyTrigger(req: NextRequest) {
 
     return NextResponse.json({ ok: true, accepted: true, started: true }, { status: 202 });
   } catch {
-    await rm(LOCK_PATH, { force: true });
+    await releaseLock();
     return NextResponse.json({ ok: false, error: 'pipeline_start_failed' }, { status: 500 });
   }
 }

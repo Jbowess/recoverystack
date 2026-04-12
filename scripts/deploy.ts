@@ -41,21 +41,57 @@ async function revalidateSlug(slug: string, template: string) {
   if (!res.ok) throw new Error(`Revalidate failed ${res.status}: ${await res.text()}`);
 }
 
+const DEPLOY_BATCH_SIZE = Number(process.env.DEPLOY_BATCH_SIZE ?? 5);
+const DEPLOY_BATCH_DELAY_MS = Number(process.env.DEPLOY_BATCH_DELAY_MS ?? 30_000); // 30s between batches
+const DEPLOY_PAGE_DELAY_MS = Number(process.env.DEPLOY_PAGE_DELAY_MS ?? 2_000);    // 2s between pages
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function run() {
   const { data: changed } = await supabase
     .from('pages')
     .select('id,slug,template,title,status,updated_at,published_at')
     .eq('status', 'published')
     .order('updated_at', { ascending: false })
-    .limit(20);
+    .limit(50);
 
-  for (const page of changed ?? []) {
-    await revalidateSlug(page.slug, page.template);
+  const pages = changed ?? [];
+  if (pages.length === 0) {
+    console.log('No pages to deploy.');
+    return;
   }
 
-  if (!isDryRun && (changed?.length ?? 0) > 0) {
+  // Deploy in staggered batches to avoid link velocity spikes
+  let deployed = 0;
+  for (let i = 0; i < pages.length; i += DEPLOY_BATCH_SIZE) {
+    const batch = pages.slice(i, i + DEPLOY_BATCH_SIZE);
+
+    for (const page of batch) {
+      try {
+        await revalidateSlug(page.slug, page.template);
+        deployed++;
+        console.log(`[${deployed}/${pages.length}] Revalidated ${page.template}/${page.slug}`);
+      } catch (err) {
+        console.error(`Failed to revalidate ${page.slug}:`, err);
+      }
+      // Small delay between individual pages
+      if (!isDryRun && DEPLOY_PAGE_DELAY_MS > 0) {
+        await sleep(DEPLOY_PAGE_DELAY_MS);
+      }
+    }
+
+    // Longer delay between batches (skip after last batch)
+    if (!isDryRun && i + DEPLOY_BATCH_SIZE < pages.length && DEPLOY_BATCH_DELAY_MS > 0) {
+      console.log(`Waiting ${DEPLOY_BATCH_DELAY_MS / 1000}s before next batch...`);
+      await sleep(DEPLOY_BATCH_DELAY_MS);
+    }
+  }
+
+  if (!isDryRun && deployed > 0) {
     const site = process.env.SITE_URL ?? 'https://www.recoverystack.io';
-    const rows = (changed ?? []).map((p) => ({
+    const rows = pages.slice(0, deployed).map((p) => ({
       page_id: p.id,
       slug: p.slug,
       template: p.template,
@@ -74,13 +110,13 @@ async function run() {
     }
   }
 
-  const detail = `revalidated=${(changed ?? []).length}${isDryRun ? ' (dry-run)' : ''}`;
+  const detail = `revalidated=${deployed}${isDryRun ? ' (dry-run)' : ''}`;
 
   if (!isDryRun) {
     await insertDeployEvent({ status: 'ok', detail });
   }
 
-  console.log(`${isDryRun ? '[dry-run] ' : ''}Revalidated ${(changed ?? []).length} pages`);
+  console.log(`${isDryRun ? '[dry-run] ' : ''}Deployed ${deployed} pages in staggered batches`);
 }
 
 run().catch(async (e) => {

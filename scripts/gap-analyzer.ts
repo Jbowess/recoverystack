@@ -1,5 +1,6 @@
 import { config } from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
+import { rateLimit } from '@/lib/rate-limiter';
 
 config({ path: '.env.local' });
 
@@ -143,6 +144,7 @@ async function fetchTopSerp(keyword: string) {
   url.searchParams.set('gl', 'au');
   url.searchParams.set('api_key', apiKey);
 
+  await rateLimit('serpapi');
   const response = await fetch(url.toString());
   if (!response.ok) {
     throw new Error(`SERP API error ${response.status}: ${await response.text()}`);

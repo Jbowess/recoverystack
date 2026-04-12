@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import { countRequiredCtaMentions } from '@/lib/publish-guards';
 import { buildInfoFeedSections, collectInfoGainFeeds } from '@/lib/info-gain-feeds';
+import { rateLimit } from '@/lib/rate-limiter';
 import {
   fetchRecentFingerprints,
   replacePrimaryKeyword,
@@ -313,6 +314,7 @@ async function callOpenAI(prompt: string) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error('Missing OPENAI_API_KEY');
 
+  await rateLimit('openai');
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -340,6 +342,7 @@ async function callOpenAI(prompt: string) {
 }
 
 async function callOllama(prompt: string, model: string) {
+  await rateLimit('ollama');
   const res = await fetch(`${ollamaBaseUrl}/api/chat`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
