@@ -37,13 +37,34 @@ async function revalidateSlug(slug: string, template: string) {
 async function run() {
   const { data: changed } = await supabase
     .from('pages')
-    .select('slug,template,status,updated_at')
+    .select('id,slug,template,title,status,updated_at,published_at')
     .eq('status', 'published')
     .order('updated_at', { ascending: false })
     .limit(20);
 
   for (const page of changed ?? []) {
     await revalidateSlug(page.slug, page.template);
+  }
+
+  if (!isDryRun && (changed?.length ?? 0) > 0) {
+    const site = process.env.SITE_URL ?? 'https://www.recoverystack.io';
+    const rows = (changed ?? []).map((p) => ({
+      page_id: p.id,
+      slug: p.slug,
+      template: p.template,
+      title: p.title ?? null,
+      url: `${site}/${p.template}/${p.slug}`,
+      published_at: p.published_at ?? p.updated_at,
+      source: 'pipeline',
+    }));
+
+    const { error: feedError } = await supabase
+      .from('published_links_feed')
+      .upsert(rows, { onConflict: 'slug' });
+
+    if (feedError) {
+      console.warn(`[telemetry] published_links_feed upsert failed: ${feedError.message}`);
+    }
   }
 
   const detail = `revalidated=${(changed ?? []).length}${isDryRun ? ' (dry-run)' : ''}`;
