@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { countRequiredCtaMentions } from '@/lib/publish-guards';
+import { buildInfoFeedSections, collectInfoGainFeeds } from '@/lib/info-gain-feeds';
 import {
   fetchRecentFingerprints,
   replacePrimaryKeyword,
@@ -35,6 +36,7 @@ const BodySchema = z.object({
     }),
   ),
   faqs: z.array(z.object({ q: z.string(), a: z.string() })).optional(),
+  info_gain_feeds: z.record(z.string(), z.unknown()).optional(),
 });
 
 const GeneratedSchema = z.object({
@@ -395,9 +397,13 @@ async function run() {
         const bodyWithKeyword = replacePrimaryKeyword(generated.body_json, page.primary_keyword ?? '');
         const orderedSections = applyLayoutOrder(bodyWithKeyword.sections, selectedComponents.layoutOrder);
 
+        const infoFeeds = await collectInfoGainFeeds(page.primary_keyword ?? page.title ?? '');
+        const feedSections = buildInfoFeedSections(infoFeeds);
+
         const enrichedBody = {
           ...bodyWithKeyword,
-          sections: orderedSections,
+          sections: [...orderedSections, ...feedSections],
+          ...(Object.keys(infoFeeds).length > 0 ? { info_gain_feeds: infoFeeds } : {}),
           generation_metadata: {
             component_ids: {
               intro_hook: selectedComponents.introHook.id,
@@ -407,6 +413,7 @@ async function run() {
             },
             layout_order: selectedComponents.layoutOrder,
             layout_fingerprint: selectedComponents.fingerprint,
+            info_feed_sections_added: feedSections.length,
           },
         };
 
