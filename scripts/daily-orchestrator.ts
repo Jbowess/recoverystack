@@ -5,6 +5,7 @@ import {
   startPipelineRun,
   startPipelineStep,
 } from './pipeline-telemetry';
+import { sendPipelineAlert } from '@/lib/pipeline-alerts';
 
 type Step = {
   id: string;
@@ -12,14 +13,42 @@ type Step = {
   script: string;
 };
 
-const steps: Step[] = [
-  { id: 'trend-scraper', name: 'Trend scraper', script: 'scripts/trend-scraper.ts' },
-  { id: 'gap-analyzer', name: 'Gap analyzer', script: 'scripts/gap-analyzer.ts' },
-  { id: 'content-generator', name: 'Content generator', script: 'scripts/content-generator.ts' },
-  { id: 'linker', name: 'Linker', script: 'scripts/linker.ts' },
-  { id: 'quality-gate', name: 'Quality gate', script: 'scripts/quality-gate.ts' },
-  { id: 'deploy', name: 'Deploy trigger', script: 'scripts/deploy.ts' },
+// Steps organized into phases. Steps within the same phase run in parallel.
+type Phase = {
+  label: string;
+  steps: Step[];
+};
+
+const phases: Phase[] = [
+  {
+    label: 'Discovery',
+    steps: [
+      { id: 'trend-scraper', name: 'Trend scraper', script: 'scripts/trend-scraper.ts' },
+      { id: 'gap-analyzer', name: 'Gap analyzer', script: 'scripts/gap-analyzer.ts' },
+    ],
+  },
+  {
+    label: 'Generation',
+    steps: [
+      { id: 'content-generator', name: 'Content generator', script: 'scripts/content-generator.ts' },
+    ],
+  },
+  {
+    label: 'Linking & Quality',
+    steps: [
+      { id: 'linker', name: 'Linker', script: 'scripts/linker.ts' },
+      { id: 'quality-gate', name: 'Quality gate', script: 'scripts/quality-gate.ts' },
+    ],
+  },
+  {
+    label: 'Deploy',
+    steps: [
+      { id: 'deploy', name: 'Deploy trigger', script: 'scripts/deploy.ts' },
+    ],
+  },
 ];
+
+const allSteps = phases.flatMap((p) => p.steps);
 
 function timestamp(): string {
   return new Date().toISOString();
@@ -72,17 +101,57 @@ async function main() {
   const runStartedAt = Date.now();
   console.log(`${timestamp()} | Daily orchestration started`);
 
-  const total = steps.length;
+  const total = allSteps.length;
   const runId = await startPipelineRun('daily-orchestrator', total);
+  let stepCounter = 0;
 
   try {
-    for (let idx = 0; idx < total; idx += 1) {
-      const step = steps[idx];
-      const result = await runStep(step, idx + 1, total, runId);
+    for (const phase of phases) {
+      console.log(`\n${'#'.repeat(72)}`);
+      console.log(`${timestamp()} | PHASE: ${phase.label} (${phase.steps.length} step(s) in parallel)`);
+      console.log(`${'#'.repeat(72)}\n`);
 
-      if (!result.ok) {
-        await finishPipelineRun(runId, 'failed', runStartedAt, `${step.name} failed with exit code ${result.exitCode}`);
-        process.exit(result.exitCode);
+      if (phase.steps.length === 1) {
+        // Single step — run sequentially as before
+        stepCounter += 1;
+        const step = phase.steps[0];
+        const result = await runStep(step, stepCounter, total, runId);
+
+        if (!result.ok) {
+          const errorMsg = `${step.name} failed with exit code ${result.exitCode}`;
+          await finishPipelineRun(runId, 'failed', runStartedAt, errorMsg);
+          await sendPipelineAlert({
+            pipeline: 'daily-orchestrator',
+            step: step.name,
+            status: 'failed',
+            message: errorMsg,
+            durationMs: Date.now() - runStartedAt,
+          });
+          process.exit(result.exitCode);
+        }
+      } else {
+        // Multiple steps — run in parallel
+        const parallelResults = await Promise.all(
+          phase.steps.map((step) => {
+            stepCounter += 1;
+            return runStep(step, stepCounter, total, runId).then((result) => ({ step, result }));
+          }),
+        );
+
+        for (const { step, result } of parallelResults) {
+          if (!result.ok) {
+            const errorMsg = `${step.name} failed with exit code ${result.exitCode}`;
+            await finishPipelineRun(runId, 'failed', runStartedAt, errorMsg);
+            await sendPipelineAlert({
+              pipeline: 'daily-orchestrator',
+              step: step.name,
+              status: 'failed',
+              message: errorMsg,
+              durationMs: Date.now() - runStartedAt,
+            });
+            process.exit(result.exitCode);
+          }
+        }
       }
     }
 
@@ -90,7 +159,14 @@ async function main() {
     console.log(`${timestamp()} | Daily orchestration completed successfully`);
     console.log('SEO generation ready');
   } catch (error) {
-    await finishPipelineRun(runId, 'failed', runStartedAt, error instanceof Error ? error.message : String(error));
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    await finishPipelineRun(runId, 'failed', runStartedAt, errorMsg);
+    await sendPipelineAlert({
+      pipeline: 'daily-orchestrator',
+      status: 'failed',
+      message: errorMsg,
+      durationMs: Date.now() - runStartedAt,
+    });
     throw error;
   }
 }

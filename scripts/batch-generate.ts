@@ -184,7 +184,7 @@ async function loadQueueCandidates(source: 'evergreen' | 'trend', limit: number)
 
 async function loadExistingPageKeywordSlugs(limit = 500): Promise<Set<string>> {
   const { data, error } = await withRetries('load existing page keywords', () =>
-    supabase.from('pages').select('primary_keyword').not('primary_keyword', 'is', null).limit(limit),
+    supabase.from('pages').select('primary_keyword,template').not('primary_keyword', 'is', null).limit(limit),
   );
 
   if (error) throw error;
@@ -193,6 +193,8 @@ async function loadExistingPageKeywordSlugs(limit = 500): Promise<Set<string>> {
   for (const row of data ?? []) {
     const keyword = (row.primary_keyword as string | null) ?? '';
     if (!keyword) continue;
+    // Cross-template dedup: store canonical slug without template prefix
+    // This prevents the same keyword from being generated as multiple template types
     out.add(canonicalKeywordSlug(keyword));
   }
   return out;
@@ -301,50 +303,78 @@ async function run() {
 
   await markQueueStatus(selectedRows.map((r) => r.id), 'queued');
 
+  const failedSeeds: DraftSeed[] = [];
+
   for (const seed of seeds) {
-    const { data, error } = await withRetries(`upsert page ${seed.slug}`, () =>
-      supabase
-        .from('pages')
-        .upsert(
-          {
-            slug: seed.slug,
-            template: seed.template,
-            title: seed.title,
-            meta_description: seed.metaDescription,
-            h1: seed.h1,
-            intro: `Draft pending generation for ${seed.term}.`,
-            primary_keyword: seed.primaryKeyword,
-            status: 'draft',
+    try {
+      const { data, error } = await withRetries(`upsert page ${seed.slug}`, () =>
+        supabase
+          .from('pages')
+          .upsert(
+            {
+              slug: seed.slug,
+              template: seed.template,
+              title: seed.title,
+              meta_description: seed.metaDescription,
+              h1: seed.h1,
+              intro: `Draft pending generation for ${seed.term}.`,
+              primary_keyword: seed.primaryKeyword,
+              status: 'draft',
+            },
+            { onConflict: 'slug' },
+          )
+          .select('id,slug,status')
+          .single(),
+      );
+
+      if (error || !data) {
+        throw new Error(`Failed to upsert page '${seed.slug}': ${error?.message ?? 'no row returned'}`);
+      }
+
+      const existingMeta = selectedRows.find((r) => r.id === seed.queueId)?.metadata ?? {};
+      const metadata = {
+        ...(existingMeta ?? {}),
+        generated_slug: seed.slug,
+        generated_page_id: data.id,
+        generated_template: seed.template,
+        generated_at: new Date().toISOString(),
+      };
+
+      const { error: queueUpdateError } = await supabase
+        .from('keyword_queue')
+        .update({ status: 'generated', metadata, last_generated_at: new Date().toISOString() })
+        .eq('id', seed.queueId);
+
+      if (queueUpdateError) {
+        throw new Error(`Failed to update keyword_queue generated status for '${seed.primaryKeyword}': ${queueUpdateError.message}`);
+      }
+    } catch (err) {
+      // Requeue the failed item so it can be retried on next run
+      console.error(`[batch-generate] Failed to process '${seed.primaryKeyword}': ${err instanceof Error ? err.message : String(err)}`);
+      failedSeeds.push(seed);
+
+      const { error: requeueError } = await supabase
+        .from('keyword_queue')
+        .update({
+          status: 'new',
+          metadata: {
+            ...(selectedRows.find((r) => r.id === seed.queueId)?.metadata ?? {}),
+            last_failure: err instanceof Error ? err.message : String(err),
+            last_failure_at: new Date().toISOString(),
           },
-          { onConflict: 'slug' },
-        )
-        .select('id,slug,status')
-        .single(),
-    );
+        })
+        .eq('id', seed.queueId);
 
-    if (error || !data) {
-      throw new Error(`Failed to upsert page '${seed.slug}': ${error?.message ?? 'no row returned'}`);
-    }
-
-    const existingMeta = selectedRows.find((r) => r.id === seed.queueId)?.metadata ?? {};
-    const metadata = {
-      ...(existingMeta ?? {}),
-      generated_slug: seed.slug,
-      generated_page_id: data.id,
-      generated_template: seed.template,
-      generated_at: new Date().toISOString(),
-    };
-
-    const { error: queueUpdateError } = await supabase
-      .from('keyword_queue')
-      .update({ status: 'generated', metadata, last_generated_at: new Date().toISOString() })
-      .eq('id', seed.queueId);
-
-    if (queueUpdateError) {
-      throw new Error(`Failed to update keyword_queue generated status for '${seed.primaryKeyword}': ${queueUpdateError.message}`);
+      if (requeueError) {
+        console.error(`[batch-generate] Failed to requeue '${seed.primaryKeyword}': ${requeueError.message}`);
+      }
     }
 
     await sleep(rateLimitMs);
+  }
+
+  if (failedSeeds.length > 0) {
+    console.warn(`[batch-generate] ${failedSeeds.length} seed(s) failed and were requeued: ${failedSeeds.map((s) => s.primaryKeyword).join(', ')}`);
   }
 
   if (skippedRows.length) {

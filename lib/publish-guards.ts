@@ -67,6 +67,18 @@ function normalizeForCtaCounting(value: string): string {
 }
 
 function countWord(text: string, word: string): number {
+  // Context-aware matching for CTA keywords
+  if (word === 'ring') {
+    // Match "ring" in product context, not as standalone word in other contexts
+    // Accept: "smart ring", "recoverystack ring", "the ring", "our ring", "a ring"
+    // Reject: "ring finger", "boxing ring", "ring tone"
+    const productPattern = /\b(?:smart\s+ring|recoverystack\s+(?:smart\s+)?ring|the\s+ring|our\s+ring|a\s+ring)\b/gi;
+    const standalone = /\bring\b/gi;
+    const productMatches = text.match(productPattern)?.length ?? 0;
+    // If product-context matches exist, use those; otherwise fall back to standalone
+    if (productMatches > 0) return productMatches;
+    return text.match(standalone)?.length ?? 0;
+  }
   const regex = new RegExp(`\\b${word}\\b`, 'gi');
   return text.match(regex)?.length ?? 0;
 }

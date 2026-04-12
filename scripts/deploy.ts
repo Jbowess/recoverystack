@@ -21,16 +21,23 @@ async function revalidateSlug(slug: string, template: string) {
   const site = process.env.SITE_URL ?? 'http://localhost:3000';
   const secret = process.env.REVALIDATE_SECRET ?? 'dry-run-secret';
 
-  const url = `${site}/api/revalidate?slug=${encodeURIComponent(slug)}&template=${encodeURIComponent(template)}&secret=${encodeURIComponent(secret)}`;
+  const url = `${site}/api/revalidate`;
 
   if (isDryRun) {
-    console.log(`[dry-run] Would revalidate: ${url}`);
+    console.log(`[dry-run] Would revalidate: ${url} (slug=${slug}, template=${template})`);
     return;
   }
 
   if (!process.env.REVALIDATE_SECRET) throw new Error('Missing REVALIDATE_SECRET');
 
-  const res = await fetch(url, { method: 'GET' });
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${secret}`,
+    },
+    body: JSON.stringify({ slug, template }),
+  });
   if (!res.ok) throw new Error(`Revalidate failed ${res.status}: ${await res.text()}`);
 }
 

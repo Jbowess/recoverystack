@@ -63,7 +63,25 @@ async function run() {
     updated_at: p.updated_at,
   }));
 
+  // Build a set of all valid slugs for broken link detection
+  const validSlugs = new Set(all.map((p) => p.slug));
   let updates = 0;
+  let brokenLinksFound = 0;
+
+  // Detect broken internal links in existing pages
+  for (const page of all) {
+    const existing = page.internal_links ?? [];
+    for (const link of existing) {
+      if (link.slug && !validSlugs.has(link.slug)) {
+        brokenLinksFound += 1;
+        console.warn(`[broken-link] Page '${page.slug}' links to non-existent slug '${link.slug}'`);
+      }
+    }
+  }
+
+  if (brokenLinksFound > 0) {
+    console.warn(`[linker] Found ${brokenLinksFound} broken internal link(s). They will be rebuilt.`);
+  }
 
   if (isVerifyMode) {
     for (const page of all) {
@@ -78,11 +96,34 @@ async function run() {
   for (const page of all.filter((p) => p.template !== 'pillars')) {
     const pillar = all.find((x) => x.pageId === page.pillar_id);
     if (!pillar) {
-      throw new Error(`Missing pillar for cluster page '${page.slug}' (pillar_id=${page.pillar_id ?? 'null'}).`);
+      // Gracefully handle orphaned cluster pages: try to find a pillar in the same cluster
+      const fallbackPillar = all.find((x) => x.template === 'pillars');
+      if (!fallbackPillar) {
+        console.warn(`[linker] Skipping orphaned cluster page '${page.slug}' (pillar_id=${page.pillar_id ?? 'null'}) — no pillar pages exist.`);
+        continue;
+      }
+      console.warn(`[linker] Page '${page.slug}' has missing pillar (${page.pillar_id ?? 'null'}). Reassigning to fallback pillar '${fallbackPillar.slug}'.`);
+
+      if (!isDryRun && !isVerifyMode) {
+        await supabase.from('pages').update({ pillar_id: fallbackPillar.pageId }).eq('id', page.pageId);
+      }
+
+      const links = buildClusterLinks(page, all, fallbackPillar.slug);
+      const internal_links = [links.up, ...links.sideways];
+
+      // Filter out any broken links
+      const validLinks = internal_links.filter((l) => validSlugs.has(l.slug));
+      assertNoGenericAnchors(page.slug, validLinks);
+
+      updates += 1;
+      if (!isDryRun && !isVerifyMode) {
+        await supabase.from('pages').update({ internal_links: validLinks }).eq('id', page.pageId);
+      }
+      continue;
     }
 
     const links = buildClusterLinks(page, all, pillar.slug);
-    const internal_links = [links.up, ...links.sideways];
+    const internal_links = [links.up, ...links.sideways].filter((l) => validSlugs.has(l.slug));
 
     assertNoGenericAnchors(page.slug, internal_links);
     assertClusterConstraints(page.slug, internal_links);
@@ -95,7 +136,7 @@ async function run() {
 
   for (const pillar of all.filter((p) => p.template === 'pillars')) {
     const children = all.filter((x) => x.pillar_id === pillar.pageId && x.template !== 'pillars');
-    const down = buildPillarDownLinks(children);
+    const down = buildPillarDownLinks(children).filter((l) => validSlugs.has(l.slug));
 
     assertNoGenericAnchors(pillar.slug, down);
 

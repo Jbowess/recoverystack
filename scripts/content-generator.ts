@@ -62,7 +62,7 @@ const TEMPLATE_RULES: Record<string, TemplateRule> = {
 };
 
 const mode = (process.env.GENERATION_PROVIDER as ProviderMode | undefined) ?? 'auto';
-const openaiModel = process.env.CODEX_MODEL ?? 'gpt-5.3-codex';
+const openaiModel = process.env.CODEX_MODEL ?? 'gpt-4o';
 const ollamaPrimary = process.env.OLLAMA_MODEL_PRIMARY ?? 'qwen2.5:14b';
 const ollamaFallback = process.env.OLLAMA_MODEL_FALLBACK ?? 'qwen2.5-coder:7b';
 const ollamaBaseUrl = process.env.OLLAMA_BASE_URL ?? 'http://127.0.0.1:11434';
@@ -313,7 +313,7 @@ async function callOpenAI(prompt: string) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error('Missing OPENAI_API_KEY');
 
-  const res = await fetch('https://api.openai.com/v1/responses', {
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -321,8 +321,9 @@ async function callOpenAI(prompt: string) {
     },
     body: JSON.stringify({
       model: openaiModel,
-      input: [{ role: 'user', content: [{ type: 'input_text', text: prompt }] }],
-      max_output_tokens: 2400,
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 2400,
+      temperature: 0.3,
     }),
   });
 
@@ -332,9 +333,7 @@ async function callOpenAI(prompt: string) {
   }
 
   const json = await res.json();
-  const text =
-    json?.output_text ??
-    json?.output?.flatMap((o: any) => o?.content ?? []).find((c: any) => c?.type === 'output_text')?.text;
+  const text = json?.choices?.[0]?.message?.content;
 
   if (!text || typeof text !== 'string') throw new Error('OpenAI response did not include output text');
   return text;

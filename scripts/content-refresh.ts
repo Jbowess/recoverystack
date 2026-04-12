@@ -22,8 +22,8 @@ type PageForRefreshCheck = {
   search_volume: number | null;
 };
 
-const STALE_DAYS = Number(process.env.CONTENT_REFRESH_STALE_DAYS ?? 90);
-const LOW_TRAFFIC_THRESHOLD = Number(process.env.CONTENT_REFRESH_LOW_TRAFFIC_THRESHOLD ?? 0);
+const STALE_DAYS = Number(process.env.CONTENT_REFRESH_STALE_DAYS ?? 45);
+const LOW_TRAFFIC_THRESHOLD = Number(process.env.CONTENT_REFRESH_LOW_TRAFFIC_THRESHOLD ?? 10);
 
 function daysSince(dateIso: string, nowMs: number) {
   const createdMs = new Date(dateIso).getTime();
@@ -43,9 +43,15 @@ function shouldQueueForRefresh(page: PageForRefreshCheck, nowMs: number) {
 
   const lowTraffic = typeof page.search_volume === 'number' && page.search_volume <= LOW_TRAFFIC_THRESHOLD;
 
+  // Priority scoring: older + lower traffic = higher priority
+  const ageFactor = Math.min(pageAgeDays / 180, 1);         // caps at ~6 months
+  const trafficFactor = lowTraffic ? 1 : 0.4;                // low traffic pages prioritized
+  const priority = Math.round((ageFactor * 0.6 + trafficFactor * 0.4) * 100);
+
   return {
     pageAgeDays,
     lowTraffic,
+    priority,
     reason: lowTraffic
       ? `stale_${STALE_DAYS}d_low_traffic`
       : `stale_${STALE_DAYS}d`,
@@ -64,7 +70,7 @@ async function loadRefreshCandidates(limit = 500): Promise<PageForRefreshCheck[]
   return (data ?? []) as PageForRefreshCheck[];
 }
 
-async function enqueueRefresh(page: PageForRefreshCheck, evaluation: { pageAgeDays: number; lowTraffic: boolean; reason: string }) {
+async function enqueueRefresh(page: PageForRefreshCheck, evaluation: { pageAgeDays: number; lowTraffic: boolean; reason: string; priority: number }) {
   const payload = {
     page_id: page.id,
     slug: page.slug,
@@ -72,6 +78,7 @@ async function enqueueRefresh(page: PageForRefreshCheck, evaluation: { pageAgeDa
     stale_days: Math.floor(evaluation.pageAgeDays),
     low_traffic: evaluation.lowTraffic,
     search_volume_snapshot: page.search_volume,
+    priority: evaluation.priority,
     status: 'queued',
     queued_at: new Date().toISOString(),
   };

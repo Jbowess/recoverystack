@@ -157,8 +157,39 @@ async function fetchRedditComplaintSnapshot(keyword: string): Promise<InfoGainFe
 }
 
 async function fetchPricePerformanceScaffold(): Promise<InfoGainFeeds['price_performance'] | undefined> {
-  // Scaffold-first model: load snapshots from env when available.
-  // Expected JSON array rows: [{ retailer, price, currency, inStock, url }]
+  // Try loading snapshots from Supabase first, then fall back to env seed.
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const now = new Date().toISOString();
+
+  if (supabaseUrl && supabaseKey) {
+    try {
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      const { data } = await supabase
+        .from('price_snapshots')
+        .select('retailer,price,currency,in_stock,url,captured_at')
+        .order('captured_at', { ascending: false })
+        .limit(10);
+
+      if (data && data.length > 0) {
+        const snapshots: RetailerPriceSnapshot[] = data.map((row: any) => ({
+          retailer: String(row.retailer ?? ''),
+          price: Number.isFinite(row.price) ? Number(row.price) : null,
+          currency: row.currency ? String(row.currency) : null,
+          inStock: typeof row.in_stock === 'boolean' ? row.in_stock : null,
+          url: row.url ? String(row.url) : null,
+          captured_at: row.captured_at ?? now,
+        }));
+
+        return { source: 'retailer_snapshot', captured_at: now, snapshots };
+      }
+    } catch {
+      // Fall through to env-based seed
+    }
+  }
+
+  // Fallback: load snapshots from env when available.
   const raw = process.env.PRICE_SNAPSHOT_SEED_JSON;
   if (!raw) return undefined;
 

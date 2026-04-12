@@ -5,6 +5,7 @@ import {
   startPipelineRun,
   startPipelineStep,
 } from './pipeline-telemetry';
+import { sendPipelineAlert } from '@/lib/pipeline-alerts';
 
 type Step = {
   id: string;
@@ -100,7 +101,15 @@ async function main() {
       const result = await runStep(step, idx + 1, steps.length, runId);
 
       if (!result.ok) {
-        await finishPipelineRun(runId, 'failed', startedAt, `${step.id} failed with exit code ${result.exitCode}`);
+        const errorMsg = `${step.id} failed with exit code ${result.exitCode}`;
+        await finishPipelineRun(runId, 'failed', startedAt, errorMsg);
+        await sendPipelineAlert({
+          pipeline: 'nightly-run',
+          step: step.id,
+          status: 'failed',
+          message: errorMsg,
+          durationMs: Date.now() - startedAt,
+        });
         process.exit(result.exitCode);
       }
     }
@@ -111,7 +120,14 @@ async function main() {
       totalSteps: steps.length,
     });
   } catch (error) {
-    await finishPipelineRun(runId, 'failed', startedAt, error instanceof Error ? error.message : String(error));
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    await finishPipelineRun(runId, 'failed', startedAt, errorMsg);
+    await sendPipelineAlert({
+      pipeline: 'nightly-run',
+      status: 'failed',
+      message: errorMsg,
+      durationMs: Date.now() - startedAt,
+    });
     throw error;
   }
 }
