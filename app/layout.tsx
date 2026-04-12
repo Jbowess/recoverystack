@@ -6,8 +6,19 @@ const SITE_URL = process.env.SITE_URL ?? 'https://recoverystack.io';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: 'RecoveryStack.io',
+  title: {
+    default: 'RecoveryStack.io',
+    template: '%s | RecoveryStack.io',
+  },
   description: 'The Intelligence Layer for Recovery',
+  openGraph: {
+    siteName: 'RecoveryStack.io',
+    locale: 'en_AU',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

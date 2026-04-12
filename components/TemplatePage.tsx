@@ -219,12 +219,16 @@ export default function TemplatePage({ page, pillarLink, siblingLinks, schemaJso
                     <PillarLink href={`/${pillarLink.template ?? 'pillars'}/${pillarLink.slug}`} anchorText={pillarLink.anchor} />
                   </article>
                 ) : null}
-                {siblingLinks.map((l) => (
-                  <article className="rs-card" key={l.slug}>
-                    <h3>{l.template ?? page.template}</h3>
-                    <PillarLink href={`/${l.template ?? page.template}/${l.slug}`} anchorText={l.anchor} />
-                  </article>
-                ))}
+                {siblingLinks.map((l) => {
+                  const tmpl = l.template ?? page.template;
+                  const label = tmpl.charAt(0).toUpperCase() + tmpl.slice(1);
+                  return (
+                    <article className="rs-card" key={l.slug}>
+                      <h3>{label}</h3>
+                      <PillarLink href={`/${tmpl}/${l.slug}`} anchorText={l.anchor} />
+                    </article>
+                  );
+                })}
               </div>
             </div>
           </section>

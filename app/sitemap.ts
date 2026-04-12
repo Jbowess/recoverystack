@@ -18,18 +18,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const pages = await getAllPublishedSlugs();
 
   const contentPages = pages
-    .map((p) => ({
-      url: `${SITE_URL}/${p.template}/${p.slug}`,
-      lastModified: p.updated_at,
-      changeFrequency: 'weekly' as const,
-      priority: TEMPLATE_PRIORITIES[p.template] ?? 0.6,
-    }))
+    .filter((p) => p.slug && p.template)
+    .map((p) => {
+      const lastModified = new Date(p.updated_at).toISOString();
+      return {
+        url: `${SITE_URL}/${p.template}/${p.slug}`,
+        lastModified: Number.isNaN(new Date(p.updated_at).getTime()) ? undefined : lastModified,
+        changeFrequency: 'weekly' as const,
+        priority: TEMPLATE_PRIORITIES[p.template] ?? 0.6,
+      };
+    })
     .sort((a, b) => a.url.localeCompare(b.url));
 
   return [
     {
       url: `${SITE_URL}/`,
-      changeFrequency: 'daily',
+      lastModified: new Date().toISOString().split('T')[0],
+      changeFrequency: 'daily' as const,
       priority: 1,
     },
     ...contentPages,

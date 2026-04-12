@@ -1,6 +1,14 @@
+import type { Metadata } from 'next';
 import TemplatePage from '@/components/TemplatePage';
 import { getPageByTemplateAndSlug } from '@/lib/supabase';
-import { buildSchemaBundle, splitInternalLinks } from '@/lib/page-render';
+import { buildPageMetadata, buildSchemaBundle, splitInternalLinks } from '@/lib/page-render';
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const page = await getPageByTemplateAndSlug('alternatives', slug);
+  if (!page) return { title: 'Not found' };
+  return buildPageMetadata(page, '/alternatives/' + slug);
+}
 
 export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

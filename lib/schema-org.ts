@@ -1,13 +1,23 @@
 import type { PageRecord } from '@/lib/types';
 
+const PUBLISHER = {
+  '@type': 'Organization' as const,
+  name: 'RecoveryStack.io',
+  url: process.env.SITE_URL ?? 'https://recoverystack.io',
+};
+
 export const articleSchema = (page: PageRecord, url: string) => ({
   '@context': 'https://schema.org',
   '@type': 'Article',
   headline: page.title,
   description: page.meta_description,
-  mainEntityOfPage: url,
+  url,
+  mainEntityOfPage: { '@type': 'WebPage', '@id': url },
+  datePublished: page.published_at ?? page.updated_at,
   dateModified: page.updated_at,
-  publisher: { '@type': 'Organization', name: 'RecoveryStack.io' },
+  author: PUBLISHER,
+  publisher: PUBLISHER,
+  image: `${url}/opengraph-image`,
 });
 
 export const breadcrumbSchema = (items: Array<{ name: string; url: string }>) => ({
@@ -19,7 +29,11 @@ export const breadcrumbSchema = (items: Array<{ name: string; url: string }>) =>
 export const faqSchema = (faqs: Array<{ q: string; a: string }>) => ({
   '@context': 'https://schema.org',
   '@type': 'FAQPage',
-  mainEntity: faqs.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+  mainEntity: faqs.map((f) => ({
+    '@type': 'Question',
+    name: f.q,
+    acceptedAnswer: { '@type': 'Answer', text: f.a },
+  })),
 });
 
 export const productSchema = (name: string, description: string, url: string) => ({
@@ -29,4 +43,10 @@ export const productSchema = (name: string, description: string, url: string) =>
   description,
   brand: { '@type': 'Brand', name: 'RecoveryStack' },
   url,
+  offers: {
+    '@type': 'Offer',
+    url,
+    priceCurrency: 'USD',
+    availability: 'https://schema.org/InStock',
+  },
 });
