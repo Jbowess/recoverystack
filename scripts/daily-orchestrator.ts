@@ -26,6 +26,14 @@ const phases: Phase[] = [
       { id: 'trend-scraper', name: 'Trend scraper', script: 'scripts/trend-scraper.ts' },
       { id: 'gap-analyzer', name: 'Gap analyzer', script: 'scripts/gap-analyzer.ts' },
       { id: 'cannibalization-check', name: 'Cannibalization check', script: 'scripts/cannibalization-check.ts' },
+      { id: 'competitor-spy', name: 'Competitor intelligence', script: 'scripts/competitor-spy.ts' },
+    ],
+  },
+  {
+    label: 'Keyword Expansion',
+    steps: [
+      { id: 'keyword-expander', name: 'Keyword expander', script: 'scripts/keyword-expander.ts' },
+      { id: 'paa-factory', name: 'PAA page factory', script: 'scripts/paa-page-factory.ts' },
     ],
   },
   {
@@ -58,6 +66,7 @@ const phases: Phase[] = [
     steps: [
       { id: 'cluster-metrics-rollup', name: 'Cluster metrics rollup', script: 'scripts/cluster-metrics-rollup.ts' },
       { id: 'topical-map', name: 'Topical authority map', script: 'scripts/topical-map.ts' },
+      { id: 'orphan-link-audit', name: 'Orphan link audit', script: 'scripts/orphan-link-audit.ts' },
     ],
   },
 ];

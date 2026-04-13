@@ -22,6 +22,9 @@ const steps: Step[] = [
   { id: 'ctr-optimizer', command: 'npm', args: ['run', 'ctr:optimize'] },
   { id: 'backlink-sync', command: 'npm', args: ['run', 'backlink:sync'] },
   { id: 'price-scraper', command: 'npm', args: ['run', 'price:scrape'] },
+  { id: 'indexing-status', command: 'npm', args: ['run', 'indexing:status'] },
+  { id: 'embedding-sync', command: 'npm', args: ['run', 'embeddings:sync'] },
+  { id: 'discover-optimizer', command: 'npm', args: ['run', 'discover:optimize'] },
 ];
 
 function logEvent(level: 'info' | 'error', event: string, data: Record<string, unknown> = {}) {

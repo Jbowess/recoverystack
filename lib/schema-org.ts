@@ -133,6 +133,40 @@ export const productSchema = (
   return base;
 };
 
+/** SpeakableSpecification — marks content sections for voice search / Google Assistant */
+export const speakableSchema = (url: string) => ({
+  '@context': 'https://schema.org',
+  '@type': 'WebPage',
+  url,
+  speakable: {
+    '@type': 'SpeakableSpecification',
+    // Target the intro paragraph and verdict section as speakable content
+    cssSelector: ['.rs-excerpt', '#verdict-heading', '.rs-article h2:first-of-type + p'],
+  },
+});
+
+/** MedicalWebPage schema — used on protocols and metrics pages for E-E-A-T */
+export const medicalWebPageSchema = (page: PageRecord, url: string) => ({
+  '@context': 'https://schema.org',
+  '@type': 'MedicalWebPage',
+  name: page.title,
+  description: page.meta_description,
+  url,
+  datePublished: page.published_at ?? page.updated_at,
+  dateModified: page.updated_at,
+  author: AUTHOR,
+  publisher: ORGANIZATION,
+  about: {
+    '@type': 'MedicalCondition',
+    name: page.primary_keyword ?? page.title,
+  },
+  medicalAudience: {
+    '@type': 'MedicalAudience',
+    audienceType: 'Patient',
+    healthCondition: { '@type': 'MedicalCondition', name: 'Athletic Recovery' },
+  },
+});
+
 export const personSchema = (author: {
   slug: string;
   name: string;

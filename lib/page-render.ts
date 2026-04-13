@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import type { InternalLink, PageRecord } from '@/lib/types';
-import { articleSchema, breadcrumbSchema, faqSchema, productSchema, newsArticleSchema, howToSchema, aggregateRatingSchema } from '@/lib/schema-org';
+import { articleSchema, breadcrumbSchema, faqSchema, productSchema, newsArticleSchema, howToSchema, aggregateRatingSchema, speakableSchema, medicalWebPageSchema } from '@/lib/schema-org';
 
 const SITE = process.env.SITE_URL ?? 'https://recoverystack.io';
 const SITE_NAME = 'RecoveryStack.io';
@@ -82,6 +82,14 @@ export function buildSchemaBundle(page: PageRecord, path: string) {
       out.push(aggregateRatingSchema(page.title, rv, rc, url));
     }
   }
+
+  // MedicalWebPage schema for E-E-A-T on health/clinical content
+  if (page.template === 'protocols' || page.template === 'metrics') {
+    out.push(medicalWebPageSchema(page, url));
+  }
+
+  // SpeakableSpecification — voice search / Google Assistant eligibility
+  out.push(speakableSchema(url));
 
   return out;
 }

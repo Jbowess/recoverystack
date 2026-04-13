@@ -31,7 +31,14 @@
     "topical:map": "tsx scripts/topical-map.ts",
     "ctr:optimize": "tsx scripts/ctr-optimizer.ts",
     "backlink:sync": "tsx scripts/backlink-sync.ts",
-    "price:scrape": "tsx scripts/price-scraper.ts"
+    "price:scrape": "tsx scripts/price-scraper.ts",
+    "keyword:expand": "tsx scripts/keyword-expander.ts",
+    "paa:factory": "tsx scripts/paa-page-factory.ts",
+    "orphan:audit": "tsx scripts/orphan-link-audit.ts",
+    "indexing:status": "tsx scripts/indexing-status-checker.ts",
+    "embeddings:sync": "tsx scripts/embedding-sync.ts",
+    "discover:optimize": "tsx scripts/discover-optimizer.ts",
+    "competitor:spy": "tsx scripts/competitor-spy.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",
