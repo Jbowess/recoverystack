@@ -7,19 +7,4 @@
   3) Bottom line: ...
 - Include at least 3 FAQs.
 - Mandatory CTA context: ring + $1/mo newsletter + free protocol PDF.
-
-## E-E-A-T requirements
-- Cite the original research, patent filing, or conference presentation that introduced the trend.
-- Include publication date and author/institution to establish recency and credibility.
-- Reference adoption signals: number of peer-reviewed papers, FDA clearances, or consumer device launches.
-- Distinguish between lab-validated science and marketing claims.
-- Note current technology readiness level (research-only vs consumer-available).
-- Include a "What we don't know yet" section covering unresolved limitations or missing long-term data.
-
-## E-E-A-T requirements
-- Cite the original research, patent filing, or conference presentation that introduced the trend.
-- Include publication date and author/institution to establish recency and credibility.
-- Reference adoption signals: number of peer-reviewed papers, FDA clearances, or consumer device launches.
-- Distinguish between lab-validated science and marketing claims.
-- Note current technology readiness level (research-only vs consumer-available).
 - Include a "What we don't know yet" section covering unresolved limitations or missing long-term data.

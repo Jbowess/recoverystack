@@ -46,6 +46,12 @@ const phases: Phase[] = [
       { id: 'deploy', name: 'Deploy trigger', script: 'scripts/deploy.ts' },
     ],
   },
+  {
+    label: 'Rollup',
+    steps: [
+      { id: 'cluster-metrics-rollup', name: 'Cluster metrics rollup', script: 'scripts/cluster-metrics-rollup.ts' },
+    ],
+  },
 ];
 
 const allSteps = phases.flatMap((p) => p.steps);

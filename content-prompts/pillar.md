@@ -20,13 +20,6 @@
 - Include at least 3 FAQs synthesizing the most common questions across the cluster.
 - Mandatory CTA context: ring + $1/mo newsletter + free protocol PDF.
 
-## E-E-A-T requirements
-- Establish authority by referencing foundational research (textbooks, meta-analyses, or clinical guidelines).
-- Cite at least 2 external authoritative sources.
-- Frame the team's expertise: "Our editorial team includes certified strength coaches and sports scientists."
-- Include a "Last reviewed" date and reviewer attribution.
-- Use a comprehensive, educational tone — this is the definitive resource on the topic.- Open with a concise intro of 60 words max that frames the scope of the topic.
-
 ## Required sections (in order)
 1. **Definition & Overview** — What the topic is, why it matters for recovery/performance athletes. 120-200 words.
 2. **Core Concepts** — 3-5 key sub-topics with 80-150 words each. Each must link to its corresponding cluster page.
@@ -44,10 +37,4 @@
   3) Bottom line: ...
 - Include at least 3 FAQs synthesizing the most common questions across the cluster.
 - Mandatory CTA context: ring + $1/mo newsletter + free protocol PDF.
-
-## E-E-A-T requirements
-- Establish authority by referencing foundational research (textbooks, meta-analyses, or clinical guidelines).
-- Cite at least 2 external authoritative sources.
-- Frame the team's expertise: "Our editorial team includes certified strength coaches and sports scientists."
-- Include a "Last reviewed" date and reviewer attribution.
 - Use a comprehensive, educational tone — this is the definitive resource on the topic.

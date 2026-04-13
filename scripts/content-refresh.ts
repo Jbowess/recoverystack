@@ -33,6 +33,12 @@ type GscMetrics = {
 const STALE_DAYS = Number(process.env.CONTENT_REFRESH_STALE_DAYS ?? 45);
 const LOW_TRAFFIC_THRESHOLD = Number(process.env.CONTENT_REFRESH_LOW_TRAFFIC_THRESHOLD ?? 10);
 
+// Auto-approve thresholds — when metrics cross these deltas, skip manual review
+// and mark the refresh item directly as 'approved' for nightly processing.
+const AUTO_APPROVE_POSITION_DROP = Number(process.env.REFRESH_AUTO_APPROVE_POSITION_DROP ?? 5);   // positions dropped
+const AUTO_APPROVE_CTR_DROP_PCT = Number(process.env.REFRESH_AUTO_APPROVE_CTR_DROP_PCT ?? 20);     // % CTR drop
+const AUTO_APPROVE_IMPRESSION_DROP_PCT = Number(process.env.REFRESH_AUTO_APPROVE_IMPRESSION_DROP_PCT ?? 50); // % impressions drop
+
 function daysSince(dateIso: string, nowMs: number) {
   const createdMs = new Date(dateIso).getTime();
   return (nowMs - createdMs) / (1000 * 60 * 60 * 24);
@@ -98,6 +104,60 @@ async function loadRefreshCandidates(limit = 500): Promise<PageForRefreshCheck[]
   return (data ?? []) as PageForRefreshCheck[];
 }
 
+type DailyMetricRow = {
+  date: string;
+  position: number | null;
+  clicks: number | null;
+  impressions: number | null;
+  ctr: number | null;
+};
+
+/**
+ * Returns week-over-week deltas for a slug using page_metrics_daily.
+ * Compares most recent 7 days vs prior 7 days.
+ */
+async function getWeeklyDeltas(slug: string): Promise<{
+  positionDelta: number | null;
+  ctrDropPct: number | null;
+  impressionDropPct: number | null;
+} | null> {
+  const { data, error } = await supabase
+    .from('page_metrics_daily')
+    .select('date,position,clicks,impressions,ctr')
+    .eq('page_slug', slug)
+    .order('date', { ascending: false })
+    .limit(14);
+
+  if (error || !data || data.length < 7) return null;
+
+  const rows = data as DailyMetricRow[];
+  const recent = rows.slice(0, 7);
+  const prior = rows.slice(7, 14);
+  if (prior.length < 7) return null;
+
+  const avg = (vals: (number | null)[]): number | null => {
+    const nums = vals.filter((v): v is number => v != null);
+    return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
+  };
+
+  const recentPos = avg(recent.map((r) => r.position));
+  const priorPos = avg(prior.map((r) => r.position));
+  const recentCtr = avg(recent.map((r) => r.ctr));
+  const priorCtr = avg(prior.map((r) => r.ctr));
+  const recentImp = avg(recent.map((r) => r.impressions));
+  const priorImp = avg(prior.map((r) => r.impressions));
+
+  const positionDelta = recentPos != null && priorPos != null ? recentPos - priorPos : null;
+  const ctrDropPct = recentCtr != null && priorCtr != null && priorCtr > 0
+    ? ((priorCtr - recentCtr) / priorCtr) * 100
+    : null;
+  const impressionDropPct = recentImp != null && priorImp != null && priorImp > 0
+    ? ((priorImp - recentImp) / priorImp) * 100
+    : null;
+
+  return { positionDelta, ctrDropPct, impressionDropPct };
+}
+
 async function loadGscMetrics(slugs: string[]): Promise<Map<string, GscMetrics>> {
   const map = new Map<string, GscMetrics>();
   if (slugs.length === 0) return map;
@@ -122,6 +182,7 @@ async function loadGscMetrics(slugs: string[]): Promise<Map<string, GscMetrics>>
 async function enqueueRefresh(
   page: PageForRefreshCheck,
   evaluation: { pageAgeDays: number; lowTraffic: boolean; reason: string; priority: number; gscClicks?: number | null; gscPosition?: number | null },
+  autoApprove = false,
 ) {
   const payload = {
     page_id: page.id,
@@ -133,7 +194,7 @@ async function enqueueRefresh(
     gsc_clicks: evaluation.gscClicks ?? null,
     gsc_position: evaluation.gscPosition ? Math.round(evaluation.gscPosition) : null,
     priority: evaluation.priority,
-    status: 'queued',
+    status: autoApprove ? 'approved' : 'queued',
     queued_at: new Date().toISOString(),
   };
 
@@ -156,6 +217,7 @@ async function run() {
   console.log(`Loaded GSC metrics for ${gscMap.size} of ${pages.length} pages.`);
 
   let queued = 0;
+  let autoApproved = 0;
   const nowMs = Date.now();
 
   for (const page of pages) {
@@ -163,12 +225,31 @@ async function run() {
     const evaluation = shouldQueueForRefresh(page, nowMs, gsc);
     if (!evaluation) continue;
 
-    await enqueueRefresh(page, evaluation);
+    // Check week-over-week decay signals for auto-approve
+    const deltas = await getWeeklyDeltas(page.slug);
+    let autoApprove = false;
+    if (deltas) {
+      const positionDecayed = deltas.positionDelta != null && deltas.positionDelta > AUTO_APPROVE_POSITION_DROP;
+      const ctrDecayed = deltas.ctrDropPct != null && deltas.ctrDropPct >= AUTO_APPROVE_CTR_DROP_PCT;
+      const impressionsDecayed = deltas.impressionDropPct != null && deltas.impressionDropPct >= AUTO_APPROVE_IMPRESSION_DROP_PCT;
+      autoApprove = positionDecayed || ctrDecayed || impressionsDecayed;
+
+      if (autoApprove) {
+        const reasons: string[] = [];
+        if (positionDecayed) reasons.push(`position+${deltas.positionDelta!.toFixed(1)}`);
+        if (ctrDecayed) reasons.push(`ctr-${deltas.ctrDropPct!.toFixed(0)}%`);
+        if (impressionsDecayed) reasons.push(`impressions-${deltas.impressionDropPct!.toFixed(0)}%`);
+        evaluation.reason = `${evaluation.reason}|auto_decay:${reasons.join(',')}`;
+        autoApproved += 1;
+      }
+    }
+
+    await enqueueRefresh(page, evaluation, autoApprove);
     queued += 1;
   }
 
   console.log(
-    `Content refresh sweep complete. Evaluated ${pages.length} page(s); queued/upserted ${queued} stale page(s) (threshold=${STALE_DAYS}d, low-traffic<=${LOW_TRAFFIC_THRESHOLD}, GSC data for ${gscMap.size} pages).`,
+    `Content refresh sweep complete. Evaluated ${pages.length} page(s); queued/upserted ${queued} stale page(s) (${autoApproved} auto-approved via decay detection; threshold=${STALE_DAYS}d, low-traffic<=${LOW_TRAFFIC_THRESHOLD}, GSC data for ${gscMap.size} pages).`,
   );
 }
 

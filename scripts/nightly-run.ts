@@ -17,6 +17,7 @@ const steps: Step[] = [
   { id: 'daily-run', command: 'npm', args: ['run', 'daily:run'] },
   { id: 'gsc-sync', command: 'npm', args: ['run', 'gsc:sync'] },
   { id: 'content-refresh', command: 'npm', args: ['run', 'content:refresh'] },
+  { id: 'content-refresh-processor', command: 'npm', args: ['run', 'content:refresh:process'] },
 ];
 
 function logEvent(level: 'info' | 'error', event: string, data: Record<string, unknown> = {}) {

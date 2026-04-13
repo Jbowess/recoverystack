@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { logAdminAction } from '@/lib/admin-audit';
+import { saveRevision } from '@/lib/page-revisions';
 
 function runSinglePageGeneration(pageId: string) {
   return new Promise<void>((resolve, reject) => {
@@ -41,12 +42,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.redirect(new URL('/admin?error=invalid_action', req.url), { status: 302 });
   }
 
-  const { data: page } = await supabaseAdmin.from('pages').select('id,slug,template').eq('id', id).single();
+  const { data: page } = await supabaseAdmin.from('pages').select('id,slug,template,intro,body_json').eq('id', id).single();
   if (!page) {
     return NextResponse.redirect(new URL('/admin?error=page_not_found', req.url), { status: 302 });
   }
 
   try {
+    // Save revision before regenerating
+    if (page.intro || page.body_json) {
+      await saveRevision(page.id, page.slug, page.intro ?? null, page.body_json, 'admin_regenerate');
+    }
+
     await runSinglePageGeneration(page.id);
     revalidatePath(`/${page.template}/${page.slug}`);
 

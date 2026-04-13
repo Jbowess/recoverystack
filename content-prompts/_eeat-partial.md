@@ -1,0 +1,14 @@
+## E-E-A-T content quality rules
+- Include at least 1 specific citation (author/year or named standard) in the body sections.
+- Add a "How we tested" or "Methodology" section when template is guides, alternatives, or compatibility.
+- Reference first-hand testing experience with specific numbers (days tested, metrics observed, firmware versions).
+- Include a "Last reviewed: [current month year]" line in the intro or first section.
+- For protocols and metrics templates, add a brief medical disclaimer.
+- Attribute expert-level claims to named organizations or published research.
+- In FAQs, ground answers in evidence rather than opinion.
+- Demonstrate first-hand experience (mention specific firmware versions, app versions, or testing dates).
+- Cite at least 1 external source: a peer-reviewed study, manufacturer spec sheet, or accredited lab test.
+- Acknowledge competitor strengths honestly — never dismiss without data.
+- Include a "How we evaluated" section with explicit scoring criteria (e.g. accuracy ±X%, battery life in days, export formats).
+- Reference real-world testing conditions (e.g. "Worn during 5×/week marathon training over 6 weeks").
+- Attribute claims to named experts or published standards (ACSM, WHO sleep guidelines, peer-reviewed HRV studies).

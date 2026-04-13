@@ -49,6 +49,7 @@ type ProviderMode = 'auto' | 'openai' | 'ollama';
 type TemplateRule = {
   minFaqs?: number;
   requiresComparisonSlots?: boolean;
+  minChildLinks?: number;
 };
 
 const TEMPLATE_RULES: Record<string, TemplateRule> = {
@@ -59,7 +60,7 @@ const TEMPLATE_RULES: Record<string, TemplateRule> = {
   costs: { minFaqs: 3 },
   compatibility: { minFaqs: 3, requiresComparisonSlots: true },
   trends: { minFaqs: 3 },
-  pillars: {},
+  pillars: { minFaqs: 3, minChildLinks: 5 },
 };
 
 const mode = (process.env.GENERATION_PROVIDER as ProviderMode | undefined) ?? 'auto';
@@ -96,6 +97,20 @@ function promptPathForTemplate(template: string) {
     pillars: 'pillar.md',
   };
   return join(process.cwd(), 'content-prompts', byTemplate[template] ?? 'comparison.md');
+}
+
+// Shared E-E-A-T partial — loaded once and injected into every prompt
+let eeaPartialCache: string | null = null;
+function loadEeatPartial(): string {
+  if (eeaPartialCache != null) return eeaPartialCache;
+  const partialPath = join(process.cwd(), 'content-prompts', '_eeat-partial.md');
+  try {
+    eeaPartialCache = readFileSync(partialPath, 'utf8');
+  } catch {
+    console.warn('[content-generator] _eeat-partial.md not found — E-E-A-T rules will be omitted');
+    eeaPartialCache = '';
+  }
+  return eeaPartialCache;
 }
 
 function extractJsonObject(text: string): unknown {
@@ -299,6 +314,18 @@ function deterministicChecks(template: string, content: z.infer<typeof Generated
     }
   }
 
+  // Pillar child-link requirement: the body must mention enough child-page links
+  if (rule.minChildLinks != null) {
+    const allText = [content.intro, ...content.body_json.sections.map((s) => JSON.stringify(s.content))].join(' ');
+    // Count markdown-style or inline links — heuristic: count occurrences of "/" path references
+    // The real check happens in publish-guards validateInternalLinks; here we check the generated body
+    const linkMatches = allText.match(/\/(?:guides|alternatives|protocols|metrics|costs|compatibility|trends)\/[\w-]+/g) ?? [];
+    const uniqueLinks = new Set(linkMatches);
+    if (uniqueLinks.size < rule.minChildLinks) {
+      errors.push(`pillar body must reference at least ${rule.minChildLinks} child-page links (found ${uniqueLinks.size})`);
+    }
+  }
+
   const ctaCounts = countRequiredCtaMentions(content);
   (Object.keys(ctaCounts) as Array<keyof typeof ctaCounts>).forEach((keyword) => {
     const count = ctaCounts[keyword];
@@ -451,14 +478,7 @@ async function run() {
         `Comparison slots required for this template: ${rule.requiresComparisonSlots ? 'yes' : 'no'}.`,
         'Mention RecoveryStack Smart Ring exactly once, newsletter exactly once, free PDF exactly once in natural context.',
         '',
-        '## E-E-A-T content quality rules',
-        '- Include at least 1 specific citation (author/year or named standard) in the body sections.',
-        '- Add a "How we tested" or "Methodology" section when template is guides, alternatives, or compatibility.',
-        '- Reference first-hand testing experience with specific numbers (days tested, metrics observed, firmware versions).',
-        '- Include a "Last reviewed: [current month year]" line in the intro or first section.',
-        '- For protocols and metrics templates, add a brief medical disclaimer.',
-        '- Attribute expert-level claims to named organizations or published research.',
-        '- In FAQs, ground answers in evidence rather than opinion.',
+        loadEeatPartial(),
         '',
         `Selected intro hook component JSON: ${JSON.stringify(selectedComponents.introHook.content)}`,
         `Selected verdict style component JSON: ${JSON.stringify(selectedComponents.verdictStyle.content)}`,
@@ -524,6 +544,12 @@ async function run() {
         if (structuralErrors.length > 0) {
           attemptErrors.push(`attempt ${attempts}: ${structuralErrors.join('; ')}`);
           continue;
+        }
+
+        // Save current content as a revision before overwriting
+        if (page.intro || page.body_json) {
+          const { saveRevision } = await import('@/lib/page-revisions');
+          await saveRevision(page.id, page.slug, page.intro ?? null, page.body_json, 'batch_generate');
         }
 
         const { error: pageUpdateError } = await supabase

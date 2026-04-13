@@ -102,17 +102,33 @@ export const faqSchema = (faqs: Array<{ q: string; a: string }>) => ({
   })),
 });
 
-export const productSchema = (name: string, description: string, url: string) => ({
-  '@context': 'https://schema.org',
-  '@type': 'Product',
-  name,
-  description,
-  brand: { '@type': 'Brand', name: 'RecoveryStack' },
-  url,
-  offers: {
-    '@type': 'Offer',
+export const productSchema = (
+  name: string,
+  description: string,
+  url: string,
+  price?: number | null,
+  priceCurrency = 'AUD',
+) => {
+  const base: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name,
+    description,
+    brand: { '@type': 'Brand', name: 'RecoveryStack' },
     url,
-    priceCurrency: 'USD',
-    availability: 'https://schema.org/InStock',
-  },
-});
+  };
+
+  // Only emit offers when a real price is available — otherwise Google's
+  // Product rich-result validator rejects the schema for missing price.
+  if (price != null && Number.isFinite(price) && price > 0) {
+    base.offers = {
+      '@type': 'Offer',
+      url,
+      price: price.toFixed(2),
+      priceCurrency,
+      availability: 'https://schema.org/InStock',
+    };
+  }
+
+  return base;
+};

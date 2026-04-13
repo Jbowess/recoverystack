@@ -174,8 +174,11 @@ async function fetchSlugMetricsFromGsc(targets: PageMetricTarget[]): Promise<Gsc
 
 async function writeMetrics(targets: PageMetricTarget[], metrics: GscSlugMetric[]) {
   const metricsBySlug = new Map(metrics.map((m) => [m.slug, m]));
+  const today = new Date().toISOString().slice(0, 10);
 
   let updated = 0;
+  let dailyRowsWritten = 0;
+
   for (const target of targets) {
     const metric = metricsBySlug.get(target.slug);
     if (!metric) continue;
@@ -183,6 +186,8 @@ async function writeMetrics(targets: PageMetricTarget[], metrics: GscSlugMetric[
     // Skip pages with no impressions and already-populated search_volume
     if (metric.impressions === 0 && target.search_volume !== null) continue;
 
+    // 1. Update pages.search_volume and gsc metadata (preserves existing keyword research data
+    //    only when we have real impressions to replace with)
     const { error } = await supabase
       .from('pages')
       .update({
@@ -202,10 +207,32 @@ async function writeMetrics(targets: PageMetricTarget[], metrics: GscSlugMetric[
       continue;
     }
 
+    // 2. Upsert into page_metrics_daily for time-series history
+    const { error: dailyError } = await supabase
+      .from('page_metrics_daily')
+      .upsert(
+        {
+          page_slug: target.slug,
+          date: today,
+          position: metric.position > 0 ? metric.position : null,
+          clicks: metric.clicks,
+          impressions: metric.impressions,
+          ctr: metric.ctr > 0 ? metric.ctr : null,
+          synced_at: new Date().toISOString(),
+        },
+        { onConflict: 'page_slug,date' },
+      );
+
+    if (dailyError) {
+      console.warn(`Failed to write daily metrics for ${target.slug}: ${dailyError.message}`);
+    } else {
+      dailyRowsWritten += 1;
+    }
+
     updated += 1;
   }
 
-  return updated;
+  return { updated, dailyRowsWritten };
 }
 
 async function run() {
@@ -216,11 +243,11 @@ async function run() {
   }
 
   const metrics = await fetchSlugMetricsFromGsc(targets);
-  const updated = await writeMetrics(targets, metrics);
+  const { updated, dailyRowsWritten } = await writeMetrics(targets, metrics);
 
   const liveMode = Boolean(process.env.GSC_SERVICE_ACCOUNT_JSON);
   console.log(
-    `GSC sync complete (mode=${liveMode ? 'live' : 'placeholder'}). Processed ${targets.length} page(s), updated ${updated} row(s).`,
+    `GSC sync complete (mode=${liveMode ? 'live' : 'placeholder'}). Processed ${targets.length} page(s), updated ${updated} page rows, wrote ${dailyRowsWritten} daily metric rows.`,
   );
 }
 

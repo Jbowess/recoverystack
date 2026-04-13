@@ -1,7 +1,14 @@
 import type { Metadata } from 'next';
 import TemplatePage from '@/components/TemplatePage';
-import { getPageByTemplateAndSlug } from '@/lib/supabase';
+import { getPageByTemplateAndSlug, getAllPublishedSlugs } from '@/lib/supabase';
 import { buildPageMetadata, buildSchemaBundle, splitInternalLinks } from '@/lib/page-render';
+
+export const revalidate = 3600;
+
+export async function generateStaticParams() {
+  const pages = await getAllPublishedSlugs();
+  return pages.filter((p) => p.template === 'costs').map((p) => ({ slug: p.slug }));
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;

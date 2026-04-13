@@ -149,8 +149,6 @@ export function validateRequiredCtas(page: QualityPageInput): string[] {
 }
 
 export function validateInternalLinks(page: QualityPageInput): string[] {
-  if (page.template === 'pillars') return [];
-
   const errors: string[] = [];
   const parsedLinks = z.array(InternalLinkSchema).safeParse(page.internal_links ?? []);
 
@@ -159,6 +157,20 @@ export function validateInternalLinks(page: QualityPageInput): string[] {
   }
 
   const links = parsedLinks.data;
+
+  // Pillar pages: must link down to at least 5 child pages (no up-link required)
+  if (page.template === 'pillars') {
+    const childLinks = links.filter((link) => (link.template ?? '').toLowerCase() !== 'pillars');
+    if (childLinks.length < 5) {
+      errors.push(`pillar internal_links must include at least 5 child-page links (found ${childLinks.length})`);
+    }
+    const nonDescriptive = links.filter((link) => !isDescriptiveAnchor(link.anchor)).map((link) => link.anchor);
+    if (nonDescriptive.length) {
+      errors.push(`internal_links contain non-descriptive anchors: ${nonDescriptive.join(', ')}`);
+    }
+    return errors;
+  }
+
   const upLinks = links.filter((link) => (link.template ?? '').toLowerCase() === 'pillars');
   const siblingLinks = links.filter((link) => (link.template ?? '').toLowerCase() !== 'pillars');
 
