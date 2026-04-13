@@ -235,6 +235,70 @@ async function writeMetrics(targets: PageMetricTarget[], metrics: GscSlugMetric[
   return { updated, dailyRowsWritten };
 }
 
+/**
+ * Flag pages whose impressions have dropped >40% over the last 28 days compared
+ * to the prior 28-day window. Inserts them into content_refresh_queue for review.
+ */
+async function detectDecayAndQueue(): Promise<number> {
+  const today = new Date();
+  const window1Start = new Date(today.getTime() - 56 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const window1End = new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const window2Start = new Date(today.getTime() - 28 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const window2End = today.toISOString().slice(0, 10);
+
+  // Fetch sums for both windows in one query per window
+  const [old28, new28] = await Promise.all([
+    supabase
+      .from('page_metrics_daily')
+      .select('page_slug, impressions')
+      .gte('date', window1Start)
+      .lte('date', window1End),
+    supabase
+      .from('page_metrics_daily')
+      .select('page_slug, impressions')
+      .gte('date', window2Start)
+      .lte('date', window2End),
+  ]);
+
+  const sumBySlug = (rows: Array<{ page_slug: string; impressions: number | null }>) => {
+    const out: Record<string, number> = {};
+    for (const r of rows) {
+      out[r.page_slug] = (out[r.page_slug] ?? 0) + (r.impressions ?? 0);
+    }
+    return out;
+  };
+
+  const oldSums = sumBySlug((old28.data ?? []) as Array<{ page_slug: string; impressions: number | null }>);
+  const newSums = sumBySlug((new28.data ?? []) as Array<{ page_slug: string; impressions: number | null }>);
+
+  const decayed: string[] = [];
+  for (const [slug, oldImpressions] of Object.entries(oldSums)) {
+    if (oldImpressions < 10) continue; // Skip low-volume pages — signal too noisy
+    const newImpressions = newSums[slug] ?? 0;
+    const drop = (oldImpressions - newImpressions) / oldImpressions;
+    if (drop > 0.4) decayed.push(slug);
+  }
+
+  if (!decayed.length) return 0;
+
+  // Upsert decayed slugs into content_refresh_queue (no duplicate reason='decay')
+  const rows = decayed.map((slug) => ({
+    page_slug: slug,
+    reason: 'decay',
+    status: 'pending',
+    metadata: { old_impressions: oldSums[slug], new_impressions: newSums[slug] ?? 0 },
+    created_at: new Date().toISOString(),
+  }));
+
+  const { error } = await supabase.from('content_refresh_queue').upsert(rows, { onConflict: 'page_slug' });
+  if (error) {
+    console.warn(`[decay] Failed to enqueue decay pages: ${error.message}`);
+    return 0;
+  }
+
+  return decayed.length;
+}
+
 async function run() {
   const targets = await loadMetricTargets();
   if (!targets.length) {
@@ -245,9 +309,11 @@ async function run() {
   const metrics = await fetchSlugMetricsFromGsc(targets);
   const { updated, dailyRowsWritten } = await writeMetrics(targets, metrics);
 
+  const decayQueued = await detectDecayAndQueue();
+
   const liveMode = Boolean(process.env.GSC_SERVICE_ACCOUNT_JSON);
   console.log(
-    `GSC sync complete (mode=${liveMode ? 'live' : 'placeholder'}). Processed ${targets.length} page(s), updated ${updated} page rows, wrote ${dailyRowsWritten} daily metric rows.`,
+    `GSC sync complete (mode=${liveMode ? 'live' : 'placeholder'}). Processed ${targets.length} page(s), updated ${updated} page rows, wrote ${dailyRowsWritten} daily metric rows, queued ${decayQueued} decayed page(s) for refresh.`,
   );
 }
 

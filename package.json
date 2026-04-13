@@ -23,7 +23,10 @@
     "cluster:metrics": "tsx scripts/cluster-metrics-rollup.ts",
     "smoke:seed": "tsx scripts/smoke-seed.ts",
     "smoke:test": "tsx scripts/smoke-test.ts",
-    "content:refresh:process": "tsx scripts/content-refresh-processor.ts"
+    "content:refresh:process": "tsx scripts/content-refresh-processor.ts",
+    "cwv:monitor": "tsx scripts/cwv-monitor.ts",
+    "cannibalization:check": "tsx scripts/cannibalization-check.ts",
+    "indexing:submit": "tsx scripts/deploy.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",

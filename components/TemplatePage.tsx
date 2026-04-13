@@ -4,6 +4,7 @@ import ExitIntentModal from '@/components/ExitIntentModal';
 import NewsletterForm from '@/components/NewsletterForm';
 import PillarLink from '@/components/PillarLink';
 import ReadingProgressBar from '@/components/ReadingProgressBar';
+import ShareBar from '@/components/ShareBar';
 import TableOfContents from '@/components/TableOfContents';
 import type { InternalLink, PageBodySection, PageRecord } from '@/lib/types';
 
@@ -203,6 +204,8 @@ export default function TemplatePage({ page, pillarLink, siblingLinks, schemaJso
                 <span className="rs-trust-divider" aria-hidden="true">·</span>
                 <span className="rs-trust-item">Last updated {publishedDate}</span>
               </div>
+
+              <ShareBar title={page.title} />
             </div>
           </div>
         </div>

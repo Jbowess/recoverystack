@@ -25,6 +25,7 @@ const phases: Phase[] = [
     steps: [
       { id: 'trend-scraper', name: 'Trend scraper', script: 'scripts/trend-scraper.ts' },
       { id: 'gap-analyzer', name: 'Gap analyzer', script: 'scripts/gap-analyzer.ts' },
+      { id: 'cannibalization-check', name: 'Cannibalization check', script: 'scripts/cannibalization-check.ts' },
     ],
   },
   {

@@ -1,5 +1,6 @@
 import { config } from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
+import { submitUrlToGoogle } from '@/lib/indexing-api';
 
 config({ path: '.env.local' });
 
@@ -107,6 +108,11 @@ async function run() {
 
     if (feedError) {
       console.warn(`[telemetry] published_links_feed upsert failed: ${feedError.message}`);
+    }
+
+    // Submit each published URL to Google Indexing API for immediate crawling
+    for (const row of rows) {
+      await submitUrlToGoogle(row.url);
     }
   }
 

@@ -65,6 +65,7 @@ export type PageRecord = {
   secondary_keywords: string[] | null;
   internal_links: InternalLink[] | null;
   schema_org: unknown;
+  metadata: Record<string, unknown> | null;
   status: 'draft' | 'approved' | 'published';
   published_at: string | null;
   updated_at: string;

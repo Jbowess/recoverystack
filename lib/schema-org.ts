@@ -132,3 +132,22 @@ export const productSchema = (
 
   return base;
 };
+
+export const aggregateRatingSchema = (
+  name: string,
+  ratingValue: number,
+  ratingCount: number,
+  url: string,
+) => ({
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name,
+  url,
+  aggregateRating: {
+    '@type': 'AggregateRating',
+    ratingValue,
+    ratingCount,
+    bestRating: 5,
+    worstRating: 1,
+  },
+});

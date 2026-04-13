@@ -29,6 +29,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        {/* Preload hero image to hit LCP threshold */}
+        <link rel="preload" as="image" href="/hero.webp" type="image/webp" />
+      </head>
       <body>{children}</body>
     </html>
   );

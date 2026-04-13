@@ -435,11 +435,10 @@ async function loadPagesForGeneration() {
   return data ?? [];
 }
 
-async function run() {
-  const pages = await loadPagesForGeneration();
-  const { data: products } = await supabase.from('products').select('*');
+// Semaphore for parallel generation — limits concurrent LLM calls
+const CONCURRENCY = Math.max(1, Number(process.env.CONCURRENCY ?? 3));
 
-  for (const page of pages) {
+async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneration>>[number], products: unknown[]) {
     const promptTemplate = readFileSync(promptPathForTemplate(page.template), 'utf8');
     const { data: gapRows } = await supabase
       .from('content_gaps')
@@ -595,10 +594,36 @@ async function run() {
       console.error(`Failed to generate page '${page.slug}' (${page.template}) after ${attempts} attempts:`);
       attemptErrors.forEach((err) => console.error(`  - ${err}`));
     }
-  }
+}
+
+async function run() {
+  const pages = await loadPagesForGeneration();
+  const { data: products } = await supabase.from('products').select('*');
+
+  console.log(`[content-generator] Starting generation: ${pages.length} page(s), concurrency=${CONCURRENCY}`);
+
+  // Process pages in parallel with a semaphore to limit concurrent LLM calls
+  let active = 0;
+  let next = 0;
+
+  await new Promise<void>((resolve) => {
+    function dispatch() {
+      while (active < CONCURRENCY && next < pages.length) {
+        const page = pages[next++];
+        active++;
+        processPage(page, products ?? []).finally(() => {
+          active--;
+          if (active === 0 && next >= pages.length) resolve();
+          else dispatch();
+        });
+      }
+      if (active === 0 && next >= pages.length) resolve();
+    }
+    dispatch();
+  });
 
   console.log(
-    `Generation pass complete. pages=${pages.length} targetPageId=${targetPageId ?? ''} targetPageSlug=${targetPageSlug ?? ''} provider=${mode} openaiModel=${openaiModel} ollamaPrimary=${ollamaPrimary}`,
+    `Generation pass complete. pages=${pages.length} targetPageId=${targetPageId ?? ''} targetPageSlug=${targetPageSlug ?? ''} provider=${mode} openaiModel=${openaiModel} ollamaPrimary=${ollamaPrimary} concurrency=${CONCURRENCY}`,
   );
 }
 

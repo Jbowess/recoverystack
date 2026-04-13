@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import type { InternalLink, PageRecord } from '@/lib/types';
-import { articleSchema, breadcrumbSchema, faqSchema, productSchema, newsArticleSchema, howToSchema } from '@/lib/schema-org';
+import { articleSchema, breadcrumbSchema, faqSchema, productSchema, newsArticleSchema, howToSchema, aggregateRatingSchema } from '@/lib/schema-org';
 
 const SITE = process.env.SITE_URL ?? 'https://recoverystack.io';
 const SITE_NAME = 'RecoveryStack.io';
@@ -70,7 +70,17 @@ export function buildSchemaBundle(page: PageRecord, path: string) {
   const faqs = page.body_json?.faqs ?? [];
   if (faqs.length > 0) out.push(faqSchema(faqs));
   if (['guides', 'alternatives', 'costs', 'compatibility'].includes(page.template)) {
-    out.push(productSchema('RecoveryStack Smart Ring', page.meta_description, `${SITE}/ring`));
+    const price = typeof page.metadata?.price === 'number' ? page.metadata.price : null;
+    out.push(productSchema('RecoveryStack Smart Ring', page.meta_description, `${SITE}/ring`, price));
+  }
+
+  // AggregateRating for alternatives — shown in SERP star snippets
+  if (page.template === 'alternatives') {
+    const rv = page.metadata?.rating_value;
+    const rc = page.metadata?.rating_count;
+    if (typeof rv === 'number' && typeof rc === 'number' && rv > 0 && rc > 0) {
+      out.push(aggregateRatingSchema(page.title, rv, rc, url));
+    }
   }
 
   return out;
