@@ -32,7 +32,7 @@ const BodySchema = z.object({
     z.object({
       id: z.string(),
       heading: z.string(),
-      kind: z.enum(['paragraphs', 'faq', 'steps', 'list', 'table']),
+      kind: z.enum(['paragraphs', 'faq', 'steps', 'list', 'table', 'definition_box']),
       content: z.unknown(),
     }),
   ),
@@ -440,12 +440,28 @@ const CONCURRENCY = Math.max(1, Number(process.env.CONCURRENCY ?? 3));
 
 async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneration>>[number], products: unknown[]) {
     const promptTemplate = readFileSync(promptPathForTemplate(page.template), 'utf8');
-    const { data: gapRows } = await supabase
-      .from('content_gaps')
-      .select('*')
-      .eq('page_slug', page.slug)
-      .order('created_at', { ascending: false })
-      .limit(1);
+    const [gapResult, briefResult] = await Promise.all([
+      supabase
+        .from('content_gaps')
+        .select('*')
+        .eq('page_slug', page.slug)
+        .order('created_at', { ascending: false })
+        .limit(1),
+      supabase
+        .from('briefs')
+        .select('*')
+        .eq('page_slug', page.slug)
+        .single<{
+          target_word_count: number | null;
+          required_subtopics: string[];
+          required_paa_answers: string[];
+          competitor_weaknesses: string[];
+          search_volume: number | null;
+          keyword_difficulty: number | null;
+        }>(),
+    ]);
+    const gapRows = gapResult.data;
+    const brief = briefResult.data;
 
     const rule = TEMPLATE_RULES[page.template] ?? {};
 
@@ -497,6 +513,23 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
             ]
           : []),
         `Product specs JSON: ${JSON.stringify(products ?? [])}`,
+        // Inject brief data when available
+        ...(brief
+          ? [
+              '',
+              '## Content Brief (FOLLOW THESE REQUIREMENTS)',
+              `Target word count: ${brief.target_word_count ?? 1200} words (beat competitors by 20%)`,
+              brief.required_subtopics.length > 0
+                ? `Required subtopics to cover: ${brief.required_subtopics.join(', ')}`
+                : '',
+              brief.required_paa_answers.length > 0
+                ? `Required PAA answers (must address ALL of these): ${brief.required_paa_answers.join(' | ')}`
+                : '',
+              brief.competitor_weaknesses.length > 0
+                ? `Competitor weaknesses to exploit (cover what they miss): ${brief.competitor_weaknesses.join(' | ')}`
+                : '',
+            ].filter(Boolean)
+          : []),
       ].join('\n\n');
 
       const text = await generateWithBestAvailable(prompt);
@@ -563,6 +596,20 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
 
         if (pageUpdateError) {
           throw pageUpdateError;
+        }
+
+        // Generate hero image and patch metadata (async, non-blocking for fingerprint)
+        try {
+          const { generatePageHeroImage } = await import('@/lib/image-generator');
+          const heroUrl = await generatePageHeroImage(page.title, page.template, page.primary_keyword ?? page.title);
+          if (heroUrl) {
+            await supabase
+              .from('pages')
+              .update({ metadata: { ...(page.metadata ?? {}), hero_image: heroUrl } })
+              .eq('id', page.id);
+          }
+        } catch (imgErr) {
+          console.warn(`[content-generator] Hero image generation failed for ${page.slug}:`, imgErr instanceof Error ? imgErr.message : String(imgErr));
         }
 
         const { error: fingerprintError } = await supabase.from('generated_page_fingerprints').insert({

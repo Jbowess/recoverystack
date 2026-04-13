@@ -12,3 +12,9 @@
 - Include a "How we evaluated" section with explicit scoring criteria (e.g. accuracy ±X%, battery life in days, export formats).
 - Reference real-world testing conditions (e.g. "Worn during 5×/week marathon training over 6 weeks").
 - Attribute claims to named experts or published standards (ACSM, WHO sleep guidelines, peer-reviewed HRV studies).
+- Include one `definition_box` section as the SECOND section of the article. This section must:
+  - Define the primary keyword in exactly 2–3 clear, jargon-free sentences
+  - Be 40–70 words total
+  - Use `"kind": "definition_box"` in the JSON output
+  - Use content as a plain string (not an array)
+  - Be structured for Google position 0 featured snippet extraction

@@ -29,6 +29,12 @@ const phases: Phase[] = [
     ],
   },
   {
+    label: 'Brief Generation',
+    steps: [
+      { id: 'brief-generator', name: 'Brief generator', script: 'scripts/brief-generator.ts' },
+    ],
+  },
+  {
     label: 'Generation',
     steps: [
       { id: 'content-generator', name: 'Content generator', script: 'scripts/content-generator.ts' },
@@ -51,6 +57,7 @@ const phases: Phase[] = [
     label: 'Rollup',
     steps: [
       { id: 'cluster-metrics-rollup', name: 'Cluster metrics rollup', script: 'scripts/cluster-metrics-rollup.ts' },
+      { id: 'topical-map', name: 'Topical authority map', script: 'scripts/topical-map.ts' },
     ],
   },
 ];

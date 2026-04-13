@@ -133,6 +133,35 @@ export const productSchema = (
   return base;
 };
 
+export const personSchema = (author: {
+  slug: string;
+  name: string;
+  title: string;
+  bio?: string | null;
+  credentials?: string[] | null;
+  linkedin_url?: string | null;
+  twitter_url?: string | null;
+  avatar_url?: string | null;
+}) => ({
+  '@context': 'https://schema.org',
+  '@type': 'Person',
+  name: author.name,
+  jobTitle: author.title,
+  url: `${SITE_URL}/authors/${author.slug}`,
+  description: author.bio ?? undefined,
+  image: author.avatar_url ?? undefined,
+  ...(author.credentials?.length
+    ? {
+        hasCredential: author.credentials.map((c) => ({
+          '@type': 'EducationalOccupationalCredential',
+          credentialCategory: c,
+        })),
+      }
+    : {}),
+  sameAs: [author.linkedin_url, author.twitter_url].filter(Boolean),
+  worksFor: ORGANIZATION,
+});
+
 export const aggregateRatingSchema = (
   name: string,
   ratingValue: number,

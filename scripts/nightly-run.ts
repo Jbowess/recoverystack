@@ -19,6 +19,9 @@ const steps: Step[] = [
   { id: 'content-refresh', command: 'npm', args: ['run', 'content:refresh'] },
   { id: 'content-refresh-processor', command: 'npm', args: ['run', 'content:refresh:process'] },
   { id: 'cwv-monitor', command: 'npm', args: ['run', 'cwv:monitor'] },
+  { id: 'ctr-optimizer', command: 'npm', args: ['run', 'ctr:optimize'] },
+  { id: 'backlink-sync', command: 'npm', args: ['run', 'backlink:sync'] },
+  { id: 'price-scraper', command: 'npm', args: ['run', 'price:scrape'] },
 ];
 
 function logEvent(level: 'info' | 'error', event: string, data: Record<string, unknown> = {}) {

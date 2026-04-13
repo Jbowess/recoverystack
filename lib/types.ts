@@ -13,7 +13,7 @@ export type InternalLink = { slug: string; anchor: string; template?: TemplateTy
 export type PageBodySection = {
   id: string;
   heading: string;
-  kind: 'paragraphs' | 'faq' | 'steps' | 'list' | 'table';
+  kind: 'paragraphs' | 'faq' | 'steps' | 'list' | 'table' | 'definition_box';
   content: unknown;
 };
 

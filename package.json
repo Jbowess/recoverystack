@@ -26,7 +26,12 @@
     "content:refresh:process": "tsx scripts/content-refresh-processor.ts",
     "cwv:monitor": "tsx scripts/cwv-monitor.ts",
     "cannibalization:check": "tsx scripts/cannibalization-check.ts",
-    "indexing:submit": "tsx scripts/deploy.ts"
+    "indexing:submit": "tsx scripts/deploy.ts",
+    "brief:generate": "tsx scripts/brief-generator.ts",
+    "topical:map": "tsx scripts/topical-map.ts",
+    "ctr:optimize": "tsx scripts/ctr-optimizer.ts",
+    "backlink:sync": "tsx scripts/backlink-sync.ts",
+    "price:scrape": "tsx scripts/price-scraper.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",

@@ -1,4 +1,5 @@
 import CompatibilityCheckerWidget from '@/components/CompatibilityCheckerWidget';
+import ComparisonTable from '@/components/ComparisonTable';
 import ConversionBox from '@/components/ConversionBox';
 import ExitIntentModal from '@/components/ExitIntentModal';
 import NewsletterForm from '@/components/NewsletterForm';
@@ -6,7 +7,7 @@ import PillarLink from '@/components/PillarLink';
 import ReadingProgressBar from '@/components/ReadingProgressBar';
 import ShareBar from '@/components/ShareBar';
 import TableOfContents from '@/components/TableOfContents';
-import type { InternalLink, PageBodySection, PageRecord } from '@/lib/types';
+import type { InfoGainFeeds, InternalLink, PageBodySection, PageRecord } from '@/lib/types';
 
 type Props = {
   page: PageRecord;
@@ -76,8 +77,79 @@ function toSentenceArray(content: unknown): string[] {
   return [];
 }
 
-function renderSectionContent(section: PageBodySection) {
+function renderSectionContent(section: PageBodySection, page?: PageRecord) {
   const content = section.content as Record<string, unknown> | unknown;
+
+  // Definition box — styled for featured snippet extraction (position 0)
+  if (section.kind === 'definition_box') {
+    const text = typeof content === 'string' ? content : toSentenceArray(content).join(' ');
+    return (
+      <div
+        style={{
+          borderLeft: '4px solid var(--rs-accent, #00c2a8)',
+          paddingLeft: '1rem',
+          paddingTop: '0.75rem',
+          paddingBottom: '0.75rem',
+          background: 'var(--rs-surface-2, #1e293b)',
+          borderRadius: '0 0.5rem 0.5rem 0',
+          marginBottom: '1.5rem',
+        }}
+        role="note"
+        aria-label={`Definition: ${section.heading}`}
+      >
+        <strong style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--rs-accent, #00c2a8)' }}>
+          Definition
+        </strong>
+        <p style={{ margin: 0 }}>{text}</p>
+      </div>
+    );
+  }
+
+  // Scientific alpha feed — render PubMed citations as real HTML links
+  if (section.id === 'scientific-alpha-feed') {
+    const feeds = page?.body_json?.info_gain_feeds as InfoGainFeeds | undefined;
+    const items = feeds?.scientific_alpha?.items ?? [];
+    if (items.length > 0) {
+      return (
+        <ul style={{ listStyle: 'none', padding: 0 }}>
+          {items.map((item, idx) => (
+            <li key={`pub-${idx}`} style={{ marginBottom: '0.75rem', paddingBottom: '0.75rem', borderBottom: '1px solid var(--rs-surface-2, #1e293b)' }}>
+              <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 500 }}>
+                {item.title}
+              </a>
+              {(item.journal || item.pubdate) && (
+                <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--rs-muted, #94a3b8)', marginTop: '0.2rem' }}>
+                  {[item.journal, item.pubdate].filter(Boolean).join(' · ')}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      );
+    }
+  }
+
+  // Social sentiment feed — render Reddit complaints as cards with links
+  if (section.id === 'social-sentiment-feed') {
+    const feeds = page?.body_json?.info_gain_feeds as InfoGainFeeds | undefined;
+    const complaints = feeds?.social_sentiment?.complaints ?? [];
+    if (complaints.length > 0) {
+      return (
+        <div>
+          {complaints.map((item, idx) => (
+            <div key={`reddit-${idx}`} style={{ marginBottom: '0.75rem', padding: '0.75rem', background: 'var(--rs-surface-2, #1e293b)', borderRadius: '0.5rem' }}>
+              <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 500 }}>
+                {item.title}
+              </a>
+              <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--rs-muted, #94a3b8)', marginTop: '0.2rem' }}>
+                r/{item.subreddit} · {item.score ?? 0} points · {item.comments ?? 0} comments
+              </span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+  }
 
   if (section.kind === 'faq') {
     const faqs = Array.isArray((content as Record<string, unknown>)?.items)
@@ -114,28 +186,7 @@ function renderSectionContent(section: PageBodySection) {
   if (section.kind === 'table') {
     const table = content as { headers?: string[]; rows?: string[][] };
     if (Array.isArray(table?.headers) && Array.isArray(table?.rows)) {
-      return (
-        <div style={{ overflowX: 'auto' }}>
-          <table>
-            <thead>
-              <tr>
-                {table.headers.map((header) => (
-                  <th key={header}>{header}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {table.rows.map((row, idx) => (
-                <tr key={`${section.id}-row-${idx}`}>
-                  {row.map((cell, cIdx) => (
-                    <td key={`${section.id}-cell-${idx}-${cIdx}`}>{cell}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      );
+      return <ComparisonTable headers={table.headers} rows={table.rows} />;
     }
   }
 
@@ -147,7 +198,7 @@ function renderSections(page: PageRecord) {
   return sections.map((section) => (
     <section key={section.id} aria-labelledby={`section-${section.id}`}>
       <h2 id={`section-${section.id}`}>{section.heading}</h2>
-      {renderSectionContent(section)}
+      {renderSectionContent(section, page)}
     </section>
   ));
 }
@@ -189,6 +240,16 @@ export default function TemplatePage({ page, pillarLink, siblingLinks, schemaJso
       <section className="rs-hero">
         <div className="rs-container">
           <a className="rs-breadcrumb" href={backTo}>← All {page.template}</a>
+          {page.metadata?.hero_image ? (
+            <img
+              src={page.metadata.hero_image as string}
+              alt={page.h1}
+              width={1200}
+              height={630}
+              loading="lazy"
+              style={{ width: '100%', height: 'auto', borderRadius: '0.75rem', marginBottom: '1.5rem', objectFit: 'cover' }}
+            />
+          ) : null}
           <div className="rs-hero-grid">
             <div className="rs-hero-copy">
               <span className="rs-tag">{page.template}</span>
@@ -221,6 +282,16 @@ export default function TemplatePage({ page, pillarLink, siblingLinks, schemaJso
           <div className="rs-article-column">
             <article className="rs-article rs-prose" aria-label="Article content">
               {renderSections(page)}
+
+            {page.body_json?.comparison_table?.headers && page.body_json.comparison_table.rows ? (
+              <section aria-labelledby="comparison-table-heading">
+                <h2 id="comparison-table-heading">Side-by-Side Comparison</h2>
+                <ComparisonTable
+                  headers={page.body_json.comparison_table.headers}
+                  rows={page.body_json.comparison_table.rows}
+                />
+              </section>
+            ) : null}
 
             {verdict.length > 0 ? (
               <section aria-labelledby="verdict-heading">
