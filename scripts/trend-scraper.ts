@@ -1,5 +1,6 @@
 import { config } from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
+import { normalizeKeyword } from '@/lib/seo-keywords';
 
 config({ path: '.env.local' });
 
@@ -95,9 +96,14 @@ const GOOGLE_TRENDS_RSS = `https://trends.google.com/trending/rss?geo=${encodeUR
 type TrendSeed = {
   term: string;
   source: 'reddit' | 'gtrends';
+  normalizedTerm: string;
   score: number;
   competition: 'low' | 'med' | 'high';
   status: 'new';
+  observedAt: string;
+  approxTraffic?: string | null;
+  sourceItemId?: string | null;
+  payload: Record<string, unknown>;
 };
 
 function scoreToCompetition(score: number): 'low' | 'med' | 'high' {
@@ -235,9 +241,18 @@ async function ingestReddit(): Promise<TrendSeed[]> {
         rows.push({
           term,
           source: 'reddit',
+          normalizedTerm: normalizeKeyword(term),
           score,
           competition: scoreToCompetition(score),
           status: 'new',
+          observedAt: new Date().toISOString(),
+          sourceItemId: extractTag(item, 'guid'),
+          payload: {
+            subreddit: feed.subreddit,
+            title,
+            guid: extractTag(item, 'guid'),
+            published_at: extractTag(item, 'pubDate'),
+          },
         });
       }
 
@@ -290,9 +305,18 @@ async function ingestGoogleTrends(): Promise<TrendSeed[]> {
       rows.push({
         term,
         source: 'gtrends',
+        normalizedTerm: normalizeKeyword(term),
         score,
         competition: scoreToCompetition(score),
         status: 'new',
+        observedAt: new Date().toISOString(),
+        approxTraffic,
+        sourceItemId: title,
+        payload: {
+          approx_traffic: approxTraffic,
+          title,
+          geo: process.env.GOOGLE_TRENDS_GEO ?? 'US',
+        },
       });
     }
 
@@ -307,16 +331,51 @@ async function ingestGoogleTrends(): Promise<TrendSeed[]> {
 async function upsertTrends(rows: TrendSeed[]): Promise<number> {
   if (!rows.length) return 0;
 
-  // Deduplicate by term+source before write to reduce DB churn.
+  // Deduplicate by normalized term and keep the strongest recent observation.
   const deduped = new Map<string, TrendSeed>();
   for (const row of rows) {
-    deduped.set(`${row.source}:${row.term}`, row);
+    const existing = deduped.get(row.normalizedTerm);
+    if (!existing || row.score > existing.score) {
+      deduped.set(row.normalizedTerm, row);
+    }
   }
 
-  const payload = Array.from(deduped.values());
+  const normalizedTerms = Array.from(deduped.keys());
+  const { data: existingRows, error: existingError } = await supabase
+    .from('trends')
+    .select('id,normalized_term,status,source_count,sighting_count,first_seen_at,last_seen_at')
+    .in('normalized_term', normalizedTerms);
+
+  if (existingError) {
+    throw new Error(`Supabase trend lookup failed: ${existingError.message}`);
+  }
+
+  const existingByNormalized = new Map(
+    (existingRows ?? []).map((row: any) => [String(row.normalized_term), row]),
+  );
+
+  const payload = Array.from(deduped.values()).map((row) => {
+    const existing = existingByNormalized.get(row.normalizedTerm);
+    return {
+      term: row.term,
+      normalized_term: row.normalizedTerm,
+      source: row.source,
+      score: row.score / 100,
+      trend_score: row.score,
+      priority: row.score,
+      competition: row.competition,
+      status: existing?.status ?? 'new',
+      metadata: row.payload,
+      search_volume: row.approxTraffic ? parseApproxTraffic(row.approxTraffic) : null,
+      source_count: existing ? Number(existing.source_count ?? 1) : 1,
+      sighting_count: existing ? Number(existing.sighting_count ?? 1) + 1 : 1,
+      first_seen_at: existing?.first_seen_at ?? row.observedAt,
+      last_seen_at: row.observedAt,
+    };
+  });
 
   const { error } = await supabase.from('trends').upsert(payload, {
-    onConflict: 'term',
+    onConflict: 'normalized_term',
     ignoreDuplicates: false,
   });
 
@@ -324,7 +383,50 @@ async function upsertTrends(rows: TrendSeed[]): Promise<number> {
     throw new Error(`Supabase upsert failed: ${error.message}`);
   }
 
+  const { data: trendRows, error: trendFetchError } = await supabase
+    .from('trends')
+    .select('id,normalized_term')
+    .in('normalized_term', normalizedTerms);
+
+  if (trendFetchError) {
+    throw new Error(`Supabase trend fetch failed: ${trendFetchError.message}`);
+  }
+
+  const trendIdByNormalized = new Map(
+    (trendRows ?? []).map((row: any) => [String(row.normalized_term), String(row.id)]),
+  );
+
+  const observationPayload = rows.map((row) => ({
+    trend_id: trendIdByNormalized.get(row.normalizedTerm) ?? null,
+    normalized_term: row.normalizedTerm,
+    raw_term: row.term,
+    source: row.source,
+    source_item_id: row.sourceItemId ?? null,
+    observed_at: row.observedAt,
+    score: row.score,
+    approx_traffic: row.approxTraffic ?? null,
+    geo: row.source === 'gtrends' ? process.env.GOOGLE_TRENDS_GEO ?? 'US' : null,
+    payload: row.payload,
+  }));
+
+  const { error: observationError } = await supabase.from('trend_observations').insert(observationPayload);
+  if (observationError) {
+    throw new Error(`Supabase trend observation insert failed: ${observationError.message}`);
+  }
+
   return payload.length;
+}
+
+function parseApproxTraffic(approxTraffic: string): number | null {
+  const normalized = approxTraffic.replace(/,/g, '').toUpperCase();
+  const match = normalized.match(/(\d+(?:\.\d+)?)\s*([KM])?/);
+  if (!match) return null;
+
+  const raw = Number(match[1]);
+  if (!Number.isFinite(raw)) return null;
+
+  const multiplier = match[2] === 'M' ? 1_000_000 : match[2] === 'K' ? 1_000 : 1;
+  return Math.round(raw * multiplier);
 }
 
 async function run() {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { logAdminAction } from '@/lib/admin-audit';
+import { buildClusterName, normalizeKeyword } from '@/lib/seo-keywords';
 
 type ComponentSeed = {
   cluster: 'intro_hook' | 'verdict_style' | 'newsletter_offer' | 'layout_pattern';
@@ -86,9 +87,10 @@ async function reseedComponentLibrary() {
 async function enqueueTopTrends(limit: number) {
   const { data: trends, error: trendError } = await supabaseAdmin
     .from('trends')
-    .select('term,source,status,created_at,trend_score,score,priority,search_volume')
+    .select('id,term,normalized_term,source,status,created_at,last_seen_at,trend_score,score,priority,search_volume')
     .in('status', ['new', 'queued'])
-    .order('created_at', { ascending: false })
+    .order('trend_score', { ascending: false, nullsFirst: false })
+    .order('last_seen_at', { ascending: false, nullsFirst: false })
     .limit(200);
 
   if (trendError) throw trendError;
@@ -102,22 +104,41 @@ async function enqueueTopTrends(limit: number) {
   const keywords = sorted.map((row: any) => row.term.trim());
   if (!keywords.length) return;
 
-  const { data: existingRows, error: existingError } = await supabaseAdmin.from('keyword_queue').select('keyword').in('keyword', keywords);
+  const normalizedKeywords = sorted.map((row: any) => normalizeKeyword(String(row.normalized_term ?? row.term ?? '')));
+  const { data: existingRows, error: existingError } = await supabaseAdmin
+    .from('keyword_queue')
+    .select('normalized_keyword')
+    .in('normalized_keyword', normalizedKeywords);
   if (existingError) throw existingError;
 
-  const existing = new Set((existingRows ?? []).map((row: any) => String(row.keyword ?? '').trim()).filter(Boolean));
+  const existing = new Set(
+    (existingRows ?? [])
+      .map((row: any) => normalizeKeyword(String(row.normalized_keyword ?? '')))
+      .filter(Boolean),
+  );
   const toInsert = sorted
-    .filter((row: any) => !existing.has(String(row.term ?? '').trim()))
+    .filter((row: any) => !existing.has(normalizeKeyword(String(row.normalized_term ?? row.term ?? ''))))
     .map((row: any) => ({
-      keyword: row.term,
-      source: row.source ?? 'trends',
+      cluster_name: buildClusterName(String(row.term ?? 'trend')),
+      primary_keyword: row.term,
+      normalized_keyword: normalizeKeyword(String(row.normalized_term ?? row.term ?? '')),
+      template_id: 'trends',
+      source: 'trend',
       status: 'queued',
-      priority: getTrendScore(row) || null,
+      priority: getTrendScore(row) || 50,
+      score: (getTrendScore(row) || 0) / 100,
+      metadata: {
+        trend_id: row.id,
+        imported_from: 'admin_enqueue_top_trends',
+        search_volume: row.search_volume ?? null,
+      },
     }));
 
   if (!toInsert.length) return;
 
-  const { error: insertError } = await supabaseAdmin.from('keyword_queue').insert(toInsert);
+  const { error: insertError } = await supabaseAdmin
+    .from('keyword_queue')
+    .upsert(toInsert, { onConflict: 'cluster_name,primary_keyword' });
   if (insertError) throw insertError;
 }
 

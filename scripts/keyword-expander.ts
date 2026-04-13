@@ -14,6 +14,8 @@
 
 import { config } from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
+import { buildClusterName, normalizeKeyword, pageTemplateToQueueTemplateId, type QueueSource } from '@/lib/seo-keywords';
+import type { TemplateType } from '@/lib/types';
 
 config({ path: '.env.local' });
 
@@ -23,7 +25,7 @@ const supabase = createClient(
 );
 
 // Template inference rules — keyword patterns → template
-const TEMPLATE_RULES: Array<{ patterns: RegExp[]; template: string }> = [
+const TEMPLATE_RULES: Array<{ patterns: RegExp[]; template: TemplateType }> = [
   {
     patterns: [/\bvs\b/i, /\bcompare\b/i, /\bbest .+ for\b/i, /\balternative/i, /\bvs\./i],
     template: 'alternatives',
@@ -54,7 +56,7 @@ const TEMPLATE_RULES: Array<{ patterns: RegExp[]; template: string }> = [
   },
 ];
 
-function inferTemplate(keyword: string): string {
+function inferTemplate(keyword: string): TemplateType {
   for (const rule of TEMPLATE_RULES) {
     if (rule.patterns.some((p) => p.test(keyword))) return rule.template;
   }
@@ -112,10 +114,12 @@ interface GapRow {
 async function run() {
   // Load all existing keywords to deduplicate against
   const { data: existing } = await supabase
-    .from('keyword_queue')
-    .select('keyword');
+      .from('keyword_queue')
+      .select('normalized_keyword');
 
-  const existingSet = new Set((existing ?? []).map((r: { keyword: string }) => r.keyword.toLowerCase().trim()));
+  const existingSet = new Set(
+    (existing ?? []).map((r: { normalized_keyword: string | null }) => normalizeKeyword(r.normalized_keyword ?? '')),
+  );
   console.log(`[keyword-expander] ${existingSet.size} existing keywords in queue.`);
 
   // Load all content_gaps with SERP snapshot data
@@ -128,9 +132,10 @@ async function run() {
   if (error) throw error;
 
   const toInsert: Array<{
-    keyword: string;
-    template: string;
-    source: string;
+    primary_keyword: string;
+    normalized_keyword: string;
+    template_id: string;
+    source: QueueSource;
     priority: number;
     status: string;
     score: number;
@@ -159,7 +164,7 @@ async function run() {
     ];
 
     for (const { kw, source } of allCandidates) {
-      const normalized = kw.trim().toLowerCase();
+      const normalized = normalizeKeyword(kw);
       if (normalized.length < 10 || normalized.length > 120) continue;
       if (seen.has(normalized)) continue;
       seen.add(normalized);
@@ -168,14 +173,15 @@ async function run() {
       const priority = inferPriority(kw, source);
 
       toInsert.push({
-        keyword: kw.trim(),
-        template,
-        source,
+        primary_keyword: kw.trim(),
+        normalized_keyword: normalized,
+        template_id: pageTemplateToQueueTemplateId(template),
+        source: source as QueueSource,
         priority,
-        status: 'pending',
+        status: 'new',
         score: priority / 100,
         metadata: { expanded_from: gap.keyword, expansion_source: source },
-        cluster_name: gap.page_slug.split('-').slice(0, 3).join('-') || 'general',
+        cluster_name: buildClusterName(gap.page_slug.replace(/^trend:/, '').replace(/-/g, ' ')),
       });
     }
   }
@@ -192,7 +198,7 @@ async function run() {
     const chunk = toInsert.slice(i, i + CHUNK);
     const { error: insertErr } = await supabase
       .from('keyword_queue')
-      .upsert(chunk, { onConflict: 'keyword' });
+      .upsert(chunk, { onConflict: 'cluster_name,primary_keyword' });
 
     if (insertErr) {
       console.warn(`[keyword-expander] Chunk insert error: ${insertErr.message}`);

@@ -13,6 +13,8 @@
 
 import { config } from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
+import { buildClusterName, normalizeKeyword, pageTemplateToQueueTemplateId } from '@/lib/seo-keywords';
+import type { TemplateType } from '@/lib/types';
 
 config({ path: '.env.local' });
 
@@ -21,7 +23,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
-const TEMPLATE_RULES: Array<{ patterns: RegExp[]; template: string }> = [
+const TEMPLATE_RULES: Array<{ patterns: RegExp[]; template: TemplateType }> = [
   { patterns: [/\bvs\b/i, /\bbetter\b/i, /\bcompare\b/i, /\bdifference\b/i], template: 'alternatives' },
   { patterns: [/\bprotocol\b/i, /\bschedule\b/i, /\bstep[s]?\b/i, /\bhow (many|often|long)\b/i], template: 'protocols' },
   { patterns: [/\bhrv\b/i, /\bscore\b/i, /\bmeasure\b/i, /\btrack\b/i, /\baccurate\b/i], template: 'metrics' },
@@ -29,7 +31,7 @@ const TEMPLATE_RULES: Array<{ patterns: RegExp[]; template: string }> = [
   { patterns: [/\bwork with\b/i, /\bcompatib\b/i, /\bintegrat\b/i, /\bpair\b/i, /\bsync\b/i], template: 'compatibility' },
 ];
 
-function inferTemplate(question: string): string {
+function inferTemplate(question: string): TemplateType {
   for (const rule of TEMPLATE_RULES) {
     if (rule.patterns.some((p) => p.test(question))) return rule.template;
   }
@@ -66,15 +68,16 @@ async function run() {
   // Load all existing pages + keyword_queue slugs/keywords to avoid duplication
   const [pagesResult, queueResult] = await Promise.all([
     supabase.from('pages').select('slug, primary_keyword').eq('status', 'published'),
-    supabase.from('keyword_queue').select('keyword'),
+    supabase.from('keyword_queue').select('normalized_keyword'),
   ]);
 
   const existingKeywords = new Set<string>([
     ...((pagesResult.data ?? []) as Array<{ primary_keyword: string | null }>)
-      .map((p) => (p.primary_keyword ?? '').toLowerCase().trim())
+      .map((p) => normalizeKeyword(p.primary_keyword ?? ''))
       .filter(Boolean),
-    ...((queueResult.data ?? []) as Array<{ keyword: string }>)
-      .map((k) => k.keyword.toLowerCase().trim()),
+    ...((queueResult.data ?? []) as Array<{ normalized_keyword: string | null }>)
+      .map((k) => normalizeKeyword(k.normalized_keyword ?? ''))
+      .filter(Boolean),
   ]);
 
   const existingSlugs = new Set(
@@ -94,8 +97,9 @@ async function run() {
   if (error) throw error;
 
   const toInsert: Array<{
-    keyword: string;
-    template: string;
+    primary_keyword: string;
+    normalized_keyword: string;
+    template_id: string;
     source: string;
     priority: number;
     status: string;
@@ -116,7 +120,7 @@ async function run() {
       const question = item.question?.trim();
       if (!question || question.length < 15) continue;
 
-      const normalized = question.toLowerCase();
+      const normalized = normalizeKeyword(question);
       if (seen.has(normalized)) continue;
 
       const slug = questionToSlug(question);
@@ -127,13 +131,14 @@ async function run() {
       const template = inferTemplate(question);
 
       toInsert.push({
-        keyword: question,
-        template,
+        primary_keyword: question,
+        normalized_keyword: normalized,
+        template_id: pageTemplateToQueueTemplateId(template),
         source: 'paa',
         priority: 75, // PAA questions get elevated priority
-        status: 'pending',
+        status: 'new',
         score: 0.75,
-        cluster_name: gap.page_slug.split('-').slice(0, 3).join('-') || 'general',
+        cluster_name: buildClusterName(gap.page_slug.replace(/^trend:/, '').replace(/-/g, ' ')),
         metadata: {
           parent_keyword: gap.keyword,
           parent_slug: gap.page_slug,
@@ -158,7 +163,7 @@ async function run() {
     const chunk = toInsert.slice(i, i + CHUNK);
     const { error: upsertErr } = await supabase
       .from('keyword_queue')
-      .upsert(chunk, { onConflict: 'keyword' });
+      .upsert(chunk, { onConflict: 'cluster_name,primary_keyword' });
 
     if (upsertErr) {
       console.warn(`[paa-factory] Chunk upsert error: ${upsertErr.message}`);

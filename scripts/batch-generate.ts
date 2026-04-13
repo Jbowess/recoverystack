@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { spawnSync } from 'node:child_process';
 import { slugify } from '@/lib/slugify';
 import type { TemplateType } from '@/lib/types';
+import { templateIdToPageTemplate, type QueueSource, type QueueTemplateId } from '@/lib/seo-keywords';
 
 config({ path: '.env.local' });
 
@@ -77,9 +78,9 @@ type QueueRow = {
   cluster_name: string;
   intent: string | null;
   primary_keyword: string;
-  template_id: 'comparison' | 'guide' | 'protocol';
+  template_id: QueueTemplateId;
   priority: number | null;
-  source: 'evergreen' | 'trend';
+  source: QueueSource;
   status: 'new' | 'queued' | 'generated' | 'published' | 'skipped';
   score: number | null;
   metadata: Record<string, unknown> | null;
@@ -89,7 +90,7 @@ type QueueRow = {
 type DraftSeed = {
   queueId: string;
   clusterName: string;
-  source: 'evergreen' | 'trend';
+  source: QueueSource;
   term: string;
   template: TemplateType;
   slug: string;
@@ -98,12 +99,6 @@ type DraftSeed = {
   metaDescription: string;
   primaryKeyword: string;
 };
-
-function mapTemplate(templateId: QueueRow['template_id']): TemplateType {
-  if (templateId === 'protocol') return 'protocols';
-  // comparison + guide both use guide-style generation.
-  return 'guides';
-}
 
 function templateCopy(templateId: QueueRow['template_id'], term: string) {
   if (templateId === 'comparison') {
@@ -114,11 +109,67 @@ function templateCopy(templateId: QueueRow['template_id'], term: string) {
     };
   }
 
+  if (templateId === 'alternatives') {
+    return {
+      title: `${term}: comparison, alternatives, and best fit`,
+      h1: `${term}: alternatives and tradeoffs`,
+      meta: `Compare ${term} alternatives with practical tradeoffs, budget fit, and recovery outcomes.`,
+    };
+  }
+
   if (templateId === 'protocol') {
     return {
       title: `${term} protocol: implementation plan for training cycles`,
       h1: `${term} implementation protocol`,
       meta: `A practical ${term} protocol covering setup, cadence, and adjustment checkpoints.`,
+    };
+  }
+
+  if (templateId === 'protocols') {
+    return {
+      title: `${term} protocol: implementation plan for training cycles`,
+      h1: `${term} implementation protocol`,
+      meta: `A practical ${term} protocol covering setup, cadence, and adjustment checkpoints.`,
+    };
+  }
+
+  if (templateId === 'metrics') {
+    return {
+      title: `${term}: metric guide, benchmarks, and interpretation`,
+      h1: `${term}: metric guide and benchmarks`,
+      meta: `Understand ${term}, how to measure it, and how athletes can use it for better recovery decisions.`,
+    };
+  }
+
+  if (templateId === 'costs') {
+    return {
+      title: `${term}: costs, value, and buying considerations`,
+      h1: `${term}: costs and value`,
+      meta: `Break down ${term} costs, tradeoffs, and whether the spend makes sense for recovery and performance.`,
+    };
+  }
+
+  if (templateId === 'compatibility') {
+    return {
+      title: `${term}: compatibility, integrations, and setup`,
+      h1: `${term}: compatibility and setup`,
+      meta: `Check ${term} compatibility, integration limits, and setup requirements before you commit.`,
+    };
+  }
+
+  if (templateId === 'trends') {
+    return {
+      title: `What is ${term}? Evidence, use-cases, and limits`,
+      h1: `What is ${term}?`,
+      meta: `Evidence-first breakdown of ${term} for athletes, wearables, and recovery planning.`,
+    };
+  }
+
+  if (templateId === 'pillars') {
+    return {
+      title: `${term}: complete recovery hub and decision guide`,
+      h1: `${term}: complete guide`,
+      meta: `A complete hub covering ${term}, key tradeoffs, supporting pages, and next-step decisions.`,
     };
   }
 
@@ -186,8 +237,8 @@ function canonicalKeywordSlug(keyword: string): string {
 
 function buildSeed(row: QueueRow): DraftSeed {
   const termSlug = slugify(row.primary_keyword);
-  const template = mapTemplate(row.template_id);
-  const slugPrefix = row.template_id === 'protocol' ? 'protocols' : row.template_id === 'comparison' ? 'compare' : 'guides';
+  const template = templateIdToPageTemplate(row.template_id);
+  const slugPrefix = template;
   const slug = `${slugPrefix}-${termSlug}`;
   const copy = templateCopy(row.template_id, row.primary_keyword);
 
@@ -219,17 +270,18 @@ function runScript(script: string, args: string[] = []) {
   }
 }
 
-async function loadQueueCandidates(source: 'evergreen' | 'trend', limit: number): Promise<QueueRow[]> {
-  const { data, error } = await withRetries(`load ${source} queue`, () =>
-    supabase
-      .from('keyword_queue')
-      .select('id,cluster_name,intent,primary_keyword,template_id,priority,source,status,score,metadata,last_generated_at')
-      .in('status', ['new', 'queued'])
-      .eq('source', source)
-      .order('priority', { ascending: false, nullsFirst: false })
-      .order('score', { ascending: false, nullsFirst: false })
-      .order('created_at', { ascending: true })
-      .limit(limit),
+async function loadQueueCandidates(bucket: 'evergreen' | 'discovery', limit: number): Promise<QueueRow[]> {
+  const query = supabase
+    .from('keyword_queue')
+    .select('id,cluster_name,intent,primary_keyword,template_id,priority,source,status,score,metadata,last_generated_at')
+    .in('status', ['new', 'queued'])
+    .order('priority', { ascending: false, nullsFirst: false })
+    .order('score', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: true })
+    .limit(limit);
+
+  const { data, error } = await withRetries(`load ${bucket} queue`, () =>
+    bucket === 'evergreen' ? query.eq('source', 'evergreen') : query.neq('source', 'evergreen'),
   );
 
   if (error) throw error;
@@ -290,7 +342,7 @@ async function run() {
 
   const [evergreenRows, trendRows, existingKeywordSlugs] = await Promise.all([
     loadQueueCandidates('evergreen', Math.max(evergreenTarget * 3, evergreenTarget)),
-    loadQueueCandidates('trend', Math.max(trendTarget * 3, trendTarget)),
+    loadQueueCandidates('discovery', Math.max(trendTarget * 3, trendTarget)),
     loadExistingPageKeywordSlugs(),
   ]);
 
@@ -364,7 +416,7 @@ async function run() {
 
   const seeds = selectedRows.map(buildSeed);
   console.log(
-    `[batch-generate] selected queued keywords=${selectedRows.length} (evergreen=${selectedRows.filter((r) => r.source === 'evergreen').length}, trend=${selectedRows.filter((r) => r.source === 'trend').length}); skipped=${skippedRows.length}`,
+    `[batch-generate] selected queued keywords=${selectedRows.length} (evergreen=${selectedRows.filter((r) => r.source === 'evergreen').length}, discovery=${selectedRows.filter((r) => r.source !== 'evergreen').length}); skipped=${skippedRows.length}`,
   );
 
   if (isDryRun) {

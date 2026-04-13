@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import type { Metadata } from 'next';
 import ConversionBox from '@/components/ConversionBox';
 import NewsletterForm from '@/components/NewsletterForm';
@@ -145,7 +144,7 @@ export default async function HomePage() {
               built for athletes who want data over guesswork.
             </p>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Link
+              <a
                 href="/guides"
                 style={{
                   padding: '12px 28px',
@@ -158,8 +157,8 @@ export default async function HomePage() {
                 }}
               >
                 Browse guides
-              </Link>
-              <Link
+              </a>
+              <a
                 href="/protocols"
                 style={{
                   padding: '12px 28px',
@@ -173,7 +172,7 @@ export default async function HomePage() {
                 }}
               >
                 View protocols
-              </Link>
+              </a>
             </div>
           </div>
         </section>
@@ -206,7 +205,7 @@ export default async function HomePage() {
               }}
             >
               {CATEGORIES.map((cat) => (
-                <Link
+                <a
                   key={cat.href}
                   href={cat.href}
                   style={{
@@ -225,7 +224,7 @@ export default async function HomePage() {
                 >
                   <span style={{ fontSize: 20 }}>{cat.emoji}</span>
                   {cat.label}
-                </Link>
+                </a>
               ))}
             </div>
           </section>
@@ -242,7 +241,7 @@ export default async function HomePage() {
                 }}
               >
                 {featured.map((page) => (
-                  <Link
+                  <a
                     key={page.slug}
                     href={`/${page.template}/${page.slug}`}
                     style={{ textDecoration: 'none', color: 'inherit' }}
@@ -294,7 +293,7 @@ export default async function HomePage() {
                         </p>
                       )}
                     </article>
-                  </Link>
+                  </a>
                 ))}
               </div>
             </section>

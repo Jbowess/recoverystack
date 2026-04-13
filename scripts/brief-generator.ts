@@ -71,6 +71,8 @@ interface ContentGapRow {
 }
 
 interface KeywordQueueRow {
+  real_search_volume?: number | null;
+  keyword_difficulty?: number | null;
   metadata?: Record<string, unknown> | null;
 }
 
@@ -121,15 +123,25 @@ async function generateBrief(gap: ContentGapRow): Promise<void> {
   // Fetch search volume + difficulty from keyword_queue metadata
   const { data: kqRow } = await supabase
     .from('keyword_queue')
-    .select('metadata')
-    .eq('keyword', gap.keyword)
+    .select('real_search_volume,keyword_difficulty,metadata')
+    .eq('normalized_keyword', gap.keyword.trim().toLowerCase())
     .order('created_at', { ascending: false })
     .limit(1)
     .single<KeywordQueueRow>();
 
   const meta = kqRow?.metadata ?? {};
-  const searchVolume = typeof meta.real_search_volume === 'number' ? meta.real_search_volume : null;
-  const keywordDifficulty = typeof meta.keyword_difficulty === 'number' ? meta.keyword_difficulty : null;
+  const searchVolume =
+    typeof kqRow?.real_search_volume === 'number'
+      ? kqRow.real_search_volume
+      : typeof meta.real_search_volume === 'number'
+        ? meta.real_search_volume
+        : null;
+  const keywordDifficulty =
+    typeof kqRow?.keyword_difficulty === 'number'
+      ? kqRow.keyword_difficulty
+      : typeof meta.keyword_difficulty === 'number'
+        ? meta.keyword_difficulty
+        : null;
 
   const { error } = await supabase.from('briefs').upsert(
     {

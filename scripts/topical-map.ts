@@ -9,6 +9,7 @@
 
 import { config } from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
+import { buildClusterName, normalizeKeyword, pageTemplateToQueueTemplateId } from '@/lib/seo-keywords';
 
 config({ path: '.env.local' });
 
@@ -127,20 +128,23 @@ async function run() {
     if (completenessPct < COMPLETENESS_THRESHOLD && missingTemplates.length > 0) {
       for (const template of missingTemplates) {
         const keyword = `${cluster.topic ?? cluster.name} ${template}`;
-        const slug = `${template}-${(cluster.topic ?? cluster.name).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 
         const { error: kqErr } = await supabase
           .from('keyword_queue')
           .upsert(
             {
-              keyword,
-              template,
-              source: 'evergreen',
-              score: 50,
-              status: 'pending',
+              cluster_name: buildClusterName(cluster.name),
+              cluster_id: cluster.id,
+              primary_keyword: keyword,
+              normalized_keyword: normalizeKeyword(keyword),
+              template_id: pageTemplateToQueueTemplateId(template),
+              source: 'topical_gap',
+              priority: 50,
+              score: 0.5,
+              status: 'new',
               metadata: { cluster_id: cluster.id, cluster_name: cluster.name, auto_enqueued_by: 'topical-map' },
             },
-            { onConflict: 'keyword' },
+            { onConflict: 'cluster_name,primary_keyword' },
           );
 
         if (!kqErr) enqueued++;

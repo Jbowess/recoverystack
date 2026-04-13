@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
 async function getPopularPages() {
@@ -41,7 +40,7 @@ export default async function NotFound() {
           The page you're looking for has moved, been updated, or never existed.
           Try one of our recent guides below, or head back to the homepage.
         </p>
-        <Link
+        <a
           href="/"
           style={{
             display: 'inline-block',
@@ -55,7 +54,7 @@ export default async function NotFound() {
           }}
         >
           Back to homepage
-        </Link>
+        </a>
       </div>
 
       {/* Popular articles */}
@@ -72,7 +71,7 @@ export default async function NotFound() {
             }}
           >
             {popular.map((page) => (
-              <Link
+              <a
                 key={page.slug}
                 href={`/${page.template}/${page.slug}`}
                 style={{ textDecoration: 'none', color: 'inherit' }}
@@ -109,7 +108,7 @@ export default async function NotFound() {
                     </p>
                   )}
                 </div>
-              </Link>
+              </a>
             ))}
           </div>
         </section>
@@ -132,7 +131,7 @@ export default async function NotFound() {
         <p style={{ color: '#6b7280', margin: '0 0 16px', fontSize: 14 }}>
           Evidence-based recovery protocols, wearable comparisons, and performance insights — every week.
         </p>
-        <Link
+        <a
           href="/#newsletter"
           style={{
             display: 'inline-block',
@@ -146,7 +145,7 @@ export default async function NotFound() {
           }}
         >
           Subscribe free
-        </Link>
+        </a>
       </div>
     </main>
   );

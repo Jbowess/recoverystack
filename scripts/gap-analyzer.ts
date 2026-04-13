@@ -12,6 +12,7 @@ if (!supabaseUrl || !supabaseServiceRoleKey) {
 }
 
 const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+const GAP_ANALYZER_LIMIT = Number(process.env.GAP_ANALYZER_LIMIT ?? 150);
 
 const STOP_WORDS = new Set([
   'a',
@@ -190,8 +191,8 @@ async function loadPendingKeywords(): Promise<KeywordTarget[]> {
       .select('slug,primary_keyword,status')
       .eq('status', 'draft')
       .not('primary_keyword', 'is', null)
-      .limit(50),
-    supabase.from('trends').select('term,status').eq('status', 'new').limit(50),
+      .limit(GAP_ANALYZER_LIMIT),
+    supabase.from('trends').select('term,status').eq('status', 'new').limit(GAP_ANALYZER_LIMIT),
   ]);
 
   if (pagesRes.error) throw pagesRes.error;
@@ -250,14 +251,38 @@ async function run() {
         related_searches: serp.relatedSearches,
       };
 
-      const { error } = await supabase.from('content_gaps').insert({
-        page_slug: target.pageSlug,
-        keyword: target.keyword,
-        missing_entities: missingEntities,
-        serp_snapshot: serpSnapshot,
-      });
+      const { data: existingGap, error: existingGapError } = await supabase
+        .from('content_gaps')
+        .select('id')
+        .eq('page_slug', target.pageSlug)
+        .eq('keyword', target.keyword)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (existingGapError) throw existingGapError;
+
+      if (existingGap?.id) {
+        const { error } = await supabase
+          .from('content_gaps')
+          .update({
+            missing_entities: missingEntities,
+            serp_snapshot: serpSnapshot,
+            created_at: new Date().toISOString(),
+          })
+          .eq('id', existingGap.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('content_gaps').insert({
+          page_slug: target.pageSlug,
+          keyword: target.keyword,
+          missing_entities: missingEntities,
+          serp_snapshot: serpSnapshot,
+        });
+
+        if (error) throw error;
+      }
       inserted += 1;
     } catch (error) {
       console.error(`Gap analysis failed for "${target.keyword}":`, error);
