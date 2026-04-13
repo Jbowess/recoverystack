@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { runPublishGuards } from '@/lib/publish-guards';
+import { logAdminAction } from '@/lib/admin-audit';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const form = await req.formData();
@@ -34,5 +35,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .update({ status: 'published', published_at: new Date().toISOString() })
     .eq('id', id);
 
+  await logAdminAction({ action: 'publish_draft', target_type: 'page', target_id: id, metadata: { template: page.template } });
   return NextResponse.redirect(new URL('/admin?ok=draft_published', req.url), { status: 302 });
 }

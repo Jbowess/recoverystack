@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { revalidatePath } from 'next/cache';
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { logAdminAction } from '@/lib/admin-audit';
 
 function runSinglePageGeneration(pageId: string) {
   return new Promise<void>((resolve, reject) => {
@@ -55,8 +56,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       .eq('page_id', page.id)
       .in('status', ['approved', 'queued']);
 
+    await logAdminAction({ action: 'regenerate_page', target_type: 'page', target_id: id, metadata: { slug: page.slug, template: page.template } });
     return NextResponse.redirect(new URL('/admin?ok=page_regenerated', req.url), { status: 302 });
-  } catch {
+  } catch (err) {
+    await logAdminAction({ action: 'regenerate_page', target_type: 'page', target_id: id, metadata: { slug: page.slug, error: err instanceof Error ? err.message : String(err) } });
     return NextResponse.redirect(new URL('/admin?error=page_regenerate_failed', req.url), { status: 302 });
   }
 }

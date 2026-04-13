@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { logAdminAction } from '@/lib/admin-audit';
 
 type ComponentSeed = {
   cluster: 'intro_hook' | 'verdict_style' | 'newsletter_offer' | 'layout_pattern';
@@ -127,6 +128,7 @@ export async function POST(req: NextRequest) {
   try {
     if (action === 'reseed_component_library') {
       await reseedComponentLibrary();
+      await logAdminAction({ action: 'reseed_component_library', metadata: { seed_count: COMPONENT_LIBRARY_SEED.length } });
       return NextResponse.redirect(new URL('/admin?ok=component_library_reseeded', req.url), { status: 302 });
     }
 
@@ -134,6 +136,7 @@ export async function POST(req: NextRequest) {
       const requestedLimit = Number(form.get('limit') ?? 25);
       const limit = Number.isFinite(requestedLimit) ? requestedLimit : 25;
       await enqueueTopTrends(limit);
+      await logAdminAction({ action: 'enqueue_trends', metadata: { limit } });
       return NextResponse.redirect(new URL('/admin?ok=keyword_queue_seeded', req.url), { status: 302 });
     }
 

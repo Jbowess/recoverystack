@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { NextRequest, NextResponse } from 'next/server';
+import { logAdminAction } from '@/lib/admin-audit';
 
 export async function POST(req: NextRequest) {
   const form = await req.formData();
@@ -18,6 +19,7 @@ export async function POST(req: NextRequest) {
     });
 
     child.unref();
+    await logAdminAction({ action: 'run_pipeline', metadata: { trigger: 'admin_ui' } });
     return NextResponse.redirect(new URL('/admin?ok=pipeline_started', req.url), { status: 302 });
   } catch {
     return NextResponse.redirect(new URL('/admin?error=pipeline_start_failed', req.url), { status: 302 });

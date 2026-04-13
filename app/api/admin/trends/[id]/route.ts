@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { slugify } from '@/lib/slugify';
+import { logAdminAction } from '@/lib/admin-audit';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const form = await req.formData();
@@ -12,6 +13,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   if (action === 'reject') {
     await supabaseAdmin.from('trends').update({ status: 'rejected' }).eq('id', id);
+    await logAdminAction({ action: 'reject_trend', target_type: 'trend', target_id: id, metadata: { term: trend.term } });
     return NextResponse.redirect(new URL('/admin', req.url), { status: 302 });
   }
 
@@ -35,6 +37,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       { onConflict: 'slug' },
     );
 
+    await logAdminAction({ action: 'approve_trend', target_type: 'trend', target_id: id, metadata: { term: trend.term, draft_slug: slug } });
     return NextResponse.redirect(new URL('/admin?ok=trend_approved', req.url), { status: 302 });
   }
 

@@ -39,6 +39,13 @@ const maxRetries = getNumericArg('retries', 3);
 const rateLimitMs = getNumericArg('rate-limit-ms', 400);
 const evergreenRatio = Math.max(0, Math.min(1, Number(process.env.BATCH_EVERGREEN_RATIO ?? 0.7)));
 
+// Cooldown: skip keywords generated within the last N days (default 30)
+const cooldownDays = Number(process.env.BATCH_COOLDOWN_DAYS ?? 30);
+const cooldownMs = cooldownDays * 24 * 60 * 60 * 1000;
+
+// Cluster quota: max pages per cluster per batch run (default 2)
+const clusterQuota = Number(process.env.BATCH_CLUSTER_QUOTA ?? 2);
+
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -76,6 +83,7 @@ type QueueRow = {
   status: 'new' | 'queued' | 'generated' | 'published' | 'skipped';
   score: number | null;
   metadata: Record<string, unknown> | null;
+  last_generated_at: string | null;
 };
 
 type DraftSeed = {
@@ -120,6 +128,52 @@ function templateCopy(templateId: QueueRow['template_id'], term: string) {
     meta: `Step-by-step guide to apply ${term}, avoid common mistakes, and improve outcomes.`,
   };
 }
+
+// ── Pre-generation queue validator ──────────────────────────────────────────
+// Domain allowlist tokens — any substring match qualifies the keyword as on-topic
+const DOMAIN_ALLOWLIST_TOKENS = [
+  'recovery', 'recover', 'sleep', 'hrv', 'rem', 'circadian', 'insomnia', 'melatonin',
+  'workout', 'training', 'exercise', 'fitness', 'strength', 'cardio', 'endurance',
+  'hiit', 'crossfit', 'zone 2', 'vo2', 'lactate', 'overtraining', 'deload',
+  'heart rate', 'resting hr', 'spo2', 'oxygen', 'cortisol', 'inflammation',
+  'glucose', 'muscle', 'tendon', 'ligament', 'fascia', 'protein', 'creatine',
+  'magnesium', 'zinc', 'vitamin d', 'omega', 'collagen', 'electrolyte', 'hydration',
+  'nutrition', 'diet', 'supplement', 'caffeine', 'nootropic',
+  'ring', 'wearable', 'smart ring', 'whoop', 'oura', 'garmin', 'biosensor',
+  'cgm', 'biometric', 'health tracker', 'fitness tracker',
+  'biohack', 'longevity', 'cold plunge', 'ice bath', 'sauna', 'breathwork',
+  'meditation', 'mindfulness', 'stress', 'adaptogen', 'ashwagandha',
+  'fasting', 'intermittent', 'ketone', 'ketosis',
+  'injury', 'rehab', 'physical therapy', 'mobility', 'flexibility', 'stretching',
+  'foam rolling', 'massage', 'cryotherapy', 'compression',
+  'performance', 'athletic', 'sport', 'run', 'cycle', 'swim', 'lift',
+];
+
+const DOMAIN_BLOCKLIST_TOKENS = [
+  'amber alert', 'silver alert', 'missing child', 'missing person', 'evacuation',
+  'celebrity', 'kardashian', 'jenner', 'bieber', 'swift', 'kanye', 'beyonce',
+  'rihanna', 'drake', 'nba', 'nfl', 'mlb', 'nhl', 'esport', 'e-sport',
+  'election', 'president', 'congress', 'senate', 'stock market',
+  'crypto', 'bitcoin', 'nft', 'dogecoin', 'ethereum',
+  'traded to', 'signs with', 'released by', 'game 7', 'super bowl',
+];
+
+function isKeywordRelevant(keyword: string): { relevant: boolean; reason?: string } {
+  const lower = keyword.toLowerCase();
+
+  for (const blocked of DOMAIN_BLOCKLIST_TOKENS) {
+    if (lower.includes(blocked)) {
+      return { relevant: false, reason: `blocked term "${blocked}"` };
+    }
+  }
+
+  for (const token of DOMAIN_ALLOWLIST_TOKENS) {
+    if (lower.includes(token)) return { relevant: true };
+  }
+
+  return { relevant: false, reason: 'no domain allowlist match' };
+}
+// ────────────────────────────────────────────────────────────────────────────
 
 function canonicalKeywordSlug(keyword: string): string {
   const normalized = slugify(keyword)
@@ -169,7 +223,7 @@ async function loadQueueCandidates(source: 'evergreen' | 'trend', limit: number)
   const { data, error } = await withRetries(`load ${source} queue`, () =>
     supabase
       .from('keyword_queue')
-      .select('id,cluster_name,intent,primary_keyword,template_id,priority,source,status,score,metadata')
+      .select('id,cluster_name,intent,primary_keyword,template_id,priority,source,status,score,metadata,last_generated_at')
       .in('status', ['new', 'queued'])
       .eq('source', source)
       .order('priority', { ascending: false, nullsFirst: false })
@@ -240,20 +294,49 @@ async function run() {
     loadExistingPageKeywordSlugs(),
   ]);
 
+  type SkippedRow = { row: QueueRow; reason: string };
+
   const selectedRows: QueueRow[] = [];
-  const skippedRows: QueueRow[] = [];
+  const skippedRows: SkippedRow[] = [];
   const seenCanonical = new Set(existingKeywordSlugs);
+  const clusterCounts: Record<string, number> = {};
+  const now = Date.now();
 
   const pickRows = (rows: QueueRow[], target: number) => {
     for (const row of rows) {
       if (selectedRows.length >= pagesPerRun) break;
+
+      // Pre-generation relevance gate
+      const relevance = isKeywordRelevant(row.primary_keyword);
+      if (!relevance.relevant) {
+        skippedRows.push({ row, reason: `irrelevant: ${relevance.reason}` });
+        continue;
+      }
+
+      // Cooldown window: skip if recently generated
+      if (row.last_generated_at) {
+        const lastGenMs = new Date(row.last_generated_at).getTime();
+        if (Number.isFinite(lastGenMs) && now - lastGenMs < cooldownMs) {
+          skippedRows.push({ row, reason: `cooldown (last generated ${Math.round((now - lastGenMs) / 86400000)}d ago, cooldown=${cooldownDays}d)` });
+          continue;
+        }
+      }
+
+      // Cluster quota: limit pages per cluster per batch
+      const clusterCount = clusterCounts[row.cluster_name] ?? 0;
+      if (clusterCount >= clusterQuota) {
+        skippedRows.push({ row, reason: `cluster_quota (cluster=${row.cluster_name} limit=${clusterQuota})` });
+        continue;
+      }
+
       const canonical = canonicalKeywordSlug(row.primary_keyword);
       if (!canonical || seenCanonical.has(canonical)) {
-        skippedRows.push(row);
+        skippedRows.push({ row, reason: 'near_duplicate_keyword_slug' });
         continue;
       }
 
       seenCanonical.add(canonical);
+      clusterCounts[row.cluster_name] = clusterCount + 1;
       selectedRows.push(row);
       if (selectedRows.filter((r) => r.source === row.source).length >= target) continue;
     }
@@ -281,7 +364,7 @@ async function run() {
 
   const seeds = selectedRows.map(buildSeed);
   console.log(
-    `[batch-generate] selected queued keywords=${selectedRows.length} (evergreen=${selectedRows.filter((r) => r.source === 'evergreen').length}, trend=${selectedRows.filter((r) => r.source === 'trend').length}); skippedDuplicates=${skippedRows.length}`,
+    `[batch-generate] selected queued keywords=${selectedRows.length} (evergreen=${selectedRows.filter((r) => r.source === 'evergreen').length}, trend=${selectedRows.filter((r) => r.source === 'trend').length}); skipped=${skippedRows.length}`,
   );
 
   if (isDryRun) {
@@ -292,8 +375,8 @@ async function run() {
     }
 
     if (skippedRows.length) {
-      for (const row of skippedRows.slice(0, 20)) {
-        console.log(`[dry-run] skipped duplicate keyword="${row.primary_keyword}" cluster=${row.cluster_name}`);
+      for (const { row, reason } of skippedRows.slice(0, 20)) {
+        console.log(`[dry-run] skipped keyword="${row.primary_keyword}" cluster=${row.cluster_name} reason=${reason}`);
       }
     }
 
@@ -379,10 +462,10 @@ async function run() {
 
   if (skippedRows.length) {
     const nowIso = new Date().toISOString();
-    for (const row of skippedRows) {
+    for (const { row, reason } of skippedRows) {
       const metadata = {
         ...((row.metadata ?? {}) as Record<string, unknown>),
-        skipped_reason: 'near_duplicate_keyword_slug',
+        skipped_reason: reason,
         skipped_at: nowIso,
       };
 
@@ -391,9 +474,12 @@ async function run() {
     }
   }
 
+  const runStartedAt = Date.now();
   runScript('scripts/content-generator.ts');
   runScript('scripts/quality-gate.ts');
   runScript('scripts/linker.ts', ['--verify']);
+
+  let publishedCount = 0;
 
   if (shouldPublish) {
     runScript('scripts/deploy.ts');
@@ -408,9 +494,42 @@ async function run() {
     if (publishMarkError) {
       throw new Error(`Failed to mark generated queue rows as published: ${publishMarkError.message}`);
     }
+
+    publishedCount = generatedIds.length;
   } else {
     console.log('[batch-generate] publish skipped (pass --publish or set BATCH_PUBLISH=1).');
   }
+
+  // ── Run summary artifact ────────────────────────────────────────────────────
+  const durationSec = ((Date.now() - runStartedAt) / 1000).toFixed(1);
+
+  const skippedByReason: Record<string, number> = {};
+  for (const { reason } of skippedRows) {
+    const key = reason.split(':')[0].trim();
+    skippedByReason[key] = (skippedByReason[key] ?? 0) + 1;
+  }
+
+  const failedKeywords = failedSeeds.map((s) => s.primaryKeyword);
+
+  console.log('\n' + '='.repeat(72));
+  console.log('BATCH RUN SUMMARY');
+  console.log('='.repeat(72));
+  console.log(`  queued_for_generation : ${selectedRows.length}`);
+  console.log(`  generated             : ${selectedRows.length - failedSeeds.length}`);
+  console.log(`  published             : ${publishedCount}`);
+  console.log(`  skipped               : ${skippedRows.length}`);
+  if (Object.keys(skippedByReason).length) {
+    for (const [reason, count] of Object.entries(skippedByReason)) {
+      console.log(`    - ${reason}: ${count}`);
+    }
+  }
+  console.log(`  failed                : ${failedSeeds.length}`);
+  if (failedKeywords.length) {
+    console.log(`    keywords: ${failedKeywords.join(', ')}`);
+  }
+  console.log(`  duration              : ${durationSec}s`);
+  console.log('='.repeat(72) + '\n');
+  // ────────────────────────────────────────────────────────────────────────────
 
   console.log('[batch-generate] SEO generation ready');
   console.log('[batch-generate] complete');

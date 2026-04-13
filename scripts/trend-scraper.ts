@@ -12,6 +12,76 @@ if (!supabaseUrl || !serviceRoleKey) {
 
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+// ── Domain relevance filter ──────────────────────────────────────────────────
+// Terms that signal the topic is in our domain (recovery/sleep/fitness/health-tech).
+// A term must match at least one allowlist token OR score above RELEVANCE_FLOOR
+// based on partial matches.
+const DOMAIN_ALLOWLIST_TOKENS = new Set([
+  // Recovery & performance
+  'recovery', 'recover', 'recuperat', 'rest', 'restoration',
+  // Sleep
+  'sleep', 'hrv', 'rem', 'circadian', 'insomnia', 'melatonin', 'nap', 'snore', 'apnea',
+  // Fitness & training
+  'workout', 'training', 'exercise', 'fitness', 'strength', 'cardio', 'endurance',
+  'hiit', 'crossfit', 'zone 2', 'vo2', 'lactate', 'overtraining', 'deload',
+  // Health metrics
+  'heart rate', 'heart-rate', 'resting hr', 'rhr', 'spo2', 'oxygen', 'cortisol',
+  'inflammation', 'glucose', 'blood pressure', 'cholesterol', 'body composition',
+  'muscle', 'tendon', 'ligament', 'fascia',
+  // Nutrition & supplementation
+  'protein', 'creatine', 'magnesium', 'zinc', 'vitamin d', 'omega', 'collagen',
+  'electrolyte', 'hydration', 'nutrition', 'diet', 'supplement', 'caffeine', 'nootropic',
+  // Wearables & health-tech
+  'ring', 'wearable', 'smart ring', 'whoop', 'oura', 'garmin', 'polar', 'biosensor',
+  'continuous glucose', 'cgm', 'biometric', 'health tracker', 'fitness tracker',
+  // Wellness & biohacking
+  'biohack', 'longevity', 'cold plunge', 'ice bath', 'sauna', 'breathwork',
+  'meditation', 'mindfulness', 'stress', 'cortisol', 'adaptogen', 'ashwagandha',
+  'inflammation', 'fasting', 'intermittent', 'ketone', 'ketosis',
+  // Injury & therapy
+  'injury', 'rehab', 'physical therapy', 'mobility', 'flexibility', 'stretching',
+  'foam rolling', 'massage', 'percussive', 'cryotherapy', 'compression',
+]);
+
+// Terms that hard-block a trend from entering the pipeline regardless of score.
+// Covers celebrity/news/entertainment content that bleeds into fitness subreddits.
+const DOMAIN_BLOCKLIST_TOKENS = [
+  // Emergency/alert systems
+  'amber alert', 'silver alert', 'amber', 'missing child', 'missing person', 'evacuation',
+  // Celebrity & entertainment
+  'celebrity', 'kardashian', 'jenner', 'bieber', 'swift', 'kanye', 'beyonce', 'rihanna',
+  'drake', 'nba', 'nfl', 'mlb', 'nhl', 'esport', 'e-sport', 'twitch', 'streaming',
+  // Politics & news
+  'election', 'president', 'congress', 'senate', 'legislation', 'bill passes',
+  'stock market', 'crypto', 'bitcoin', 'nft', 'dogecoin', 'ethereum',
+  // Sports player names / team events (generic blockers — not domain specific)
+  'traded to', 'signs with', 'released by', 'game 7', 'super bowl',
+];
+
+/**
+ * Returns true if the term is relevant to our domain (recovery/fitness/health-tech).
+ * Checks:
+ *  1. Hard blocklist — any match → reject immediately
+ *  2. Allowlist — any token substring match → accept
+ *  3. Falls back to false (unknown / off-topic)
+ */
+function isDomainRelevant(term: string): boolean {
+  const lower = term.toLowerCase();
+
+  // Step 1: blocklist check
+  for (const blocked of DOMAIN_BLOCKLIST_TOKENS) {
+    if (lower.includes(blocked)) return false;
+  }
+
+  // Step 2: allowlist check (substring match for token stems)
+  for (const token of DOMAIN_ALLOWLIST_TOKENS) {
+    if (lower.includes(token)) return true;
+  }
+
+  return false;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 const REDDIT_FEEDS = [
   { subreddit: 'Biohackers', url: 'https://www.reddit.com/r/Biohackers/.rss' },
   { subreddit: 'running', url: 'https://www.reddit.com/r/running/.rss' },
@@ -266,8 +336,31 @@ async function run() {
     return;
   }
 
-  const written = await upsertTrends(allRows);
-  console.log(`Trend ingestion complete. Upserted ${written} normalized trend rows.`);
+  // Domain relevance filter: only keep terms in our recovery/fitness/health-tech domain
+  const relevant: TrendSeed[] = [];
+  const skipped: string[] = [];
+
+  for (const row of allRows) {
+    if (isDomainRelevant(row.term)) {
+      relevant.push(row);
+    } else {
+      skipped.push(row.term);
+    }
+  }
+
+  if (skipped.length) {
+    console.log(`[relevance-filter] skipped ${skipped.length} off-topic terms (first 10): ${skipped.slice(0, 10).join(' | ')}`);
+  }
+
+  if (!relevant.length) {
+    console.warn('[relevance-filter] all collected trends were off-topic. Nothing to upsert.');
+    return;
+  }
+
+  const written = await upsertTrends(relevant);
+  console.log(
+    `Trend ingestion complete. collected=${allRows.length} relevant=${relevant.length} skipped=${skipped.length} upserted=${written}`,
+  );
 }
 
 run().catch((error) => {

@@ -21,7 +21,8 @@
     "nightly:run": "tsx scripts/nightly-run.ts",
     "batch:generate": "tsx scripts/batch-generate.ts",
     "cluster:metrics": "tsx scripts/cluster-metrics-rollup.ts",
-    "smoke:seed": "tsx scripts/smoke-seed.ts"
+    "smoke:seed": "tsx scripts/smoke-seed.ts",
+    "smoke:test": "tsx scripts/smoke-test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",
