@@ -8,6 +8,7 @@ import PillarLink from '@/components/PillarLink';
 import ReadingProgressBar from '@/components/ReadingProgressBar';
 import ShareBar from '@/components/ShareBar';
 import TableOfContents from '@/components/TableOfContents';
+import { MAIN_SITE_URL, NEWSLETTER_URL, PRODUCT_NAME } from '@/lib/brand';
 import type { InfoGainFeeds, InternalLink, PageBodySection, PageRecord } from '@/lib/types';
 
 type Props = {
@@ -342,7 +343,7 @@ export default function TemplatePage({ page, pillarLink, siblingLinks, schemaJso
 
           <section className="rs-article rs-card" aria-labelledby="conversion-heading">
             <h2 id="conversion-heading">Next step</h2>
-            <ConversionBox />
+            <ConversionBox pageTemplate={page.template} />
           </section>
 
           <section className="rs-related" aria-labelledby="related-heading">
@@ -370,9 +371,12 @@ export default function TemplatePage({ page, pillarLink, siblingLinks, schemaJso
           </section>
 
           <section className="rs-article rs-card rs-newsletter" aria-labelledby="newsletter-heading">
-            <h2 id="newsletter-heading">Get elite recovery intelligence weekly</h2>
-            <p className="rs-excerpt">Evidence-backed protocols, device insights, and practical playbooks for performance-focused athletes.</p>
-            <NewsletterForm pageTemplate={page.template} />
+            <h2 id="newsletter-heading">Continue on RecoveryStack News</h2>
+            <p className="rs-excerpt">
+              This article is the entry point. RecoveryStack News is where readers keep up with
+              recovery tech, wearable buying context, and the path toward the {PRODUCT_NAME}.
+            </p>
+            <NewsletterForm pageTemplate={page.template} source="article" />
           </section>
 
           </div>{/* close rs-article-column */}
@@ -393,29 +397,29 @@ export default function TemplatePage({ page, pillarLink, siblingLinks, schemaJso
             <div>
               <h3>Company</h3>
               <ul>
-                <li><a href="/about">About</a></li>
-                <li><a href="/trends">Research</a></li>
-                <li><a href="/contact">Contact</a></li>
+                <li><a href={MAIN_SITE_URL} target="_blank" rel="noopener noreferrer">Main site</a></li>
+                <li><a href={NEWSLETTER_URL} target="_blank" rel="noopener noreferrer">RecoveryStack News</a></li>
+                <li><a href={MAIN_SITE_URL} target="_blank" rel="noopener noreferrer">About RecoveryStack</a></li>
               </ul>
             </div>
             <div>
               <h3>Support</h3>
               <ul>
-                <li><a href="/support">Help centre</a></li>
+                <li><a href={NEWSLETTER_URL} target="_blank" rel="noopener noreferrer">Newsletter signup</a></li>
                 <li><a href="/protocols">Protocols</a></li>
-                <li><a href="/costs">Cost planning</a></li>
+                <li><a href={MAIN_SITE_URL} target="_blank" rel="noopener noreferrer">{PRODUCT_NAME}</a></li>
               </ul>
             </div>
             <div>
               <h3>Legal</h3>
               <ul>
-                <li><a href="/privacy">Privacy</a></li>
-                <li><a href="/terms">Terms</a></li>
-                <li><a href="/cookies">Cookies</a></li>
+                <li><a href={MAIN_SITE_URL} target="_blank" rel="noopener noreferrer">Privacy</a></li>
+                <li><a href={MAIN_SITE_URL} target="_blank" rel="noopener noreferrer">Terms</a></li>
+                <li><a href={MAIN_SITE_URL} target="_blank" rel="noopener noreferrer">Cookies</a></li>
               </ul>
             </div>
           </div>
-          <p className="rs-tagline">Clinical-grade sleep intelligence for elite performers.</p>
+          <p className="rs-tagline">Organic recovery-tech content that feeds RecoveryStack News and the Volo Ring funnel.</p>
         </div>
       </footer>
 

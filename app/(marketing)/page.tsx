@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import ConversionBox from '@/components/ConversionBox';
 import NewsletterForm from '@/components/NewsletterForm';
+import { MAIN_SITE_URL, NEWSLETTER_URL, PRODUCT_NAME } from '@/lib/brand';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export const revalidate = 3600;
@@ -8,15 +9,15 @@ export const revalidate = 3600;
 const SITE_URL = process.env.SITE_URL ?? 'https://recoverystack.io';
 
 export const metadata: Metadata = {
-  title: 'RecoveryStack.io — The Intelligence Layer for Recovery',
+  title: 'RecoveryStack SEO Engine | RecoveryStack',
   description:
-    'Evidence-based recovery protocols, wearable comparisons, and performance guides for athletes. Powered by the RecoveryStack Smart Ring.',
+    'Evidence-based recovery protocols, wearable comparisons, and performance guides that move organic users into RecoveryStack News.',
   alternates: { canonical: SITE_URL },
   openGraph: {
     type: 'website',
     url: SITE_URL,
-    title: 'RecoveryStack.io — The Intelligence Layer for Recovery',
-    description: 'Evidence-based recovery protocols, wearable comparisons, and performance guides for athletes.',
+    title: 'RecoveryStack SEO Engine | RecoveryStack',
+    description: 'RecoveryStack content designed to turn organic traffic into RecoveryStack News subscribers.',
     images: [{ url: `${SITE_URL}/opengraph-image`, width: 1200, height: 630 }],
   },
 };
@@ -26,12 +27,7 @@ const WEBSITE_SCHEMA = {
   '@type': 'WebSite',
   name: 'RecoveryStack.io',
   url: SITE_URL,
-  description: 'The Intelligence Layer for Recovery',
-  potentialAction: {
-    '@type': 'SearchAction',
-    target: { '@type': 'EntryPoint', urlTemplate: `${SITE_URL}/search?q={search_term_string}` },
-    'query-input': 'required name=search_term_string',
-  },
+  description: 'Organic acquisition system for RecoveryStack News and the Volo Ring funnel',
 };
 
 const TEMPLATE_LABELS: Record<string, string> = {
@@ -46,30 +42,30 @@ const TEMPLATE_LABELS: Record<string, string> = {
 };
 
 const CATEGORIES = [
-  { label: 'Recovery Guides', href: '/guides', emoji: '📋' },
-  { label: 'Protocols', href: '/protocols', emoji: '🔬' },
-  { label: 'Metrics', href: '/metrics', emoji: '📊' },
-  { label: 'Alternatives', href: '/alternatives', emoji: '⚖️' },
-  { label: 'Compatibility', href: '/compatibility', emoji: '🔗' },
-  { label: 'Trends', href: '/trends', emoji: '📈' },
+  { label: 'Recovery Guides', href: '/guides', emoji: 'RS' },
+  { label: 'Protocols', href: '/protocols', emoji: 'PR' },
+  { label: 'Metrics', href: '/metrics', emoji: 'MT' },
+  { label: 'Alternatives', href: '/alternatives', emoji: 'AL' },
+  { label: 'Compatibility', href: '/compatibility', emoji: 'CP' },
+  { label: 'Trends', href: '/trends', emoji: 'TR' },
 ];
 
 const FAQS = [
   {
     q: 'What is RecoveryStack?',
-    a: 'RecoveryStack is an evidence-based platform combining the RecoveryStack Smart Ring with a library of protocols, guides, and comparisons to help athletes optimize recovery.',
+    a: 'RecoveryStack is a recovery intelligence brand that publishes evidence-based guides, protocols, and wearable analysis to move readers into RecoveryStack News.',
   },
   {
-    q: 'How is the RecoveryStack Smart Ring different from Whoop or Oura?',
-    a: 'RecoveryStack combines continuous biometric tracking with an AI-driven protocol layer that prescribes specific recovery interventions — not just scores.',
+    q: 'What should I do after reading an article here?',
+    a: 'The primary next step is RecoveryStack News on the main site, where the brand turns research, buying context, and recovery tech analysis into an ongoing newsletter experience.',
   },
   {
     q: 'Are the guides based on real research?',
-    a: 'Yes. All content cites primary sources (published studies, named authorities, or clinical standards) and includes methodology notes where applicable.',
+    a: 'Yes. Content is built around primary sources, named authorities, clinical standards, and clear editorial framing where applicable.',
   },
   {
-    q: 'How often is content updated?',
-    a: 'Content is refreshed automatically when GSC data shows declining performance, and manually reviewed by the editorial team quarterly.',
+    q: `Where does the ${PRODUCT_NAME} fit?`,
+    a: `RecoveryStack News and the main RecoveryStack site are the bridge into the ${PRODUCT_NAME} funnel. This SEO layer is designed to attract qualified readers first, then move them deeper into the brand.`,
   },
 ];
 
@@ -98,8 +94,6 @@ export default async function HomePage() {
       />
 
       <main style={{ fontFamily: 'system-ui, sans-serif', color: '#111827' }}>
-
-        {/* ── Hero ── */}
         <section
           style={{
             background: '#0f172a',
@@ -108,7 +102,7 @@ export default async function HomePage() {
             textAlign: 'center',
           }}
         >
-          <div style={{ maxWidth: 680, margin: '0 auto' }}>
+          <div style={{ maxWidth: 760, margin: '0 auto' }}>
             <p
               style={{
                 fontSize: 12,
@@ -119,7 +113,7 @@ export default async function HomePage() {
                 marginBottom: 16,
               }}
             >
-              RecoveryStack Smart Ring
+              RecoveryStack organic acquisition layer
             </p>
             <h1
               style={{
@@ -129,23 +123,27 @@ export default async function HomePage() {
                 margin: '0 0 20px',
               }}
             >
-              The Intelligence Layer<br />for Recovery
+              Turn search traffic into
+              <br />
+              RecoveryStack News subscribers
             </h1>
             <p
               style={{
                 fontSize: 18,
                 color: '#94a3b8',
-                maxWidth: 520,
+                maxWidth: 620,
                 margin: '0 auto 32px',
                 lineHeight: 1.6,
               }}
             >
-              Evidence-based protocols, wearable comparisons, and performance guides
-              built for athletes who want data over guesswork.
+              Evidence-based recovery protocols, wearable comparisons, and health-tech research
+              built to move high-intent readers into the RecoveryStack newsletter.
             </p>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
               <a
-                href="/guides"
+                href={NEWSLETTER_URL}
+                target="_blank"
+                rel="noopener noreferrer"
                 style={{
                   padding: '12px 28px',
                   background: '#16a34a',
@@ -156,10 +154,12 @@ export default async function HomePage() {
                   fontSize: 15,
                 }}
               >
-                Browse guides
+                Read RecoveryStack News
               </a>
               <a
-                href="/protocols"
+                href={MAIN_SITE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
                 style={{
                   padding: '12px 28px',
                   background: 'rgba(255,255,255,0.1)',
@@ -171,13 +171,12 @@ export default async function HomePage() {
                   border: '1px solid rgba(255,255,255,0.15)',
                 }}
               >
-                View protocols
+                Visit the main site
               </a>
             </div>
           </div>
         </section>
 
-        {/* ── Trust signals ── */}
         <div
           style={{
             background: '#f8fafc',
@@ -187,16 +186,14 @@ export default async function HomePage() {
           }}
         >
           <p style={{ color: '#64748b', fontSize: 13, margin: 0 }}>
-            Every guide cites primary research &nbsp;·&nbsp; Updated on GSC performance signals &nbsp;·&nbsp;
-            Built for athletes, by sports science analysts
+            Primary research-backed content · Built to feed RecoveryStack News · Organic acquisition
+            for the Volo Ring funnel
           </p>
         </div>
 
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 16px' }}>
-
-          {/* ── Categories ── */}
           <section style={{ padding: '56px 0 40px' }}>
-            <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 20 }}>Browse by category</h2>
+            <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 20 }}>Browse by topic cluster</h2>
             <div
               style={{
                 display: 'grid',
@@ -222,17 +219,16 @@ export default async function HomePage() {
                     background: '#fff',
                   }}
                 >
-                  <span style={{ fontSize: 20 }}>{cat.emoji}</span>
+                  <span style={{ fontSize: 12, fontWeight: 800 }}>{cat.emoji}</span>
                   {cat.label}
                 </a>
               ))}
             </div>
           </section>
 
-          {/* ── Featured articles ── */}
           {featured.length > 0 && (
             <section style={{ paddingBottom: 56 }}>
-              <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 20 }}>Latest articles</h2>
+              <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 20 }}>Latest SEO entry points</h2>
               <div
                 style={{
                   display: 'grid',
@@ -289,7 +285,7 @@ export default async function HomePage() {
                           }}
                         >
                           {page.meta_description.slice(0, 110)}
-                          {page.meta_description.length > 110 ? '…' : ''}
+                          {page.meta_description.length > 110 ? '...' : ''}
                         </p>
                       )}
                     </article>
@@ -299,15 +295,13 @@ export default async function HomePage() {
             </section>
           )}
 
-          {/* ── Conversion box ── */}
           <section style={{ paddingBottom: 56 }}>
-            <ConversionBox />
+            <ConversionBox pageTemplate="homepage" />
           </section>
 
-          {/* ── FAQ ── */}
           <section style={{ paddingBottom: 56 }}>
             <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 24 }}>Frequently asked questions</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {FAQS.map((faq) => (
                 <details
                   key={faq.q}
@@ -350,7 +344,6 @@ export default async function HomePage() {
             />
           </section>
 
-          {/* ── Newsletter ── */}
           <section id="newsletter" style={{ paddingBottom: 72 }}>
             <div
               style={{
@@ -362,15 +355,18 @@ export default async function HomePage() {
               }}
             >
               <h2 style={{ fontSize: 22, fontWeight: 700, margin: '0 0 10px' }}>
-                Weekly recovery intelligence
+                RecoveryStack News is the main conversion goal
               </h2>
               <p style={{ color: '#94a3b8', margin: '0 0 24px', fontSize: 15 }}>
-                Protocols, ring comparisons, and research digests. No hype.
+                Move readers from search into the newsletter, then into the main site and the
+                {' '}
+                {PRODUCT_NAME}
+                {' '}
+                funnel.
               </p>
-              <NewsletterForm />
+              <NewsletterForm source="homepage" />
             </div>
           </section>
-
         </div>
       </main>
     </>

@@ -291,12 +291,16 @@ img {
 
 .rs-btn-primary,
 .rs-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   border-radius: 9999px;
   padding: 12px 24px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
+  text-decoration: none;
 }
 
 .rs-btn-primary {
@@ -319,6 +323,10 @@ img {
 .rs-btn-secondary:hover,
 .rs-btn-secondary:focus-visible {
   background: #1e293b;
+}
+
+.rs-btn-link {
+  width: fit-content;
 }
 
 .rs-footer {
@@ -594,4 +602,17 @@ img {
 .rs-newsletter-success {
   text-align: center;
   padding: 20px 0;
+}
+
+.rs-newsletter-copy {
+  margin: 0;
+  color: var(--rs-text-secondary);
+  line-height: 1.7;
+}
+
+.rs-newsletter-note {
+  margin: 12px 0 0;
+  color: var(--rs-text-dim);
+  font-size: 12px;
+  line-height: 1.6;
 }

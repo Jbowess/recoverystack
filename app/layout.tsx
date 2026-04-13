@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import './globals.css';
+import { PRODUCT_NAME } from '@/lib/brand';
 
 const SITE_URL = process.env.SITE_URL ?? 'https://recoverystack.io';
 
@@ -12,10 +13,10 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: 'RecoveryStack.io',
+    default: 'RecoveryStack SEO Engine',
     template: '%s | RecoveryStack.io',
   },
-  description: 'The Intelligence Layer for Recovery',
+  description: `Organic acquisition system for RecoveryStack News and the ${PRODUCT_NAME} funnel.`,
   openGraph: {
     siteName: 'RecoveryStack.io',
     locale: 'en_AU',

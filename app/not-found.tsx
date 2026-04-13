@@ -1,3 +1,4 @@
+import { NEWSLETTER_URL } from '@/lib/brand';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
 async function getPopularPages() {
@@ -129,10 +130,12 @@ export default async function NotFound() {
           Get the weekly recovery brief
         </h3>
         <p style={{ color: '#6b7280', margin: '0 0 16px', fontSize: 14 }}>
-          Evidence-based recovery protocols, wearable comparisons, and performance insights — every week.
+          Continue to RecoveryStack News for the weekly recovery-tech brief.
         </p>
         <a
-          href="/#newsletter"
+          href={NEWSLETTER_URL}
+          target="_blank"
+          rel="noopener noreferrer"
           style={{
             display: 'inline-block',
             padding: '9px 20px',
@@ -144,7 +147,7 @@ export default async function NotFound() {
             fontSize: 14,
           }}
         >
-          Subscribe free
+          Open RecoveryStack News
         </a>
       </div>
     </main>

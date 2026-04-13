@@ -1,63 +1,39 @@
 'use client';
 
-import { useState } from 'react';
+import { NEWSLETTER_URL } from '@/lib/brand';
 
 type Props = {
   pageTemplate?: string;
+  source?: 'homepage' | 'article' | 'not_found';
 };
 
-export default function NewsletterForm({ pageTemplate }: Props) {
-  const [email, setEmail] = useState('');
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+function withTrackingParams(pageTemplate?: string, source?: string) {
+  const url = new URL(NEWSLETTER_URL);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim() || status === 'loading') return;
+  if (source) url.searchParams.set('utm_source', source);
+  url.searchParams.set('utm_medium', 'organic-site');
+  url.searchParams.set('utm_campaign', 'recoverystack-seo');
+  if (pageTemplate) url.searchParams.set('utm_content', pageTemplate);
 
-    setStatus('loading');
-    try {
-      const res = await fetch('/api/newsletter-subscribe', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), source: 'newsletter_form', pageTemplate }),
-      });
-      if (!res.ok) throw new Error('Failed');
-      setStatus('success');
-    } catch {
-      setStatus('error');
-    }
-  };
+  return url.toString();
+}
 
-  if (status === 'success') {
-    return (
-      <div className="rs-newsletter-success">
-        <p style={{ fontSize: '1.125rem', fontWeight: 600 }}>You&apos;re subscribed!</p>
-        <p style={{ color: 'var(--rs-text-secondary)', fontSize: 14 }}>Check your inbox for the first issue.</p>
-      </div>
-    );
-  }
+export default function NewsletterForm({ pageTemplate, source = 'article' }: Props) {
+  const href = withTrackingParams(pageTemplate, source);
 
   return (
-    <form onSubmit={handleSubmit}>
-      <label htmlFor="newsletter-email" className="rs-meta">Email address</label>
+    <div>
+      <p className="rs-newsletter-copy">
+        RecoveryStack News covers recovery tech, protocols, wearables, and buying signals that matter.
+      </p>
       <div className="rs-form-row">
-        <input
-          id="newsletter-email"
-          className="rs-input"
-          type="email"
-          placeholder="you@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          disabled={status === 'loading'}
-        />
-        <button type="submit" className="rs-btn-primary" disabled={status === 'loading'}>
-          {status === 'loading' ? 'Subscribing…' : 'Subscribe'}
-        </button>
+        <a className="rs-btn-primary rs-btn-link" href={href} target="_blank" rel="noopener noreferrer">
+          Go to RecoveryStack News
+        </a>
       </div>
-      {status === 'error' && (
-        <p style={{ color: '#f87171', fontSize: 13, marginTop: 8 }}>Something went wrong. Please try again.</p>
-      )}
-    </form>
+      <p className="rs-newsletter-note">
+        Subscribe on the main site, then use the newsletter to evaluate recovery tools and the Volo Ring.
+      </p>
+    </div>
   );
 }

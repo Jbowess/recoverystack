@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 
 export const revalidate = 3600;
 
@@ -21,11 +21,6 @@ interface Author {
 }
 
 export default async function TeamPage() {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
-
   const { data: authors } = await supabase
     .from('authors')
     .select('*')
@@ -132,7 +127,7 @@ export default async function TeamPage() {
 
       <footer className="rs-footer">
         <div className="rs-container">
-          <p className="rs-tagline">Clinical-grade sleep intelligence for elite performers.</p>
+          <p className="rs-tagline">Organic recovery-tech content that feeds RecoveryStack News and the Volo Ring funnel.</p>
         </div>
       </footer>
     </div>

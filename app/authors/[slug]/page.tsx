@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import { createClient } from '@supabase/supabase-js';
 import { notFound } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 export const revalidate = 3600;
 
@@ -18,22 +18,13 @@ interface Author {
   avatar_url: string | null;
 }
 
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
-}
-
 export async function generateStaticParams() {
-  const supabase = getSupabase();
   const { data } = await supabase.from('authors').select('slug');
   return (data ?? []).map((a: { slug: string }) => ({ slug: a.slug }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const supabase = getSupabase();
   const { data: author } = await supabase
     .from('authors')
     .select('name, title, bio')
@@ -50,7 +41,6 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function AuthorPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const supabase = getSupabase();
 
   const { data: author } = await supabase
     .from('authors')
@@ -196,7 +186,7 @@ export default async function AuthorPage({ params }: { params: Promise<{ slug: s
 
         <footer className="rs-footer">
           <div className="rs-container">
-            <p className="rs-tagline">Clinical-grade sleep intelligence for elite performers.</p>
+            <p className="rs-tagline">Organic recovery-tech content that feeds RecoveryStack News and the Volo Ring funnel.</p>
           </div>
         </footer>
       </div>

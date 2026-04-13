@@ -9,6 +9,10 @@ import {
 
 const VISITOR_ID_KEY = 'rs_visitor_id';
 
+type Props = {
+  pageTemplate?: string | null;
+};
+
 function getVisitorId() {
   if (typeof window === 'undefined') return undefined;
 
@@ -23,12 +27,16 @@ function getVisitorId() {
   return id;
 }
 
-function trackConversionClick(variant: ConversionVariant, cta: string) {
+function trackConversionClick(
+  variant: ConversionVariant,
+  cta: string,
+  pageTemplate?: string | null,
+) {
   const payload = {
     variant,
     cta,
     slug: window.location.pathname,
-    pageTemplate: null,
+    pageTemplate: pageTemplate ?? null,
   };
 
   const endpoint = '/api/conversion-events';
@@ -48,7 +56,7 @@ function trackConversionClick(variant: ConversionVariant, cta: string) {
   });
 }
 
-export default function ConversionBox() {
+export default function ConversionBox({ pageTemplate }: Props) {
   const variant = useMemo(() => {
     const seed = getVisitorId();
     return resolveConversionVariant(process.env.NEXT_PUBLIC_CONVERSION_BOX_VARIANT, seed);
@@ -57,12 +65,19 @@ export default function ConversionBox() {
   const config = CONVERSION_VARIANTS[variant];
 
   return (
-    <aside data-variant={variant}>
+    <aside data-variant={variant} data-page-template={pageTemplate ?? undefined}>
       <h2>{config.heading}</h2>
       <ul>
         {config.ctas.map((cta) => (
           <li key={cta.id}>
-            <a href={cta.href} onClick={() => trackConversionClick(variant, cta.id)}>{cta.label}</a>
+            <a
+              href={cta.href}
+              onClick={() => trackConversionClick(variant, cta.id, pageTemplate)}
+              target={cta.external ? '_blank' : undefined}
+              rel={cta.external ? 'noopener noreferrer' : undefined}
+            >
+              {cta.label}
+            </a>
           </li>
         ))}
       </ul>

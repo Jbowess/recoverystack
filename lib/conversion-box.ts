@@ -1,9 +1,12 @@
+import { MAIN_SITE_URL, NEWSLETTER_URL, PRODUCT_DESTINATION_URL, PRODUCT_NAME } from '@/lib/brand';
+
 export type ConversionVariant = 'a' | 'b';
 
 export type ConversionCta = {
   id: string;
   href: string;
   label: string;
+  external?: boolean;
 };
 
 export type ConversionVariantConfig = {
@@ -13,19 +16,19 @@ export type ConversionVariantConfig = {
 
 export const CONVERSION_VARIANTS: Record<ConversionVariant, ConversionVariantConfig> = {
   a: {
-    heading: 'Build your recovery stack',
+    heading: 'Start with the RecoveryStack newsletter',
     ctas: [
-      { id: 'ring', href: '/ring', label: 'RecoveryStack Smart Ring' },
-      { id: 'newsletter', href: '/newsletter', label: '$1/mo Premium Health Tech Newsletter' },
-      { id: 'protocol', href: '/free-protocol', label: 'Free Ultimate Recovery Protocol PDF' },
+      { id: 'newsletter', href: NEWSLETTER_URL, label: 'Read RecoveryStack News', external: true },
+      { id: 'main_site', href: MAIN_SITE_URL, label: 'Visit RecoveryStack.io', external: true },
+      { id: 'product', href: PRODUCT_DESTINATION_URL, label: `Explore the ${PRODUCT_NAME}`, external: true },
     ],
   },
   b: {
-    heading: 'Start with your highest-impact upgrade',
+    heading: 'Turn recovery research into a weekly edge',
     ctas: [
-      { id: 'protocol', href: '/free-protocol', label: 'Get the Free Ultimate Recovery Protocol PDF' },
-      { id: 'newsletter', href: '/newsletter', label: 'Join the $1/mo Premium Health Tech Newsletter' },
-      { id: 'ring', href: '/ring', label: 'Explore the RecoveryStack Smart Ring' },
+      { id: 'newsletter', href: NEWSLETTER_URL, label: 'Join the health-tech newsletter', external: true },
+      { id: 'product', href: PRODUCT_DESTINATION_URL, label: `See how ${PRODUCT_NAME} fits the stack`, external: true },
+      { id: 'main_site', href: MAIN_SITE_URL, label: 'Go to the main RecoveryStack site', external: true },
     ],
   },
 };

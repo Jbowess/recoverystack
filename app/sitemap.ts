@@ -47,9 +47,15 @@ export async function generateSitemaps() {
   return ids;
 }
 
-export default async function sitemap({ id }: { id: string }): Promise<MetadataRoute.Sitemap> {
+export default async function sitemap({
+  id,
+}: {
+  id: string | string[] | number;
+}): Promise<MetadataRoute.Sitemap> {
+  const sitemapId = Array.isArray(id) ? String(id[0] ?? '') : String(id);
+
   // Static pages sitemap
-  if (id === 'static') {
+  if (sitemapId === 'static') {
     return [
       {
         url: `${SITE_URL}/`,
@@ -61,14 +67,14 @@ export default async function sitemap({ id }: { id: string }): Promise<MetadataR
   }
 
   // Parse template name and optional chunk index from id (e.g. "guides" or "guides-2")
-  const dashIdx = id.lastIndexOf('-');
+  const dashIdx = sitemapId.lastIndexOf('-');
   let template: string;
   let chunkIndex = 0;
-  if (dashIdx > 0 && !Number.isNaN(Number(id.slice(dashIdx + 1)))) {
-    template = id.slice(0, dashIdx);
-    chunkIndex = Number(id.slice(dashIdx + 1));
+  if (dashIdx > 0 && !Number.isNaN(Number(sitemapId.slice(dashIdx + 1)))) {
+    template = sitemapId.slice(0, dashIdx);
+    chunkIndex = Number(sitemapId.slice(dashIdx + 1));
   } else {
-    template = id;
+    template = sitemapId;
   }
 
   const allPages = await getAllPublishedSlugs();

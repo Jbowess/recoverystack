@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { PRODUCT_DESTINATION_URL, PRODUCT_NAME } from '@/lib/brand';
 import type { InternalLink, PageRecord } from '@/lib/types';
 import { articleSchema, breadcrumbSchema, faqSchema, productSchema, newsArticleSchema, howToSchema, aggregateRatingSchema, itemListSchema, speakableSchema, medicalWebPageSchema } from '@/lib/schema-org';
 
@@ -71,7 +72,7 @@ export function buildSchemaBundle(page: PageRecord, path: string) {
   if (faqs.length > 0) out.push(faqSchema(faqs));
   if (['guides', 'alternatives', 'costs', 'compatibility'].includes(page.template)) {
     const price = typeof page.metadata?.price === 'number' ? page.metadata.price : null;
-    out.push(productSchema('RecoveryStack Smart Ring', page.meta_description, `${SITE}/ring`, price));
+    out.push(productSchema(PRODUCT_NAME, page.meta_description, PRODUCT_DESTINATION_URL, price));
   }
 
   // AggregateRating for alternatives and reviews — shown in SERP star snippets
