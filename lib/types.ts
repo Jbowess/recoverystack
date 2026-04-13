@@ -6,7 +6,9 @@ export type TemplateType =
   | 'costs'
   | 'compatibility'
   | 'trends'
-  | 'pillars';
+  | 'pillars'
+  | 'reviews'
+  | 'checklists';
 
 export type InternalLink = { slug: string; anchor: string; template?: TemplateType };
 

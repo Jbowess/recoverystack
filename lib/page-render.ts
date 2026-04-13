@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import type { InternalLink, PageRecord } from '@/lib/types';
-import { articleSchema, breadcrumbSchema, faqSchema, productSchema, newsArticleSchema, howToSchema, aggregateRatingSchema, speakableSchema, medicalWebPageSchema } from '@/lib/schema-org';
+import { articleSchema, breadcrumbSchema, faqSchema, productSchema, newsArticleSchema, howToSchema, aggregateRatingSchema, itemListSchema, speakableSchema, medicalWebPageSchema } from '@/lib/schema-org';
 
 const SITE = process.env.SITE_URL ?? 'https://recoverystack.io';
 const SITE_NAME = 'RecoveryStack.io';
@@ -74,12 +74,29 @@ export function buildSchemaBundle(page: PageRecord, path: string) {
     out.push(productSchema('RecoveryStack Smart Ring', page.meta_description, `${SITE}/ring`, price));
   }
 
-  // AggregateRating for alternatives — shown in SERP star snippets
-  if (page.template === 'alternatives') {
+  // AggregateRating for alternatives and reviews — shown in SERP star snippets
+  if (page.template === 'alternatives' || page.template === 'reviews') {
     const rv = page.metadata?.rating_value;
     const rc = page.metadata?.rating_count;
     if (typeof rv === 'number' && typeof rc === 'number' && rv > 0 && rc > 0) {
       out.push(aggregateRatingSchema(page.title, rv, rc, url));
+    }
+  }
+
+  // ItemList schema for checklists — improves rich result eligibility
+  if (page.template === 'checklists') {
+    const sections = page.body_json?.sections ?? [];
+    const listItems: string[] = [];
+    for (const section of sections) {
+      const content = section.content as { items?: unknown[] } | unknown;
+      if (section.kind === 'list' && content && typeof content === 'object' && Array.isArray((content as { items?: unknown[] }).items)) {
+        for (const item of (content as { items: unknown[] }).items) {
+          if (typeof item === 'string') listItems.push(item);
+        }
+      }
+    }
+    if (listItems.length > 0) {
+      out.push(itemListSchema(page.title, listItems.slice(0, 20), url));
     }
   }
 

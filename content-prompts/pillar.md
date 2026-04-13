@@ -38,3 +38,4 @@
 - Include at least 3 FAQs synthesizing the most common questions across the cluster.
 - Mandatory CTA context: ring + $1/mo newsletter + free protocol PDF.
 - Use a comprehensive, educational tone — this is the definitive resource on the topic.
+- All internal links MUST use markdown format: `[descriptive anchor text](/template/slug)`. Never use bare paths like `/guides/slug` without an anchor.

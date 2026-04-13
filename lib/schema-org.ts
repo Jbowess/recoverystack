@@ -196,6 +196,23 @@ export const personSchema = (author: {
   worksFor: ORGANIZATION,
 });
 
+export const itemListSchema = (
+  name: string,
+  items: string[],
+  url: string,
+) => ({
+  '@context': 'https://schema.org',
+  '@type': 'ItemList',
+  name,
+  url,
+  numberOfItems: items.length,
+  itemListElement: items.map((item, index) => ({
+    '@type': 'ListItem',
+    position: index + 1,
+    name: item,
+  })),
+});
+
 export const aggregateRatingSchema = (
   name: string,
   ratingValue: number,

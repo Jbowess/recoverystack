@@ -61,6 +61,8 @@ const TEMPLATE_RULES: Record<string, TemplateRule> = {
   compatibility: { minFaqs: 3, requiresComparisonSlots: true },
   trends: { minFaqs: 3 },
   pillars: { minFaqs: 3, minChildLinks: 5 },
+  reviews: { minFaqs: 5, requiresComparisonSlots: true },
+  checklists: { minFaqs: 3 },
 };
 
 const mode = (process.env.GENERATION_PROVIDER as ProviderMode | undefined) ?? 'auto';
@@ -95,6 +97,8 @@ function promptPathForTemplate(template: string) {
     compatibility: 'compatibility.md',
     trends: 'trends.md',
     pillars: 'pillar.md',
+    reviews: 'review.md',
+    checklists: 'checklist.md',
   };
   return join(process.cwd(), 'content-prompts', byTemplate[template] ?? 'comparison.md');
 }

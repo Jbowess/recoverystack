@@ -54,6 +54,14 @@ const TEMPLATE_RULES: Array<{ patterns: RegExp[]; template: TemplateType }> = [
     patterns: [/\bcomplete guide\b/i, /\beverything.+need\b/i, /\bultimate\b/i, /\bhub\b/i],
     template: 'pillars',
   },
+  {
+    patterns: [/\breview\b/i, /\bworth it\b/i, /\bhonest.+test\b/i, /\brating\b/i, /\bshould i buy\b/i],
+    template: 'reviews',
+  },
+  {
+    patterns: [/\bchecklist\b/i, /\bcheat sheet\b/i, /\bpre.+checklist\b/i, /\bstep.+guide\b/i],
+    template: 'checklists',
+  },
 ];
 
 function inferTemplate(keyword: string): TemplateType {

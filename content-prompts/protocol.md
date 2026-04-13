@@ -9,3 +9,4 @@
 - Include at least 3 FAQs focused on implementation edge-cases.
 - Mandatory CTA context: ring + $1/mo newsletter + free protocol PDF.
 - Attribute protocol design to named methodology or practitioner where applicable.
+- All internal links MUST use markdown format: `[descriptive anchor text](/template/slug)`. Never use bare paths like `/guides/slug` without an anchor.

@@ -8,3 +8,4 @@
 - Include at least 4 FAQs with direct practical answers.
 - Mandatory CTA context: ring + $1/mo newsletter + free protocol PDF.
 - Avoid vague authority claims; ground every comparison in measurable criteria.
+- All internal links MUST use markdown format: `[descriptive anchor text](/template/slug)`. Never use bare paths like `/guides/slug` without an anchor.

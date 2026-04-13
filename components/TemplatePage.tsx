@@ -1,3 +1,4 @@
+import React from 'react';
 import CompatibilityCheckerWidget from '@/components/CompatibilityCheckerWidget';
 import ComparisonTable from '@/components/ComparisonTable';
 import ConversionBox from '@/components/ConversionBox';
@@ -35,6 +36,35 @@ function estimateReadTime(page: PageRecord) {
   const words = textParts.join(' ').trim().split(/\s+/).filter(Boolean).length;
   const minutes = Math.max(3, Math.ceil(words / 220));
   return `${minutes} min read`;
+}
+
+const INLINE_LINK_RE = /\[([^\]]+)\]\((\/[^)]+)\)|(\/(?:guides|alternatives|protocols|metrics|costs|compatibility|trends|pillars|reviews|checklists)\/[a-z0-9-]+)/g;
+
+function parseInlineLinks(text: string): React.ReactNode {
+  const nodes: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  INLINE_LINK_RE.lastIndex = 0;
+
+  while ((match = INLINE_LINK_RE.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+    if (match[1] && match[2]) {
+      // Markdown link: [anchor](/path)
+      nodes.push(<a key={match.index} href={match[2]}>{match[1]}</a>);
+    } else if (match[3]) {
+      // Bare path: /guides/slug
+      nodes.push(<a key={match.index} href={match[3]}>{match[3]}</a>);
+    }
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes.length === 1 && typeof nodes[0] === 'string' ? nodes[0] : <>{nodes}</>;
 }
 
 function toSentenceArray(content: unknown): string[] {
@@ -162,7 +192,7 @@ function renderSectionContent(section: PageBodySection, page?: PageRecord) {
           {faqs.map((faq, idx) => (
             <article key={`${section.id}-faq-${idx}`}>
               <h3>{faq.q ?? `Question ${idx + 1}`}</h3>
-              <p>{faq.a ?? ''}</p>
+              <p>{parseInlineLinks(faq.a ?? '')}</p>
             </article>
           ))}
         </div>
@@ -190,7 +220,7 @@ function renderSectionContent(section: PageBodySection, page?: PageRecord) {
     }
   }
 
-  return toSentenceArray(content).map((paragraph, idx) => <p key={`${section.id}-p-${idx}`}>{paragraph}</p>);
+  return toSentenceArray(content).map((paragraph, idx) => <p key={`${section.id}-p-${idx}`}>{parseInlineLinks(paragraph)}</p>);
 }
 
 function renderSections(page: PageRecord) {
@@ -233,6 +263,8 @@ export default function TemplatePage({ page, pillarLink, siblingLinks, schemaJso
             <a href="/metrics">Metrics</a>
             <a href="/costs">Costs</a>
             <a href="/trends">Trends</a>
+            <a href="/reviews">Reviews</a>
+            <a href="/checklists">Checklists</a>
           </nav>
         </div>
       </header>
@@ -297,7 +329,7 @@ export default function TemplatePage({ page, pillarLink, siblingLinks, schemaJso
               <section aria-labelledby="verdict-heading">
                 <h2 id="verdict-heading"><span className="rs-gradient-text">RecoveryStack Verdict</span></h2>
                 {verdict.slice(0, 3).map((p, i) => (
-                  <p key={i}>{p}</p>
+                  <p key={i}>{parseInlineLinks(p)}</p>
                 ))}
               </section>
             ) : null}

@@ -9,3 +9,4 @@
 - Include at least 3 FAQs.
 - Mandatory CTA context: ring + $1/mo newsletter + free protocol PDF.
 - Include firmware/software version numbers to establish recency.
+- All internal links MUST use markdown format: `[descriptive anchor text](/template/slug)`. Never use bare paths like `/guides/slug` without an anchor.
