@@ -42,7 +42,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.redirect(new URL('/admin?error=invalid_action', req.url), { status: 302 });
   }
 
-  const { data: page } = await supabaseAdmin.from('pages').select('id,slug,template,intro,body_json').eq('id', id).single();
+  const { data: page } = await supabaseAdmin.from('pages').select('id,slug,template,status,intro,body_json').eq('id', id).single();
   if (!page) {
     return NextResponse.redirect(new URL('/admin?error=page_not_found', req.url), { status: 302 });
   }

@@ -5,6 +5,7 @@ import {
   startPipelineRun,
   startPipelineStep,
 } from './pipeline-telemetry';
+import { releaseCronLock } from '@/lib/cron-locks';
 import { sendPipelineAlert } from '@/lib/pipeline-alerts';
 
 type Step = {
@@ -100,6 +101,7 @@ async function runStep(step: Step, index: number, total: number, runId: string |
 async function main() {
   const startedAt = Date.now();
   const runId = await startPipelineRun('nightly-run', steps.length);
+  const lockName = process.env.CRON_LOCK_NAME?.trim();
 
   logEvent('info', 'nightly.start', { totalSteps: steps.length, runId });
 
@@ -137,6 +139,10 @@ async function main() {
       durationMs: Date.now() - startedAt,
     });
     throw error;
+  } finally {
+    if (lockName) {
+      await releaseCronLock(lockName);
+    }
   }
 }
 

@@ -1,6 +1,7 @@
 import { config } from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import { normalizeKeyword } from '@/lib/seo-keywords';
+import { assessTrendRelevance } from '@/lib/trend-relevance';
 
 config({ path: '.env.local' });
 
@@ -443,10 +444,16 @@ async function run() {
   const skipped: string[] = [];
 
   for (const row of allRows) {
-    if (isDomainRelevant(row.term)) {
+    const assessment = assessTrendRelevance(row.term, row.source);
+    if (assessment.relevant) {
+      row.payload = {
+        ...row.payload,
+        relevance_score: assessment.score,
+        relevance_matches: assessment.matches,
+      };
       relevant.push(row);
     } else {
-      skipped.push(row.term);
+      skipped.push(`${row.term} [score=${assessment.score}${assessment.blockedBy.length ? ` blocked=${assessment.blockedBy.join(',')}` : ''}]`);
     }
   }
 

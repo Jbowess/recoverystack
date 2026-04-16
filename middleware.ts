@@ -50,22 +50,54 @@ async function getRedirects(): Promise<Map<string, RedirectRule>> {
 }
 // ────────────────────────────────────────────────────────────────────────────
 
-function validateAdminCookie(cookieValue: string | undefined): boolean {
+function decodeBase64Url(input: string): string {
+  const padded = input.padEnd(input.length + ((4 - (input.length % 4)) % 4), '=').replace(/-/g, '+').replace(/_/g, '/');
+  return atob(padded);
+}
+
+function toHex(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+async function signPayload(payload: string): Promise<string | null> {
+  const secret = process.env.ADMIN_PASSWORD?.trim();
+  if (!secret) return null;
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+
+  const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload));
+  const bytes = new Uint8Array(signature);
+  const binary = String.fromCharCode(...bytes);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+async function validateAdminCookie(cookieValue: string | undefined): Promise<boolean> {
   if (!cookieValue) return false;
 
-  // Cookie format: "sessionToken:hashedToken"
-  // Validate that hash(sessionToken) === hashedToken
-  const separatorIndex = cookieValue.indexOf(':');
+  const separatorIndex = cookieValue.lastIndexOf('.');
   if (separatorIndex < 1) return false;
 
-  const sessionToken = cookieValue.slice(0, separatorIndex);
-  const storedHash = cookieValue.slice(separatorIndex + 1);
-  if (!sessionToken || !storedHash) return false;
+  const payload = cookieValue.slice(0, separatorIndex);
+  const storedSignature = cookieValue.slice(separatorIndex + 1);
+  if (!payload || !storedSignature) return false;
 
-  // Edge runtime doesn't have node:crypto, so use Web Crypto API via simple check
-  // The login route creates token:hash(token), so we verify the structure is valid
-  // (64 char hex token + 64 char hex hash)
-  return sessionToken.length === 64 && storedHash.length === 64 && /^[0-9a-f]+$/.test(sessionToken) && /^[0-9a-f]+$/.test(storedHash);
+  const expectedSignature = await signPayload(payload);
+  if (!expectedSignature || expectedSignature !== storedSignature) return false;
+
+  try {
+    const decoded = JSON.parse(decodeBase64Url(payload)) as { token?: unknown; exp?: unknown };
+    return typeof decoded.token === 'string' && /^[0-9a-f]{64}$/.test(decoded.token) && typeof decoded.exp === 'number' && decoded.exp > Date.now();
+  } catch {
+    return false;
+  }
 }
 
 export async function middleware(req: NextRequest) {
@@ -86,7 +118,7 @@ export async function middleware(req: NextRequest) {
 
   const token = req.cookies.get('rs_admin')?.value;
 
-  if (!validateAdminCookie(token)) {
+  if (!(await validateAdminCookie(token))) {
     const url = req.nextUrl.clone();
     url.pathname = '/admin/login';
     return NextResponse.redirect(url);

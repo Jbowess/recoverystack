@@ -1,27 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
 import { spawn } from 'node:child_process';
-import path from 'node:path';
 import { NextRequest, NextResponse } from 'next/server';
-
-const DEFAULT_LOCK_TTL_MS = 4 * 60 * 60 * 1000;
-
-type LockData = {
-  startedAt: number;
-  createdBy: string;
-};
-
-function getLockTtlMs(): number {
-  const raw = process.env.NIGHTLY_CRON_LOCK_TTL_MS;
-  const parsed = raw ? Number(raw) : NaN;
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_LOCK_TTL_MS;
-}
-
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  );
-}
+import { acquireCronLock, getCronLockTtlMs, releaseCronLock } from '@/lib/cron-locks';
 
 function extractProvidedSecret(req: NextRequest): string {
   const auth = req.headers.get('authorization');
@@ -36,50 +15,7 @@ function extractProvidedSecret(req: NextRequest): string {
   );
 }
 
-// ── Supabase-based distributed lock (works on serverless) ──
-
 const LOCK_NAME = 'nightly-cron';
-
-async function acquireLock(ttlMs: number): Promise<{ acquired: true } | { acquired: false; reason: 'running'; lock: LockData | null }> {
-  const supabase = getSupabase();
-  const now = Date.now();
-
-  // Try to read existing lock
-  const { data: existing } = await supabase
-    .from('cron_locks')
-    .select('lock_data')
-    .eq('lock_name', LOCK_NAME)
-    .single();
-
-  if (existing?.lock_data) {
-    const lockData = existing.lock_data as LockData;
-    const isStale = Number.isFinite(lockData.startedAt) && now - lockData.startedAt > ttlMs;
-
-    if (!isStale) {
-      return { acquired: false, reason: 'running', lock: lockData };
-    }
-    // Stale lock — delete and re-acquire
-    await supabase.from('cron_locks').delete().eq('lock_name', LOCK_NAME);
-  }
-
-  // Try to insert lock (unique constraint prevents race conditions)
-  const payload: LockData = { startedAt: now, createdBy: 'api/cron/nightly' };
-  const { error } = await supabase
-    .from('cron_locks')
-    .insert({ lock_name: LOCK_NAME, lock_data: payload });
-
-  if (error) {
-    // Another process grabbed it
-    return { acquired: false, reason: 'running', lock: null };
-  }
-
-  return { acquired: true };
-}
-
-async function releaseLock() {
-  const supabase = getSupabase();
-  await supabase.from('cron_locks').delete().eq('lock_name', LOCK_NAME);
-}
 
 async function handleNightlyTrigger(req: NextRequest) {
   const expectedSecret = process.env.CRON_SECRET?.trim();
@@ -93,8 +29,8 @@ async function handleNightlyTrigger(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
 
-  const ttlMs = getLockTtlMs();
-  const lockResult = await acquireLock(ttlMs);
+  const ttlMs = getCronLockTtlMs();
+  const lockResult = await acquireCronLock(LOCK_NAME, ttlMs, 'api/cron/nightly');
 
   if (!lockResult.acquired) {
     return NextResponse.json(
@@ -114,14 +50,17 @@ async function handleNightlyTrigger(req: NextRequest) {
       cwd: process.cwd(),
       detached: true,
       stdio: 'ignore',
-      env: process.env,
+      env: {
+        ...process.env,
+        CRON_LOCK_NAME: LOCK_NAME,
+      },
     });
 
     child.unref();
 
     return NextResponse.json({ ok: true, accepted: true, started: true }, { status: 202 });
   } catch {
-    await releaseLock();
+    await releaseCronLock(LOCK_NAME);
     return NextResponse.json({ ok: false, error: 'pipeline_start_failed' }, { status: 500 });
   }
 }

@@ -105,7 +105,7 @@ async function run() {
       console.warn(`[linker] Page '${page.slug}' has missing pillar (${page.pillar_id ?? 'null'}). Reassigning to fallback pillar '${fallbackPillar.slug}'.`);
 
       if (!isDryRun && !isVerifyMode) {
-        await supabase.from('pages').update({ pillar_id: fallbackPillar.pageId }).eq('id', page.pageId);
+        await supabase.from('pages').update({ pillar_id: fallbackPillar.pageId, needs_revalidation: true }).eq('id', page.pageId);
       }
 
       const links = buildClusterLinks(page, all, fallbackPillar.slug);
@@ -117,7 +117,7 @@ async function run() {
 
       updates += 1;
       if (!isDryRun && !isVerifyMode) {
-        await supabase.from('pages').update({ internal_links: validLinks }).eq('id', page.pageId);
+        await supabase.from('pages').update({ internal_links: validLinks, needs_revalidation: true }).eq('id', page.pageId);
       }
       continue;
     }
@@ -130,7 +130,7 @@ async function run() {
 
     updates += 1;
     if (!isDryRun && !isVerifyMode) {
-      await supabase.from('pages').update({ internal_links }).eq('id', page.pageId);
+      await supabase.from('pages').update({ internal_links, needs_revalidation: true }).eq('id', page.pageId);
     }
   }
 
@@ -142,7 +142,7 @@ async function run() {
 
     updates += 1;
     if (!isDryRun && !isVerifyMode) {
-      await supabase.from('pages').update({ internal_links: down }).eq('id', pillar.pageId);
+      await supabase.from('pages').update({ internal_links: down, needs_revalidation: true }).eq('id', pillar.pageId);
     }
   }
 

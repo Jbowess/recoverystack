@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { slugify } from '@/lib/slugify';
 import type { TemplateType } from '@/lib/types';
 import { templateIdToPageTemplate, type QueueSource, type QueueTemplateId } from '@/lib/seo-keywords';
+import { assessTrendRelevance } from '@/lib/trend-relevance';
 
 config({ path: '.env.local' });
 
@@ -182,47 +183,15 @@ function templateCopy(templateId: QueueRow['template_id'], term: string) {
 
 // ── Pre-generation queue validator ──────────────────────────────────────────
 // Domain allowlist tokens — any substring match qualifies the keyword as on-topic
-const DOMAIN_ALLOWLIST_TOKENS = [
-  'recovery', 'recover', 'sleep', 'hrv', 'rem', 'circadian', 'insomnia', 'melatonin',
-  'workout', 'training', 'exercise', 'fitness', 'strength', 'cardio', 'endurance',
-  'hiit', 'crossfit', 'zone 2', 'vo2', 'lactate', 'overtraining', 'deload',
-  'heart rate', 'resting hr', 'spo2', 'oxygen', 'cortisol', 'inflammation',
-  'glucose', 'muscle', 'tendon', 'ligament', 'fascia', 'protein', 'creatine',
-  'magnesium', 'zinc', 'vitamin d', 'omega', 'collagen', 'electrolyte', 'hydration',
-  'nutrition', 'diet', 'supplement', 'caffeine', 'nootropic',
-  'ring', 'wearable', 'smart ring', 'whoop', 'oura', 'garmin', 'biosensor',
-  'cgm', 'biometric', 'health tracker', 'fitness tracker',
-  'biohack', 'longevity', 'cold plunge', 'ice bath', 'sauna', 'breathwork',
-  'meditation', 'mindfulness', 'stress', 'adaptogen', 'ashwagandha',
-  'fasting', 'intermittent', 'ketone', 'ketosis',
-  'injury', 'rehab', 'physical therapy', 'mobility', 'flexibility', 'stretching',
-  'foam rolling', 'massage', 'cryotherapy', 'compression',
-  'performance', 'athletic', 'sport', 'run', 'cycle', 'swim', 'lift',
-];
-
-const DOMAIN_BLOCKLIST_TOKENS = [
-  'amber alert', 'silver alert', 'missing child', 'missing person', 'evacuation',
-  'celebrity', 'kardashian', 'jenner', 'bieber', 'swift', 'kanye', 'beyonce',
-  'rihanna', 'drake', 'nba', 'nfl', 'mlb', 'nhl', 'esport', 'e-sport',
-  'election', 'president', 'congress', 'senate', 'stock market',
-  'crypto', 'bitcoin', 'nft', 'dogecoin', 'ethereum',
-  'traded to', 'signs with', 'released by', 'game 7', 'super bowl',
-];
-
 function isKeywordRelevant(keyword: string): { relevant: boolean; reason?: string } {
-  const lower = keyword.toLowerCase();
-
-  for (const blocked of DOMAIN_BLOCKLIST_TOKENS) {
-    if (lower.includes(blocked)) {
-      return { relevant: false, reason: `blocked term "${blocked}"` };
-    }
+  const assessment = assessTrendRelevance(keyword);
+  if (assessment.relevant) {
+    return { relevant: true };
   }
-
-  for (const token of DOMAIN_ALLOWLIST_TOKENS) {
-    if (lower.includes(token)) return { relevant: true };
-  }
-
-  return { relevant: false, reason: 'no domain allowlist match' };
+  const reason = assessment.blockedBy.length
+    ? `blocked terms "${assessment.blockedBy.join(', ')}"`
+    : `relevance score ${assessment.score}`;
+  return { relevant: false, reason };
 }
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -534,20 +503,7 @@ async function run() {
   let publishedCount = 0;
 
   if (shouldPublish) {
-    runScript('scripts/deploy.ts');
-
-    const generatedIds = selectedRows.map((r) => r.id);
-    const { error: publishMarkError } = await supabase
-      .from('keyword_queue')
-      .update({ status: 'published' })
-      .in('id', generatedIds)
-      .eq('status', 'generated');
-
-    if (publishMarkError) {
-      throw new Error(`Failed to mark generated queue rows as published: ${publishMarkError.message}`);
-    }
-
-    publishedCount = generatedIds.length;
+    console.log('[batch-generate] auto-publish has been disabled. Generated pages remain in review state and must be published through guarded admin flows.');
   } else {
     console.log('[batch-generate] publish skipped (pass --publish or set BATCH_PUBLISH=1).');
   }

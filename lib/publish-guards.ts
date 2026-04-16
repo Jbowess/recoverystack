@@ -39,11 +39,26 @@ const BodySchema = z.object({
     z.object({
       id: z.string(),
       heading: z.string(),
-      kind: z.enum(['paragraphs', 'faq', 'steps', 'list', 'table']),
+      kind: z.enum(['paragraphs', 'faq', 'steps', 'list', 'table', 'definition_box']),
       content: z.unknown(),
     }),
   ),
   faqs: z.array(z.object({ q: z.string(), a: z.string() })).optional(),
+  key_takeaways: z.array(z.string()).max(6).optional(),
+  references: z.array(
+    z.object({
+      title: z.string().min(1),
+      url: z.string().url(),
+      source: z.string().optional(),
+      year: z.string().optional(),
+    }),
+  ).optional(),
+  review_methodology: z.object({
+    summary: z.string().optional(),
+    tested: z.array(z.string()).optional(),
+    scoring: z.array(z.string()).optional(),
+    use_cases: z.array(z.string()).optional(),
+  }).optional(),
 });
 
 const SchemaOrgItemSchema = z.object({
@@ -326,11 +341,17 @@ const CITATION_PATTERNS = [
 export function validateEeatSignals(page: QualityPageInput): string[] {
   const errors: string[] = [];
   const allText = collectStrings([page.body_json]).join(' ');
+  const body = (page.body_json ?? {}) as { references?: Array<{ url?: string; title?: string }> };
+  const referenceCount = Array.isArray(body.references) ? body.references.filter((ref) => typeof ref?.url === 'string' && typeof ref?.title === 'string').length : 0;
 
   // Check for at least one citation-like pattern
   const hasCitation = CITATION_PATTERNS.some((pattern) => pattern.test(allText));
-  if (!hasCitation) {
+  if (!hasCitation && referenceCount === 0) {
     errors.push('E-E-A-T: no citation or authority reference found in content (expected year, study reference, or named authority)');
+  }
+
+  if (['protocols', 'metrics', 'reviews', 'alternatives'].includes(page.template ?? '') && referenceCount < 2) {
+    errors.push(`E-E-A-T: ${page.template} template requires at least 2 source references`);
   }
 
   // For protocols/metrics, check for disclaimer

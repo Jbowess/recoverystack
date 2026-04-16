@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { buildPagePath, buildPublishUpdate, validatePageForPublish } from '@/lib/page-state';
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -20,6 +21,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
 
+  const { data: existing, error: existingError } = await supabaseAdmin.from('pages').select('*').eq('id', id).single();
+  if (existingError || !existing) return NextResponse.json({ error: 'Page not found' }, { status: 404 });
+
   // Allow updating specific fields only
   const allowedFields = [
     'title', 'meta_description', 'h1', 'intro', 'body_json',
@@ -36,9 +40,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
   }
 
-  // If publishing, set published_at
-  if (update.status === 'published') {
-    update.published_at = new Date().toISOString();
+  const nextPage = { ...existing, ...update };
+  const nextStatus = (update.status ?? existing.status) as string;
+  const nextIsPublished = nextStatus === 'published';
+
+  if (nextIsPublished) {
+    const { schemaOrg, errors } = validatePageForPublish(nextPage as any);
+    if (errors.length) {
+      return NextResponse.json({ error: 'Publish blocked by validation guards', details: errors }, { status: 400 });
+    }
+
+    Object.assign(update, buildPublishUpdate(nextPage as any), { schema_org: schemaOrg });
+  } else if (existing.status === 'published') {
+    update.needs_revalidation = true;
   }
 
   const { data, error } = await supabaseAdmin
@@ -52,8 +66,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!data) return NextResponse.json({ error: 'Page not found' }, { status: 404 });
 
   // Revalidate the page path if it was published
-  if (update.status === 'published') {
-    revalidatePath(`/${data.template}/${data.slug}`);
+  if (nextIsPublished) {
+    revalidatePath(buildPagePath(data as any));
   }
 
   return NextResponse.json({ page: data });

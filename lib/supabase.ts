@@ -1,7 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 import type { PageRecord, TemplateType } from '@/lib/types';
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://placeholder.supabase.co';
-const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'placeholder-anon-key';
+
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!url || !anon) {
+  throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY');
+}
 
 export const supabase = createClient(url, anon);
 
@@ -21,7 +26,7 @@ export async function getPageByTemplateAndSlug(template: TemplateType, slug: str
     .select('*')
     .eq('template', template)
     .eq('slug', slug)
-    .in('status', ['approved', 'published'])
+    .eq('status', 'published')
     .single();
 
   return (data ?? null) as PageRecord | null;

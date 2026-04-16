@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { PRODUCT_DESTINATION_URL, PRODUCT_NAME } from '@/lib/brand';
 import type { InternalLink, PageRecord } from '@/lib/types';
-import { articleSchema, breadcrumbSchema, faqSchema, productSchema, newsArticleSchema, howToSchema, aggregateRatingSchema, itemListSchema, speakableSchema, medicalWebPageSchema } from '@/lib/schema-org';
+import { getEditorialMetadata } from '@/lib/editorial';
+import { articleSchema, breadcrumbSchema, faqSchema, productSchema, newsArticleSchema, howToSchema, aggregateRatingSchema, itemListSchema, speakableSchema, medicalWebPageSchema, organizationSchema, personSchema } from '@/lib/schema-org';
 
 const SITE = process.env.SITE_URL ?? 'https://recoverystack.io';
 const SITE_NAME = 'RecoveryStack.io';
@@ -19,21 +20,29 @@ export function splitInternalLinks(page: PageRecord): { pillarLink: InternalLink
 
 export function buildPageMetadata(page: PageRecord, path: string): Metadata {
   const url = `${SITE}${path}`;
-  const ogImage = `${url}/opengraph-image`;
+  const ogImage = typeof page.metadata?.hero_image === 'string' && page.metadata.hero_image.trim()
+    ? page.metadata.hero_image
+    : `${url}/opengraph-image`;
+  const imageAlt = typeof page.metadata?.hero_image_alt === 'string' && page.metadata.hero_image_alt.trim()
+    ? page.metadata.hero_image_alt
+    : page.title;
+  const editorial = getEditorialMetadata(page);
 
   return {
     title: page.title,
     description: page.meta_description,
     alternates: { canonical: url },
+    authors: [{ name: editorial.author.name, url: `${SITE}/authors/${editorial.author.slug}` }],
     openGraph: {
       type: 'article',
       url,
       title: page.title,
       description: page.meta_description,
       siteName: SITE_NAME,
-      images: [{ url: ogImage, width: 1200, height: 630, alt: page.title }],
+      images: [{ url: ogImage, width: 1200, height: 630, alt: imageAlt }],
       ...(page.published_at ? { publishedTime: page.published_at } : {}),
       modifiedTime: page.updated_at,
+      authors: [editorial.author.name],
     },
     twitter: {
       card: 'summary_large_image',
@@ -47,6 +56,18 @@ export function buildPageMetadata(page: PageRecord, path: string): Metadata {
 export function buildSchemaBundle(page: PageRecord, path: string) {
   const url = `${SITE}${path}`;
   const out: unknown[] = [];
+  const authorSlug = typeof page.metadata?.author_slug === 'string' ? page.metadata.author_slug : 'editorial-team';
+  const authorName = typeof page.metadata?.author_name === 'string' ? page.metadata.author_name : 'RecoveryStack Editorial Team';
+  const authorTitle = typeof page.metadata?.author_title === 'string' ? page.metadata.author_title : 'Sports Science & Recovery Technology Analysts';
+  const reviewerSlug = typeof page.metadata?.reviewer_slug === 'string' ? page.metadata.reviewer_slug : null;
+  const reviewerName = typeof page.metadata?.reviewer_name === 'string' ? page.metadata.reviewer_name : null;
+  const reviewerTitle = typeof page.metadata?.reviewer_title === 'string' ? page.metadata.reviewer_title : 'Clinical and Evidence Review';
+
+  out.push(organizationSchema());
+  out.push(personSchema({ slug: authorSlug, name: authorName, title: authorTitle }));
+  if (reviewerSlug && reviewerName) {
+    out.push(personSchema({ slug: reviewerSlug, name: reviewerName, title: reviewerTitle }));
+  }
 
   // Use NewsArticle for trends, standard Article for everything else
   if (page.template === 'trends') {

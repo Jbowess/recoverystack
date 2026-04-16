@@ -8,10 +8,10 @@ function parseMessage(params: Record<string, string | string[] | undefined>) {
   const detail = typeof params.detail === 'string' ? params.detail : '';
 
   const okMessages: Record<string, string> = {
-    trend_approved: 'Trend approved and draft created.',
-    draft_published: 'Draft published successfully.',
+    trend_approved: 'Trend approved and review draft created.',
+    draft_published: 'Page published successfully.',
     pipeline_started: 'Daily pipeline started in the background.',
-    refresh_approved: 'Refresh item approved and page moved to draft.',
+    refresh_approved: 'Refresh item approved for regeneration.',
     refresh_rejectd: 'Refresh item rejected.',
     refresh_deferd: 'Refresh item deferred.',
     page_regenerated: 'Page regenerated and revalidated.',
@@ -21,7 +21,7 @@ function parseMessage(params: Record<string, string | string[] | undefined>) {
 
   const errorMessages: Record<string, string> = {
     invalid_action: 'Invalid action.',
-    not_draft: 'Only drafts can be published.',
+    not_draft: 'Only review-ready pages can be published.',
     trend_not_found: 'Trend not found.',
     refresh_item_not_found: 'Refresh queue item not found.',
     page_not_found: 'Page not found.',
@@ -116,7 +116,7 @@ async function safeSelect(table: string, columns: string, limit = 1000) {
 async function getDashboardData() {
   const [
     { data: newTrends },
-    { data: drafts },
+    { data: reviewQueue },
     { data: published },
     { data: counts },
     { data: deploys },
@@ -124,7 +124,7 @@ async function getDashboardData() {
     { data: successfulPipelineRuns },
     { data: refreshQueue },
     { count: trendCount },
-    { count: draftCount },
+    { count: reviewCount },
     { count: publishedCount },
     { count: refreshQueueCount },
     migrationReadiness,
@@ -133,7 +133,7 @@ async function getDashboardData() {
     clusterMetricsRows,
   ] = await Promise.all([
     supabaseAdmin.from('trends').select('*').eq('status', 'new').order('created_at', { ascending: false }).limit(100),
-    supabaseAdmin.from('pages').select('id,slug,title,template,updated_at').eq('status', 'draft').order('updated_at', { ascending: false }).limit(100),
+    supabaseAdmin.from('pages').select('id,slug,title,template,status,updated_at').in('status', ['draft', 'approved']).order('updated_at', { ascending: false }).limit(100),
     supabaseAdmin.from('pages').select('id,slug,title,template,published_at').eq('status', 'published').order('published_at', { ascending: false }).limit(100),
     supabaseAdmin.from('pages').select('template').neq('template', ''),
     supabaseAdmin.from('deploy_events').select('created_at,status,detail').order('created_at', { ascending: false }).limit(1),
@@ -152,7 +152,7 @@ async function getDashboardData() {
       .order('queued_at', { ascending: false })
       .limit(100),
     supabaseAdmin.from('trends').select('id', { count: 'exact', head: true }).eq('status', 'new'),
-    supabaseAdmin.from('pages').select('id', { count: 'exact', head: true }).eq('status', 'draft'),
+    supabaseAdmin.from('pages').select('id', { count: 'exact', head: true }).in('status', ['draft', 'approved']),
     supabaseAdmin.from('pages').select('id', { count: 'exact', head: true }).eq('status', 'published'),
     supabaseAdmin.from('content_refresh_queue').select('id', { count: 'exact', head: true }).eq('status', 'queued'),
     getMigrationReadinessReport(),
@@ -182,7 +182,7 @@ async function getDashboardData() {
 
   return {
     newTrends: newTrends ?? [],
-    drafts: drafts ?? [],
+    drafts: reviewQueue ?? [],
     published: published ?? [],
     byTemplate,
     lastDeploy: deploys?.[0] ?? null,
@@ -193,7 +193,7 @@ async function getDashboardData() {
     migrationReadiness,
     totals: {
       trends: trendCount ?? 0,
-      drafts: draftCount ?? 0,
+      drafts: reviewCount ?? 0,
       published: publishedCount ?? 0,
       refreshQueue: refreshQueueCount ?? 0,
     },
@@ -226,7 +226,7 @@ export default async function AdminDashboard({
   return (
     <main style={{ maxWidth: 980, margin: '0 auto', padding: '20px 16px 56px' }}>
       <h1>RecoveryStack Admin</h1>
-      <p>Manual gates enforced: trend approval then draft publish.</p>
+      <p>Manual gates enforced: generation writes to review state, publishing runs through guarded admin actions only.</p>
 
       {message.ok ? <p style={{ color: 'green' }}>{message.ok}</p> : null}
       {message.error ? (
@@ -287,7 +287,7 @@ export default async function AdminDashboard({
         <h2>Status counts</h2>
         <ul>
           <li>Trends pending approval: {data.totals.trends}</li>
-          <li>Drafts ready for review: {data.totals.drafts}</li>
+          <li>Pages in review queue: {data.totals.drafts}</li>
           <li>Published pages: {data.totals.published}</li>
           <li>Refresh queue (queued): {data.totals.refreshQueue}</li>
         </ul>
@@ -522,11 +522,11 @@ export default async function AdminDashboard({
       </section>
 
       <section style={{ marginTop: 24 }}>
-        <h2>Draft queue</h2>
+        <h2>Review queue</h2>
         <ul>
           {data.drafts.map((d: any) => (
             <li key={d.id}>
-              <Link href={`/${d.template}/${d.slug}` as any}>{d.title}</Link>
+              <strong>{d.title}</strong> <span style={{ color: '#4b5563' }}>({d.status})</span>
               <form method="post" action={`/api/admin/drafts/${d.id}`} style={{ display: 'inline-block', marginLeft: 8 }}>
                 <input type="hidden" name="action" value="publish" />
                 <button type="submit">Publish</button>

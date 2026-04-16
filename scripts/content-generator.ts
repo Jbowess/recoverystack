@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { countRequiredCtaMentions } from '@/lib/publish-guards';
 import { buildInfoFeedSections, collectInfoGainFeeds } from '@/lib/info-gain-feeds';
 import { rateLimit } from '@/lib/rate-limiter';
+import { buildGeneratedPageUpdate } from '@/lib/page-state';
 import {
   fetchRecentFingerprints,
   replacePrimaryKeyword,
@@ -37,6 +38,25 @@ const BodySchema = z.object({
     }),
   ),
   faqs: z.array(z.object({ q: z.string(), a: z.string() })).optional(),
+  key_takeaways: z.array(z.string()).max(6).optional(),
+  references: z
+    .array(
+      z.object({
+        title: z.string(),
+        url: z.string().url(),
+        source: z.string().optional(),
+        year: z.string().optional(),
+      }),
+    )
+    .optional(),
+  review_methodology: z
+    .object({
+      summary: z.string().optional(),
+      tested: z.array(z.string()).optional(),
+      scoring: z.array(z.string()).optional(),
+      use_cases: z.array(z.string()).optional(),
+    })
+    .optional(),
   info_gain_feeds: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -235,6 +255,25 @@ function normalizeGeneratedPayload(input: unknown): unknown {
     ];
   }
 
+  if (Array.isArray(body.key_takeaways)) {
+    body.key_takeaways = body.key_takeaways.map((item) => String(item ?? '').trim()).filter(Boolean).slice(0, 4);
+  }
+
+  if (Array.isArray(body.references)) {
+    body.references = body.references
+      .map((item) => {
+        if (!item || typeof item !== 'object') return null;
+        const row = item as Record<string, unknown>;
+        const title = String(row.title ?? row.name ?? '').trim();
+        const url = String(row.url ?? row.link ?? '').trim();
+        const source = String(row.source ?? row.publisher ?? '').trim();
+        const year = String(row.year ?? row.date ?? '').trim();
+        if (!title || !url) return null;
+        return { title, url, ...(source ? { source } : {}), ...(year ? { year } : {}) };
+      })
+      .filter(Boolean);
+  }
+
   root.body_json = body;
   return root;
 }
@@ -338,6 +377,10 @@ function deterministicChecks(template: string, content: z.infer<typeof Generated
     }
   });
 
+  if ((template === 'reviews' || template === 'alternatives') && !content.body_json.review_methodology) {
+    errors.push(`review_methodology is required for template '${template}'`);
+  }
+
   return errors;
 }
 
@@ -427,9 +470,9 @@ async function loadPagesForGeneration() {
   let query = supabase.from('pages').select('*');
 
   if (targetPageId) {
-    query = query.eq('id', targetPageId).in('status', ['draft', 'published']);
+    query = query.eq('id', targetPageId).in('status', ['draft', 'approved', 'published']);
   } else if (targetPageSlug) {
-    query = query.eq('slug', targetPageSlug).in('status', ['draft', 'published']);
+    query = query.eq('slug', targetPageSlug).in('status', ['draft', 'approved', 'published']);
   } else {
     query = query.eq('status', 'draft').limit(20);
   }
@@ -491,8 +534,11 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
         `Title: ${page.title}`,
         `Primary keyword: ${page.primary_keyword ?? ''}`,
         'Return ONLY valid JSON. Do not include markdown fences.',
-        'Output schema must be exactly: {"intro":"string <=60 words","body_json":{"comparison_table?":{},"verdict":["Best for: ...","Avoid if: ...","Bottom line: ..."],"sections":[],"faqs?":[]}}',
+        'Output schema must be exactly: {"intro":"string <=60 words","body_json":{"comparison_table?":{},"verdict":["Best for: ...","Avoid if: ...","Bottom line: ..."],"key_takeaways?":["..."],"sections":[],"faqs?":[],"references?":[{"title":"...","url":"https://...","source":"...","year":"..."}],"review_methodology?":{"summary":"...","tested":["..."],"scoring":["..."],"use_cases":["..."]}}}',
         'Verdict is mandatory with exactly 3 bullets in this order: Best for, Avoid if, Bottom line.',
+        'Include 3-4 concise key_takeaways.',
+        'Whenever evidence is referenced, include source URLs in body_json.references.',
+        `For ${page.template} pages, include a substantive review_methodology object when the topic is evaluative or comparative.`,
         `If FAQs are included for this template, minimum FAQ count is ${rule.minFaqs ?? 0}.`,
         `Comparison slots required for this template: ${rule.requiresComparisonSlots ? 'yes' : 'no'}.`,
         'Mention RecoveryStack Smart Ring exactly once, newsletter exactly once, free PDF exactly once in natural context.',
@@ -588,14 +634,12 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
           await saveRevision(page.id, page.slug, page.intro ?? null, page.body_json, 'batch_generate');
         }
 
+        const pageUpdate = buildGeneratedPageUpdate(page as any, enriched.intro, enriched.body_json as any);
+        const mergedMetadata = { ...(pageUpdate.metadata ?? {}) };
+
         const { error: pageUpdateError } = await supabase
           .from('pages')
-          .update({
-            intro: enriched.intro,
-            body_json: enriched.body_json,
-            status: 'published',
-            published_at: new Date().toISOString(),
-          })
+          .update(pageUpdate)
           .eq('id', page.id);
 
         if (pageUpdateError) {
@@ -609,7 +653,13 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
           if (heroUrl) {
             await supabase
               .from('pages')
-              .update({ metadata: { ...(page.metadata ?? {}), hero_image: heroUrl } })
+              .update({
+                metadata: {
+                  ...mergedMetadata,
+                  hero_image: heroUrl,
+                  hero_image_alt: `${page.title} illustration`,
+                },
+              })
               .eq('id', page.id);
           }
         } catch (imgErr) {

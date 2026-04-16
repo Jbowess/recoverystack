@@ -9,6 +9,7 @@ import ReadingProgressBar from '@/components/ReadingProgressBar';
 import ShareBar from '@/components/ShareBar';
 import TableOfContents from '@/components/TableOfContents';
 import { MAIN_SITE_URL, NEWSLETTER_URL, PRODUCT_NAME } from '@/lib/brand';
+import { getEditorialMetadata } from '@/lib/editorial';
 import type { InfoGainFeeds, InternalLink, PageBodySection, PageRecord } from '@/lib/types';
 
 type Props = {
@@ -52,10 +53,8 @@ function parseInlineLinks(text: string): React.ReactNode {
       nodes.push(text.slice(lastIndex, match.index));
     }
     if (match[1] && match[2]) {
-      // Markdown link: [anchor](/path)
       nodes.push(<a key={match.index} href={match[2]}>{match[1]}</a>);
     } else if (match[3]) {
-      // Bare path: /guides/slug
       nodes.push(<a key={match.index} href={match[3]}>{match[3]}</a>);
     }
     lastIndex = match.index + match[0].length;
@@ -91,7 +90,7 @@ function toSentenceArray(content: unknown): string[] {
     if (Array.isArray(obj.studies)) {
       return obj.studies.map((item) => {
         const row = item as { title?: string; journal?: string | null; pubdate?: string | null };
-        return [row.title, row.journal, row.pubdate].filter(Boolean).join(' — ');
+        return [row.title, row.journal, row.pubdate].filter(Boolean).join(' - ');
       });
     }
 
@@ -111,7 +110,6 @@ function toSentenceArray(content: unknown): string[] {
 function renderSectionContent(section: PageBodySection, page?: PageRecord) {
   const content = section.content as Record<string, unknown> | unknown;
 
-  // Definition box — styled for featured snippet extraction (position 0)
   if (section.kind === 'definition_box') {
     const text = typeof content === 'string' ? content : toSentenceArray(content).join(' ');
     return (
@@ -128,7 +126,16 @@ function renderSectionContent(section: PageBodySection, page?: PageRecord) {
         role="note"
         aria-label={`Definition: ${section.heading}`}
       >
-        <strong style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--rs-accent, #00c2a8)' }}>
+        <strong
+          style={{
+            display: 'block',
+            marginBottom: '0.4rem',
+            fontSize: '0.8rem',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            color: 'var(--rs-accent, #00c2a8)',
+          }}
+        >
           Definition
         </strong>
         <p style={{ margin: 0 }}>{text}</p>
@@ -136,7 +143,6 @@ function renderSectionContent(section: PageBodySection, page?: PageRecord) {
     );
   }
 
-  // Scientific alpha feed — render PubMed citations as real HTML links
   if (section.id === 'scientific-alpha-feed') {
     const feeds = page?.body_json?.info_gain_feeds as InfoGainFeeds | undefined;
     const items = feeds?.scientific_alpha?.items ?? [];
@@ -144,15 +150,22 @@ function renderSectionContent(section: PageBodySection, page?: PageRecord) {
       return (
         <ul style={{ listStyle: 'none', padding: 0 }}>
           {items.map((item, idx) => (
-            <li key={`pub-${idx}`} style={{ marginBottom: '0.75rem', paddingBottom: '0.75rem', borderBottom: '1px solid var(--rs-surface-2, #1e293b)' }}>
+            <li
+              key={`pub-${idx}`}
+              style={{
+                marginBottom: '0.75rem',
+                paddingBottom: '0.75rem',
+                borderBottom: '1px solid var(--rs-surface-2, #1e293b)',
+              }}
+            >
               <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 500 }}>
                 {item.title}
               </a>
-              {(item.journal || item.pubdate) && (
+              {(item.journal || item.pubdate) ? (
                 <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--rs-muted, #94a3b8)', marginTop: '0.2rem' }}>
                   {[item.journal, item.pubdate].filter(Boolean).join(' · ')}
                 </span>
-              )}
+              ) : null}
             </li>
           ))}
         </ul>
@@ -160,7 +173,6 @@ function renderSectionContent(section: PageBodySection, page?: PageRecord) {
     }
   }
 
-  // Social sentiment feed — render Reddit complaints as cards with links
   if (section.id === 'social-sentiment-feed') {
     const feeds = page?.body_json?.info_gain_feeds as InfoGainFeeds | undefined;
     const complaints = feeds?.social_sentiment?.complaints ?? [];
@@ -168,7 +180,10 @@ function renderSectionContent(section: PageBodySection, page?: PageRecord) {
       return (
         <div>
           {complaints.map((item, idx) => (
-            <div key={`reddit-${idx}`} style={{ marginBottom: '0.75rem', padding: '0.75rem', background: 'var(--rs-surface-2, #1e293b)', borderRadius: '0.5rem' }}>
+            <div
+              key={`reddit-${idx}`}
+              style={{ marginBottom: '0.75rem', padding: '0.75rem', background: 'var(--rs-surface-2, #1e293b)', borderRadius: '0.5rem' }}
+            >
               <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 500 }}>
                 {item.title}
               </a>
@@ -234,21 +249,95 @@ function renderSections(page: PageRecord) {
   ));
 }
 
+function renderMethodology(page: PageRecord) {
+  const methodology = page.body_json?.review_methodology;
+  if (!methodology) return null;
+
+  return (
+    <section aria-labelledby="methodology-heading">
+      <h2 id="methodology-heading">How we evaluated this topic</h2>
+      {methodology.summary ? <p>{methodology.summary}</p> : null}
+      {methodology.tested?.length ? (
+        <>
+          <h3>What we checked</h3>
+          <ul>
+            {methodology.tested.map((item, index) => <li key={`tested-${index}`}>{item}</li>)}
+          </ul>
+        </>
+      ) : null}
+      {methodology.scoring?.length ? (
+        <>
+          <h3>How we scored it</h3>
+          <ul>
+            {methodology.scoring.map((item, index) => <li key={`scoring-${index}`}>{item}</li>)}
+          </ul>
+        </>
+      ) : null}
+      {methodology.use_cases?.length ? (
+        <>
+          <h3>Best-fit use cases</h3>
+          <ul>
+            {methodology.use_cases.map((item, index) => <li key={`use-case-${index}`}>{item}</li>)}
+          </ul>
+        </>
+      ) : null}
+    </section>
+  );
+}
+
+function renderReferences(page: PageRecord) {
+  const references = page.body_json?.references ?? [];
+  if (!references.length) return null;
+
+  return (
+    <section aria-labelledby="references-heading">
+      <h2 id="references-heading">Sources and references</h2>
+      <ol>
+        {references.map((reference, index) => (
+          <li key={`${reference.url}-${index}`}>
+            <a href={reference.url} target="_blank" rel="noopener noreferrer">
+              {reference.title}
+            </a>
+            {reference.source || reference.year ? (
+              <span style={{ color: 'var(--rs-muted, #94a3b8)' }}>
+                {' '}({[reference.source, reference.year].filter(Boolean).join(' · ')})
+              </span>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
 function buildTocItems(page: PageRecord): Array<{ id: string; text: string }> {
   const sections = page.body_json?.sections ?? [];
   const items = sections.map((s) => ({ id: `section-${s.id}`, text: s.heading }));
+  if ((page.body_json?.key_takeaways ?? []).length > 0) {
+    items.unshift({ id: 'key-takeaways-heading', text: 'Key takeaways' });
+  }
+  if (page.body_json?.review_methodology) {
+    items.push({ id: 'methodology-heading', text: 'How we evaluated this topic' });
+  }
   if ((page.body_json?.verdict ?? []).length > 0) {
     items.push({ id: 'verdict-heading', text: 'RecoveryStack Verdict' });
+  }
+  if ((page.body_json?.references ?? []).length > 0) {
+    items.push({ id: 'references-heading', text: 'Sources and references' });
   }
   return items;
 }
 
 export default function TemplatePage({ page, pillarLink, siblingLinks, schemaJsonLd }: Props) {
   const verdict = page.body_json?.verdict ?? [];
+  const takeaways = page.body_json?.key_takeaways ?? [];
   const publishedDate = formatDate(page.published_at ?? page.updated_at);
+  const reviewedDate = formatDate(typeof page.metadata?.reviewed_at === 'string' ? page.metadata.reviewed_at : page.updated_at);
   const readTime = estimateReadTime(page);
   const backTo = `/${page.template}`;
   const tocItems = buildTocItems(page);
+  const editorial = getEditorialMetadata(page);
+  const referenceCount = page.body_json?.references?.length ?? 0;
 
   return (
     <div className="rs-shell">
@@ -276,10 +365,10 @@ export default function TemplatePage({ page, pillarLink, siblingLinks, schemaJso
           {page.metadata?.hero_image ? (
             <img
               src={page.metadata.hero_image as string}
-              alt={page.h1}
+              alt={typeof page.metadata?.hero_image_alt === 'string' ? page.metadata.hero_image_alt : page.h1}
               width={1200}
               height={630}
-              loading="lazy"
+              fetchPriority="high"
               style={{ width: '100%', height: 'auto', borderRadius: '0.75rem', marginBottom: '1.5rem', objectFit: 'cover' }}
             />
           ) : null}
@@ -290,13 +379,31 @@ export default function TemplatePage({ page, pillarLink, siblingLinks, schemaJso
               <p className="rs-meta">{publishedDate} · {readTime}</p>
               <p className="rs-excerpt">{page.intro ?? page.meta_description}</p>
 
-              {/* Social proof / trust signals */}
+              <div className="rs-card" style={{ marginTop: '1rem', padding: '1rem 1.1rem' }}>
+                <p style={{ margin: 0, fontWeight: 600 }}>
+                  Written by <a href={`/authors/${editorial.author.slug}`}>{editorial.author.name}</a>
+                  {editorial.reviewer ? (
+                    <>
+                      {' '}· Reviewed by <a href={`/authors/${editorial.reviewer.slug}`}>{editorial.reviewer.name}</a>
+                    </>
+                  ) : null}
+                </p>
+                <p style={{ margin: '0.4rem 0 0', color: 'var(--rs-muted, #94a3b8)' }}>
+                  {editorial.author.title}
+                  {editorial.reviewer ? ` · ${editorial.reviewer.title}` : ''}
+                </p>
+                <p style={{ margin: '0.5rem 0 0', color: 'var(--rs-muted, #94a3b8)' }}>
+                  Updated {publishedDate} · Reviewed {reviewedDate} · {referenceCount} source{referenceCount === 1 ? '' : 's'}
+                </p>
+              </div>
+
               <div className="rs-trust-bar">
-                <span className="rs-trust-item">Reviewed by RecoveryStack Editorial Team</span>
-                <span className="rs-trust-divider" aria-hidden="true">·</span>
-                <span className="rs-trust-item">Evidence-based</span>
-                <span className="rs-trust-divider" aria-hidden="true">·</span>
-                <span className="rs-trust-item">Last updated {publishedDate}</span>
+                {editorial.trustSignals.map((item, index) => (
+                  <React.Fragment key={item}>
+                    {index > 0 ? <span className="rs-trust-divider" aria-hidden="true">·</span> : null}
+                    <span className="rs-trust-item">{item}</span>
+                  </React.Fragment>
+                ))}
               </div>
 
               <ShareBar title={page.title} />
@@ -307,79 +414,89 @@ export default function TemplatePage({ page, pillarLink, siblingLinks, schemaJso
 
       <main className="rs-main-section">
         <div className="rs-container rs-article-layout">
-          {/* Sticky sidebar TOC on desktop */}
           <aside className="rs-toc-sidebar">
             <TableOfContents items={tocItems} />
           </aside>
 
           <div className="rs-article-column">
             <article className="rs-article rs-prose" aria-label="Article content">
+              {takeaways.length > 0 ? (
+                <section aria-labelledby="key-takeaways-heading">
+                  <h2 id="key-takeaways-heading">Key takeaways</h2>
+                  <ul>
+                    {takeaways.map((item, index) => <li key={`takeaway-${index}`}>{item}</li>)}
+                  </ul>
+                </section>
+              ) : null}
+
               {renderSections(page)}
+              {renderMethodology(page)}
 
-            {page.body_json?.comparison_table?.headers && page.body_json.comparison_table.rows ? (
-              <section aria-labelledby="comparison-table-heading">
-                <h2 id="comparison-table-heading">Side-by-Side Comparison</h2>
-                <ComparisonTable
-                  headers={page.body_json.comparison_table.headers}
-                  rows={page.body_json.comparison_table.rows}
-                />
-              </section>
-            ) : null}
+              {page.body_json?.comparison_table?.headers && page.body_json.comparison_table.rows ? (
+                <section aria-labelledby="comparison-table-heading">
+                  <h2 id="comparison-table-heading">Side-by-side comparison</h2>
+                  <ComparisonTable
+                    headers={page.body_json.comparison_table.headers}
+                    rows={page.body_json.comparison_table.rows}
+                  />
+                </section>
+              ) : null}
 
-            {verdict.length > 0 ? (
-              <section aria-labelledby="verdict-heading">
-                <h2 id="verdict-heading"><span className="rs-gradient-text">RecoveryStack Verdict</span></h2>
-                {verdict.slice(0, 3).map((p, i) => (
-                  <p key={i}>{parseInlineLinks(p)}</p>
-                ))}
-              </section>
-            ) : null}
-          </article>
+              {verdict.length > 0 ? (
+                <section aria-labelledby="verdict-heading">
+                  <h2 id="verdict-heading"><span className="rs-gradient-text">RecoveryStack Verdict</span></h2>
+                  {verdict.slice(0, 3).map((paragraph, index) => (
+                    <p key={index}>{parseInlineLinks(paragraph)}</p>
+                  ))}
+                </section>
+              ) : null}
 
-          <section className="rs-article rs-card" aria-labelledby="compatibility-heading">
-            <h2 id="compatibility-heading">Compatibility checker</h2>
-            <CompatibilityCheckerWidget pageSlug={page.slug} pageTemplate={page.template} />
-          </section>
+              {renderReferences(page)}
+            </article>
 
-          <section className="rs-article rs-card" aria-labelledby="conversion-heading">
-            <h2 id="conversion-heading">Next step</h2>
-            <ConversionBox pageTemplate={page.template} />
-          </section>
+            <section className="rs-article rs-card" aria-labelledby="compatibility-heading">
+              <h2 id="compatibility-heading">Compatibility checker</h2>
+              <CompatibilityCheckerWidget pageSlug={page.slug} pageTemplate={page.template} />
+            </section>
 
-          <section className="rs-related" aria-labelledby="related-heading">
-            <div className="rs-article" style={{ maxWidth: '100%' }}>
-              <h2 id="related-heading">Related articles</h2>
-              <div className="rs-grid">
-                {pillarLink ? (
-                  <article className="rs-card">
-                    <h3>Pillar guide</h3>
-                    <PillarLink href={`/${pillarLink.template ?? 'pillars'}/${pillarLink.slug}`} anchorText={pillarLink.anchor} />
-                  </article>
-                ) : null}
-                {siblingLinks.map((l) => {
-                  const tmpl = l.template ?? page.template;
-                  const label = tmpl.charAt(0).toUpperCase() + tmpl.slice(1);
-                  return (
-                    <article className="rs-card" key={l.slug}>
-                      <h3>{label}</h3>
-                      <PillarLink href={`/${tmpl}/${l.slug}`} anchorText={l.anchor} />
+            <section className="rs-article rs-card" aria-labelledby="conversion-heading">
+              <h2 id="conversion-heading">Next step</h2>
+              <ConversionBox pageTemplate={page.template} />
+            </section>
+
+            <section className="rs-related" aria-labelledby="related-heading">
+              <div className="rs-article" style={{ maxWidth: '100%' }}>
+                <h2 id="related-heading">Related articles</h2>
+                <div className="rs-grid">
+                  {pillarLink ? (
+                    <article className="rs-card">
+                      <h3>Pillar guide</h3>
+                      <PillarLink href={`/${pillarLink.template ?? 'pillars'}/${pillarLink.slug}`} anchorText={pillarLink.anchor} />
                     </article>
-                  );
-                })}
+                  ) : null}
+                  {siblingLinks.map((link) => {
+                    const template = link.template ?? page.template;
+                    const label = template.charAt(0).toUpperCase() + template.slice(1);
+                    return (
+                      <article className="rs-card" key={link.slug}>
+                        <h3>{label}</h3>
+                        <PillarLink href={`/${template}/${link.slug}`} anchorText={link.anchor} />
+                      </article>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
 
-          <section className="rs-article rs-card rs-newsletter" aria-labelledby="newsletter-heading">
-            <h2 id="newsletter-heading">Continue on RecoveryStack News</h2>
-            <p className="rs-excerpt">
-              This article is the entry point. RecoveryStack News is where readers keep up with
-              recovery tech, wearable buying context, and the path toward the {PRODUCT_NAME}.
-            </p>
-            <NewsletterForm pageTemplate={page.template} source="article" />
-          </section>
-
-          </div>{/* close rs-article-column */}
+            <section className="rs-article rs-card rs-newsletter" aria-labelledby="newsletter-heading">
+              <h2 id="newsletter-heading">Continue on RecoveryStack News</h2>
+              <p className="rs-excerpt">
+                This article is the entry point. RecoveryStack News is where readers keep up with
+                recovery tech, wearable buying context, and the path toward the {PRODUCT_NAME}.
+              </p>
+              <NewsletterForm pageTemplate={page.template} source="article" />
+            </section>
+          </div>
         </div>
       </main>
 

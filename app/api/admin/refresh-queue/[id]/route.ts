@@ -33,12 +33,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .update({ status: statusByAction[action], processed_at: new Date().toISOString() })
     .eq('id', id);
 
-  if (action === 'approve') {
-    await supabaseAdmin
-      .from('pages')
-      .update({ status: 'draft' })
-      .eq('id', queueItem.page_id);
-  }
-
   return NextResponse.redirect(new URL(`/admin?ok=refresh_${action}d`, req.url), { status: 302 });
 }

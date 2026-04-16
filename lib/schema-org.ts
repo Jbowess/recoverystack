@@ -1,4 +1,5 @@
 import type { PageRecord } from '@/lib/types';
+import { getEditorialMetadata, toPersonReference } from '@/lib/editorial';
 
 const SITE_URL = process.env.SITE_URL ?? 'https://recoverystack.io';
 
@@ -24,6 +25,12 @@ const AUTHOR = {
   worksFor: ORGANIZATION,
 };
 
+function getPrimaryImage(page: PageRecord, url: string) {
+  return typeof page.metadata?.hero_image === 'string' && page.metadata.hero_image.trim()
+    ? page.metadata.hero_image
+    : `${url}/opengraph-image`;
+}
+
 export const organizationSchema = () => ({
   '@context': 'https://schema.org',
   ...ORGANIZATION,
@@ -32,29 +39,34 @@ export const organizationSchema = () => ({
 export const articleSchema = (page: PageRecord, url: string) => ({
   '@context': 'https://schema.org',
   '@type': 'Article',
+  ...(page.body_json?.references?.length ? { citation: page.body_json.references.map((item) => item.url) } : {}),
   headline: page.title,
   description: page.meta_description,
   url,
   mainEntityOfPage: { '@type': 'WebPage', '@id': url },
   datePublished: page.published_at ?? page.updated_at,
   dateModified: page.updated_at,
-  author: AUTHOR,
+  author: toPersonReference(getEditorialMetadata(page).author),
+  ...(getEditorialMetadata(page).reviewer ? { editor: toPersonReference(getEditorialMetadata(page).reviewer!) } : {}),
   publisher: ORGANIZATION,
-  image: `${url}/opengraph-image`,
+  image: getPrimaryImage(page, url),
+  keywords: [page.primary_keyword, ...(page.secondary_keywords ?? [])].filter(Boolean),
 });
 
 export const newsArticleSchema = (page: PageRecord, url: string) => ({
   '@context': 'https://schema.org',
   '@type': 'NewsArticle',
+  ...(page.body_json?.references?.length ? { citation: page.body_json.references.map((item) => item.url) } : {}),
   headline: page.title,
   description: page.meta_description,
   url,
   mainEntityOfPage: { '@type': 'WebPage', '@id': url },
   datePublished: page.published_at ?? page.updated_at,
   dateModified: page.updated_at,
-  author: AUTHOR,
+  author: toPersonReference(getEditorialMetadata(page).author),
+  ...(getEditorialMetadata(page).reviewer ? { editor: toPersonReference(getEditorialMetadata(page).reviewer!) } : {}),
   publisher: ORGANIZATION,
-  image: `${url}/opengraph-image`,
+  image: getPrimaryImage(page, url),
 });
 
 export const howToSchema = (page: PageRecord, url: string) => {
@@ -82,7 +94,7 @@ export const howToSchema = (page: PageRecord, url: string) => {
     name: page.title,
     description: page.meta_description,
     step: steps,
-    image: `${url}/opengraph-image`,
+    image: getPrimaryImage(page, url),
   };
 };
 
@@ -154,7 +166,7 @@ export const medicalWebPageSchema = (page: PageRecord, url: string) => ({
   url,
   datePublished: page.published_at ?? page.updated_at,
   dateModified: page.updated_at,
-  author: AUTHOR,
+  author: toPersonReference(getEditorialMetadata(page).author),
   publisher: ORGANIZATION,
   about: {
     '@type': 'MedicalCondition',

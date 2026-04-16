@@ -3,10 +3,9 @@
  *
  * Processes approved items from the content_refresh_queue:
  *   1. Fetches rows with status='approved'
- *   2. Marks the linked page back to 'draft' so content-generator will pick it up
- *   3. Marks the queue item 'processing'
- *   4. Runs content-generator for each page (single-page mode via CONTENT_GENERATE_PAGE_ID)
- *   5. Marks queue item 'completed' on success or 'failed' on error
+ *   2. Marks the queue item 'processing'
+ *   3. Runs content-generator for each page (single-page mode via CONTENT_GENERATE_PAGE_ID)
+ *   4. Marks queue item 'completed' on success or 'failed' on error
  *
  * Called by nightly-run as a separate phase so failures don't block the main pipeline.
  */
@@ -86,22 +85,6 @@ async function run() {
       .update({ status: 'processing', processed_at: new Date().toISOString() })
       .eq('id', item.id);
 
-    // Reset page to draft so content-generator regenerates it
-    const { error: resetError } = await supabase
-      .from('pages')
-      .update({ status: 'draft' })
-      .eq('id', item.page_id);
-
-    if (resetError) {
-      console.error(`[content-refresh-processor] failed to reset page "${item.slug}" to draft: ${resetError.message}`);
-      await supabase
-        .from('content_refresh_queue')
-        .update({ status: 'failed', metadata: { error: resetError.message } })
-        .eq('id', item.id);
-      failed += 1;
-      continue;
-    }
-
     // Run content generator for this specific page
     const ok = runContentGenerator(item.page_id);
 
@@ -113,8 +96,6 @@ async function run() {
       console.log(`[content-refresh-processor] ✓ completed slug="${item.slug}"`);
       succeeded += 1;
     } else {
-      // Revert page status to published so it's still live
-      await supabase.from('pages').update({ status: 'published' }).eq('id', item.page_id);
       await supabase
         .from('content_refresh_queue')
         .update({ status: 'failed', metadata: { error: 'content-generator exited non-zero' } })

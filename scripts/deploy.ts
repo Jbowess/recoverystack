@@ -54,9 +54,11 @@ function sleep(ms: number) {
 async function run() {
   const { data: changed } = await supabase
     .from('pages')
-    .select('id,slug,template,title,status,updated_at,published_at')
+    .select('id,slug,template,title,status,updated_at,published_at,needs_revalidation')
     .eq('status', 'published')
-    .order('updated_at', { ascending: false })
+    .eq('needs_revalidation', true)
+    .order('published_at', { ascending: true, nullsFirst: false })
+    .order('updated_at', { ascending: true })
     .limit(50);
 
   const pages = changed ?? [];
@@ -73,6 +75,16 @@ async function run() {
     for (const page of batch) {
       try {
         await revalidateSlug(page.slug, page.template);
+        if (!isDryRun) {
+          const { error: deployUpdateError } = await supabase
+            .from('pages')
+            .update({ needs_revalidation: false, last_deployed_at: new Date().toISOString() })
+            .eq('id', page.id);
+
+          if (deployUpdateError) {
+            throw deployUpdateError;
+          }
+        }
         deployed++;
         console.log(`[${deployed}/${pages.length}] Revalidated ${page.template}/${page.slug}`);
       } catch (err) {

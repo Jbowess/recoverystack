@@ -19,6 +19,20 @@ export type PageBodySection = {
   content: unknown;
 };
 
+export type PageReference = {
+  title: string;
+  url: string;
+  source?: string | null;
+  year?: string | null;
+};
+
+export type ReviewMethodology = {
+  summary?: string;
+  tested?: string[];
+  scoring?: string[];
+  use_cases?: string[];
+};
+
 export type InfoGainFeeds = {
   scientific_alpha?: {
     source: 'pubmed';
@@ -60,6 +74,9 @@ export type PageRecord = {
     verdict?: string[];
     sections?: PageBodySection[];
     faqs?: Array<{ q: string; a: string }>;
+    key_takeaways?: string[];
+    references?: PageReference[];
+    review_methodology?: ReviewMethodology;
     info_gain_feeds?: InfoGainFeeds;
   } | null;
   pillar_id: string | null;
@@ -68,7 +85,10 @@ export type PageRecord = {
   internal_links: InternalLink[] | null;
   schema_org: unknown;
   metadata: Record<string, unknown> | null;
-  status: 'draft' | 'approved' | 'published';
+  status: 'draft' | 'approved' | 'published' | 'archived';
+  last_generated_at?: string | null;
+  needs_revalidation?: boolean;
+  last_deployed_at?: string | null;
   published_at: string | null;
   updated_at: string;
 };
