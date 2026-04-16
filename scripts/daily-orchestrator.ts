@@ -23,6 +23,7 @@ const phases: Phase[] = [
   {
     label: 'Discovery',
     steps: [
+      { id: 'gsc-sync', name: 'GSC metrics sync', script: 'scripts/gsc-sync.ts' },
       { id: 'trend-scraper', name: 'Trend scraper', script: 'scripts/trend-scraper.ts' },
       { id: 'gap-analyzer', name: 'Gap analyzer', script: 'scripts/gap-analyzer.ts' },
       { id: 'cannibalization-check', name: 'Cannibalization check', script: 'scripts/cannibalization-check.ts' },
@@ -40,12 +41,14 @@ const phases: Phase[] = [
     label: 'Brief Generation',
     steps: [
       { id: 'brief-generator', name: 'Brief generator', script: 'scripts/brief-generator.ts' },
+      { id: 'query-coverage-planner', name: 'Query coverage planner', script: 'scripts/query-coverage-planner.ts' },
     ],
   },
   {
     label: 'Generation',
     steps: [
       { id: 'content-generator', name: 'Content generator', script: 'scripts/content-generator.ts' },
+      { id: 'visual-asset-generator', name: 'Supporting visual generator', script: 'scripts/visual-asset-generator.ts' },
     ],
   },
   {
@@ -62,11 +65,21 @@ const phases: Phase[] = [
     ],
   },
   {
+    label: 'Performance Optimization',
+    steps: [
+      { id: 'ctr-optimizer', name: 'CTR optimizer', script: 'scripts/ctr-optimizer.ts' },
+      { id: 'discover-optimizer', name: 'Discover optimizer', script: 'scripts/discover-optimizer.ts' },
+    ],
+  },
+  {
     label: 'Rollup',
     steps: [
       { id: 'cluster-metrics-rollup', name: 'Cluster metrics rollup', script: 'scripts/cluster-metrics-rollup.ts' },
+      { id: 'page-quality-scorer', name: 'Page quality scorer', script: 'scripts/page-quality-scorer.ts' },
       { id: 'topical-map', name: 'Topical authority map', script: 'scripts/topical-map.ts' },
       { id: 'orphan-link-audit', name: 'Orphan link audit', script: 'scripts/orphan-link-audit.ts' },
+      { id: 'backlink-sync', name: 'Backlink sync', script: 'scripts/backlink-sync.ts' },
+      { id: 'title-experiment-promoter', name: 'Title experiment promoter', script: 'scripts/title-experiment-promoter.ts' },
     ],
   },
 ];

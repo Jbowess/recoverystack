@@ -10,6 +10,7 @@ import ShareBar from '@/components/ShareBar';
 import TableOfContents from '@/components/TableOfContents';
 import { MAIN_SITE_URL, NEWSLETTER_URL, PRODUCT_NAME } from '@/lib/brand';
 import { getEditorialMetadata } from '@/lib/editorial';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import type { InfoGainFeeds, InternalLink, PageBodySection, PageRecord } from '@/lib/types';
 
 type Props = {
@@ -319,6 +320,7 @@ function buildTocItems(page: PageRecord): Array<{ id: string; text: string }> {
   if (page.body_json?.review_methodology) {
     items.push({ id: 'methodology-heading', text: 'How we evaluated this topic' });
   }
+  items.push({ id: 'visual-insights-heading', text: 'Visual insights' });
   if ((page.body_json?.verdict ?? []).length > 0) {
     items.push({ id: 'verdict-heading', text: 'RecoveryStack Verdict' });
   }
@@ -328,7 +330,20 @@ function buildTocItems(page: PageRecord): Array<{ id: string; text: string }> {
   return items;
 }
 
-export default function TemplatePage({ page, pillarLink, siblingLinks, schemaJsonLd }: Props) {
+async function loadSupportingVisuals(pageId: string) {
+  const { data } = await supabaseAdmin
+    .from('page_visual_assets')
+    .select('id,image_url,alt_text,asset_kind')
+    .eq('page_id', pageId)
+    .eq('status', 'ready')
+    .neq('asset_kind', 'hero')
+    .order('sort_order', { ascending: true })
+    .limit(4);
+
+  return (data ?? []) as Array<{ id: string; image_url: string | null; alt_text: string | null; asset_kind: string }>;
+}
+
+export default async function TemplatePage({ page, pillarLink, siblingLinks, schemaJsonLd }: Props) {
   const verdict = page.body_json?.verdict ?? [];
   const takeaways = page.body_json?.key_takeaways ?? [];
   const publishedDate = formatDate(page.published_at ?? page.updated_at);
@@ -338,6 +353,7 @@ export default function TemplatePage({ page, pillarLink, siblingLinks, schemaJso
   const tocItems = buildTocItems(page);
   const editorial = getEditorialMetadata(page);
   const referenceCount = page.body_json?.references?.length ?? 0;
+  const supportingVisuals = await loadSupportingVisuals(page.id);
 
   return (
     <div className="rs-shell">
@@ -431,6 +447,31 @@ export default function TemplatePage({ page, pillarLink, siblingLinks, schemaJso
 
               {renderSections(page)}
               {renderMethodology(page)}
+
+              {supportingVisuals.length > 0 ? (
+                <section aria-labelledby="visual-insights-heading">
+                  <h2 id="visual-insights-heading">Visual insights</h2>
+                  <div className="rs-grid">
+                    {supportingVisuals.map((visual) => (
+                      <figure className="rs-card" key={visual.id}>
+                        {visual.image_url ? (
+                          <img
+                            src={visual.image_url}
+                            alt={visual.alt_text ?? `${page.title} visual`}
+                            width={1200}
+                            height={675}
+                            loading="lazy"
+                            style={{ width: '100%', height: 'auto', borderRadius: '0.5rem' }}
+                          />
+                        ) : null}
+                        <figcaption style={{ marginTop: '0.75rem', color: 'var(--rs-muted, #94a3b8)' }}>
+                          {visual.alt_text ?? visual.asset_kind}
+                        </figcaption>
+                      </figure>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
 
               {page.body_json?.comparison_table?.headers && page.body_json.comparison_table.rows ? (
                 <section aria-labelledby="comparison-table-heading">

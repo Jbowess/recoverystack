@@ -6,6 +6,7 @@ type LinkInput = {
   template: string;
   primary_keyword: string | null;
   secondary_keywords?: string[] | null;
+  query_targets?: string[] | null;
   pillar_id: string | null;
   published_at?: string | null;
   updated_at?: string | null;
@@ -28,7 +29,7 @@ function normalizeText(value: string): string {
 }
 
 function tokenizeKeywords(page: LinkInput): Set<string> {
-  const raw = [page.primary_keyword ?? '', ...(page.secondary_keywords ?? [])].join(' ');
+  const raw = [page.primary_keyword ?? '', ...(page.secondary_keywords ?? []), ...(page.query_targets ?? [])].join(' ');
   const tokens = normalizeText(raw)
     .split(' ')
     .map((t) => t.trim())

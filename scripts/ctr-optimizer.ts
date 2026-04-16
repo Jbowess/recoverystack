@@ -183,13 +183,31 @@ async function run() {
     const titleVariants = variants.map((title) => ({ title, generated_at: new Date().toISOString() }));
     const updatedMetadata = { ...(page.metadata ?? {}), title_variants: titleVariants };
 
-    const { error: updateErr } = await supabase
-      .from('pages')
-      .update({ metadata: updatedMetadata })
-      .eq('id', page.id);
+    const [{ error: updateErr }, { error: experimentErr }] = await Promise.all([
+      supabase.from('pages').update({ metadata: updatedMetadata }).eq('id', page.id),
+      supabase.from('page_title_experiments').upsert(
+        variants.map((title, index) => ({
+          page_id: page.id,
+          page_slug: page.slug,
+          channel: 'organic_search',
+          variant: `ctr-${index + 1}`,
+          title,
+          score: null,
+          status: 'suggested',
+          reason: `CTR ${(stats.ctr * 100).toFixed(2)}% at avg position ${stats.position.toFixed(1)}`,
+          metrics: {
+            current_ctr: stats.ctr,
+            current_position: stats.position,
+          },
+        })),
+        { onConflict: 'page_id,channel,variant' } as any,
+      ),
+    ]);
 
-    if (updateErr) {
-      console.warn(`[ctr-optimizer] Failed to update ${page.slug}: ${updateErr.message}`);
+    if (updateErr || experimentErr) {
+      console.warn(
+        `[ctr-optimizer] Failed to update ${page.slug}: ${updateErr?.message ?? experimentErr?.message ?? 'unknown error'}`,
+      );
     } else {
       updated++;
       console.log(`[ctr-optimizer] Generated ${variants.length} title variants for "${page.title}"`);

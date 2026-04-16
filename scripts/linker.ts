@@ -14,6 +14,7 @@ type PageRow = {
   template: string;
   primary_keyword: string | null;
   secondary_keywords: string[] | null;
+  query_targets?: string[] | null;
   pillar_id: string | null;
   internal_links: Array<{ slug?: string; template?: string; anchor?: string }> | null;
   published_at: string | null;
@@ -51,12 +52,25 @@ async function run() {
 
   if (error) throw error;
 
+  const { data: queryTargets } = await supabase
+    .from('page_query_targets')
+    .select('page_id,query')
+    .order('priority', { ascending: false });
+
+  const queryTargetMap = new Map<string, string[]>();
+  for (const row of queryTargets ?? []) {
+    const list = queryTargetMap.get(row.page_id) ?? [];
+    list.push(String(row.query));
+    queryTargetMap.set(row.page_id, list);
+  }
+
   const all = ((pages ?? []) as PageRow[]).map((p) => ({
     pageId: p.id,
     slug: p.slug,
     template: p.template,
     primary_keyword: p.primary_keyword,
     secondary_keywords: p.secondary_keywords,
+    query_targets: queryTargetMap.get(p.id) ?? [],
     pillar_id: p.pillar_id,
     internal_links: p.internal_links,
     published_at: p.published_at,

@@ -11,6 +11,7 @@
     "trend:scrape": "tsx scripts/trend-scraper.ts",
     "gap:analyze": "tsx scripts/gap-analyzer.ts",
     "content:generate": "tsx scripts/content-generator.ts",
+    "visuals:generate": "tsx scripts/visual-asset-generator.ts",
     "links:rebuild": "tsx scripts/linker.ts",
     "quality:gate": "tsx scripts/quality-gate.ts",
     "deploy:trigger": "tsx scripts/deploy.ts",
@@ -28,6 +29,8 @@
     "cannibalization:check": "tsx scripts/cannibalization-check.ts",
     "indexing:submit": "tsx scripts/deploy.ts",
     "brief:generate": "tsx scripts/brief-generator.ts",
+    "query:plan": "tsx scripts/query-coverage-planner.ts",
+    "quality:score": "tsx scripts/page-quality-scorer.ts",
     "topical:map": "tsx scripts/topical-map.ts",
     "ctr:optimize": "tsx scripts/ctr-optimizer.ts",
     "backlink:sync": "tsx scripts/backlink-sync.ts",
@@ -38,7 +41,8 @@
     "indexing:status": "tsx scripts/indexing-status-checker.ts",
     "embeddings:sync": "tsx scripts/embedding-sync.ts",
     "discover:optimize": "tsx scripts/discover-optimizer.ts",
-    "competitor:spy": "tsx scripts/competitor-spy.ts"
+    "competitor:spy": "tsx scripts/competitor-spy.ts",
+    "title:promote": "tsx scripts/title-experiment-promoter.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",

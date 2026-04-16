@@ -7,6 +7,7 @@ import { countRequiredCtaMentions } from '@/lib/publish-guards';
 import { buildInfoFeedSections, collectInfoGainFeeds } from '@/lib/info-gain-feeds';
 import { rateLimit } from '@/lib/rate-limiter';
 import { buildGeneratedPageUpdate } from '@/lib/page-state';
+import { buildReferenceRow } from '@/lib/seo-planning';
 import {
   fetchRecentFingerprints,
   replacePrimaryKeyword,
@@ -23,6 +24,94 @@ const bannedPhrases = [
   'revolutionary',
   "in today's fast-paced world",
 ];
+
+// Distinct editorial angles — one is deterministically assigned per page slug to
+// prevent same-angle duplicate content across similar topics.
+const CONTENT_ANGLES = [
+  {
+    id: 'beginner-first',
+    label: 'Beginner-first',
+    instruction:
+      'Write for someone completely new to this topic. Lead with fundamentals, avoid jargon, build up progressively. Prioritise confidence-building over technical depth.',
+  },
+  {
+    id: 'athlete-performance',
+    label: 'Athlete performance',
+    instruction:
+      'Write for competitive athletes and high-performers. Lead with measurable performance outcomes. Use precise terminology and reference real training protocols and benchmarks.',
+  },
+  {
+    id: 'science-deep-dive',
+    label: 'Science deep-dive',
+    instruction:
+      'Lead with underlying physiology and research. Cite mechanisms, reference studies, and explain the "why" behind every recommendation. Readers are analytically inclined.',
+  },
+  {
+    id: 'practical-quick-wins',
+    label: 'Practical quick wins',
+    instruction:
+      'Lead with the 2–3 most immediately actionable steps. Frame everything around implementation, not theory. Use numbered steps and concrete timelines.',
+  },
+  {
+    id: 'myth-busting',
+    label: 'Myth-busting',
+    instruction:
+      'Open by naming the most common misconception about this topic. Debunk it with evidence, then present the more nuanced truth. Readers are skeptical and have seen conflicting advice.',
+  },
+  {
+    id: 'cost-vs-benefit',
+    label: 'Cost vs benefit',
+    instruction:
+      'Frame every recommendation through a cost-benefit lens — time, money, and effort vs. expected gain. Help readers make explicit trade-off decisions with clear numbers.',
+  },
+  {
+    id: 'data-driven',
+    label: 'Data-driven',
+    instruction:
+      'Lead with specific numbers, benchmarks, and metrics. Every claim should have a number attached. Use percentages, timeframes, and measurable thresholds throughout.',
+  },
+  {
+    id: 'worst-case-avoidance',
+    label: 'Worst-case avoidance',
+    instruction:
+      'Risk-first framing — open with what goes wrong when this is done incorrectly, the consequences, and how to avoid the most common failure modes. Readers are cautious and want safety.',
+  },
+  {
+    id: 'comparison-focused',
+    label: 'Comparison-focused',
+    instruction:
+      'Structure content primarily as a comparison. Multiple options, approaches, or products evaluated side-by-side with explicit winners called out for different use cases.',
+  },
+  {
+    id: 'long-term-habit',
+    label: 'Long-term habit building',
+    instruction:
+      'Focus on sustainability and habit formation rather than short-term results. Frame for people who have tried quick fixes and want something that sticks over months.',
+  },
+  {
+    id: 'recoverystack-integration',
+    label: 'RecoveryStack wearable integration',
+    instruction:
+      'Frame content around how this topic integrates with wearable technology and data-driven recovery tracking. Reference smart ring metrics, sleep scores, and HRV data naturally throughout.',
+  },
+  {
+    id: 'elite-insider',
+    label: 'Elite insider knowledge',
+    instruction:
+      'Write from the perspective of what elite coaches and sports scientists actually do vs. what mainstream sources recommend. Insider framing — "what most guides don\'t tell you".',
+  },
+] as const;
+
+type ContentAngle = (typeof CONTENT_ANGLES)[number];
+
+function pickContentAngle(slug: string): ContentAngle {
+  // Deterministic per slug so retries use the same angle, but different slugs get different angles.
+  let hash = 0;
+  for (let i = 0; i < slug.length; i++) {
+    hash = ((hash * 31) + slug.charCodeAt(i)) >>> 0;
+  }
+  return CONTENT_ANGLES[hash % CONTENT_ANGLES.length];
+}
 
 const verdictPrefixes = ['Best for:', 'Avoid if:', 'Bottom line:'] as const;
 
@@ -487,7 +576,7 @@ const CONCURRENCY = Math.max(1, Number(process.env.CONCURRENCY ?? 3));
 
 async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneration>>[number], products: unknown[]) {
     const promptTemplate = readFileSync(promptPathForTemplate(page.template), 'utf8');
-    const [gapResult, briefResult] = await Promise.all([
+    const [gapResult, briefResult, queryTargetsResult, sourceReferencesResult, visualAssetsResult] = await Promise.all([
       supabase
         .from('content_gaps')
         .select('*')
@@ -506,17 +595,40 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
           search_volume: number | null;
           keyword_difficulty: number | null;
         }>(),
+      supabase
+        .from('page_query_targets')
+        .select('query,intent,priority,search_volume,keyword_difficulty,is_primary,source')
+        .eq('page_id', page.id)
+        .order('priority', { ascending: false })
+        .limit(20),
+      supabase
+        .from('page_source_references')
+        .select('title,url,source_domain,source_type,authority_score,evidence_level,published_at')
+        .eq('page_id', page.id)
+        .order('authority_score', { ascending: false })
+        .limit(12),
+      supabase
+        .from('page_visual_assets')
+        .select('asset_kind,purpose,sort_order,alt_text,metadata')
+        .eq('page_id', page.id)
+        .order('sort_order', { ascending: true })
+        .limit(10),
     ]);
     const gapRows = gapResult.data;
     const brief = briefResult.data;
+    const queryTargets = queryTargetsResult.data ?? [];
+    const sourceReferences = sourceReferencesResult.data ?? [];
+    const visualAssets = visualAssetsResult.data ?? [];
 
     const rule = TEMPLATE_RULES[page.template] ?? {};
+    const targetWordCount = Number(page.metadata?.target_word_count ?? brief?.target_word_count ?? 1400);
 
     let attempts = 0;
     let valid = false;
     const attemptErrors: string[] = [];
 
     const recentFingerprints = await fetchRecentFingerprints(supabase, 5);
+    const contentAngle = pickContentAngle(page.slug);
 
     while (attempts < 4 && !valid) {
       attempts += 1;
@@ -533,6 +645,7 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
         `Template: ${page.template}`,
         `Title: ${page.title}`,
         `Primary keyword: ${page.primary_keyword ?? ''}`,
+        `## Content Angle (MANDATORY — uniquely differentiates this page from similar pages on the site)\nAngle: ${contentAngle.label}\nDirective: ${contentAngle.instruction}\nApply this angle consistently from the intro through the verdict. This is what makes this page's perspective distinct from other pages covering the same keyword.`,
         'Return ONLY valid JSON. Do not include markdown fences.',
         'Output schema must be exactly: {"intro":"string <=60 words","body_json":{"comparison_table?":{},"verdict":["Best for: ...","Avoid if: ...","Bottom line: ..."],"key_takeaways?":["..."],"sections":[],"faqs?":[],"references?":[{"title":"...","url":"https://...","source":"...","year":"..."}],"review_methodology?":{"summary":"...","tested":["..."],"scoring":["..."],"use_cases":["..."]}}}',
         'Verdict is mandatory with exactly 3 bullets in this order: Best for, Avoid if, Bottom line.',
@@ -541,6 +654,8 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
         `For ${page.template} pages, include a substantive review_methodology object when the topic is evaluative or comparative.`,
         `If FAQs are included for this template, minimum FAQ count is ${rule.minFaqs ?? 0}.`,
         `Comparison slots required for this template: ${rule.requiresComparisonSlots ? 'yes' : 'no'}.`,
+        `Target word count: at least ${targetWordCount} words of unique, useful content.`,
+        `Target query coverage count: ${queryTargets.length}. Cover the priority intents rather than repeating the same point.`,
         'Mention RecoveryStack Smart Ring exactly once, newsletter exactly once, free PDF exactly once in natural context.',
         '',
         loadEeatPartial(),
@@ -551,6 +666,9 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
         `Selected layout pattern component JSON: ${JSON.stringify(selectedComponents.layoutPattern.content)}`,
         `Required section layout order: ${JSON.stringify(selectedComponents.layoutOrder)}`,
         `SERP gap JSON: ${JSON.stringify(gapRows?.[0] ?? {})}`,
+        `Query coverage plan JSON: ${JSON.stringify(queryTargets)}`,
+        `High-authority sources to cite JSON: ${JSON.stringify(sourceReferences)}`,
+        `Visual asset plan JSON: ${JSON.stringify(visualAssets)}`,
         // Feed People Also Ask questions for FAQ optimization
         ...(gapRows?.[0]?.serp_snapshot?.people_also_ask?.length
           ? [
@@ -635,15 +753,40 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
         }
 
         const pageUpdate = buildGeneratedPageUpdate(page as any, enriched.intro, enriched.body_json as any);
-        const mergedMetadata = { ...(pageUpdate.metadata ?? {}) };
+        const mergedMetadata = {
+          ...(pageUpdate.metadata ?? {}),
+          content_angle: contentAngle.id,
+          content_angle_label: contentAngle.label,
+        };
 
         const { error: pageUpdateError } = await supabase
           .from('pages')
-          .update(pageUpdate)
+          .update({ ...pageUpdate, metadata: mergedMetadata })
           .eq('id', page.id);
 
         if (pageUpdateError) {
           throw pageUpdateError;
+        }
+
+        const generatedReferences = (enriched.body_json.references ?? [])
+          .filter((reference) => reference?.title && reference?.url)
+          .map((reference) =>
+            buildReferenceRow(page.id, page.slug, {
+              title: reference.title,
+              url: reference.url,
+              source_type: 'generated_reference',
+              evidence_level: 'supporting',
+              published_at: reference.year ?? null,
+              metadata: {
+                source: reference.source ?? null,
+              },
+            }),
+          );
+
+        if (generatedReferences.length > 0) {
+          await supabase.from('page_source_references').upsert(generatedReferences, {
+            onConflict: 'page_id,url',
+          });
         }
 
         // Generate hero image and patch metadata (async, non-blocking for fingerprint)
@@ -661,6 +804,24 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
                 },
               })
               .eq('id', page.id);
+
+            await supabase
+              .from('page_visual_assets')
+              .upsert({
+                page_id: page.id,
+                page_slug: page.slug,
+                asset_kind: 'hero',
+                purpose: 'hero',
+                image_url: heroUrl,
+                alt_text: `${page.title} illustration`,
+                width: 1792,
+                height: 1024,
+                status: 'ready',
+                sort_order: 0,
+                metadata: { generated_by: 'content-generator' },
+              }, {
+                onConflict: 'page_id,asset_kind,sort_order',
+              } as any);
           }
         } catch (imgErr) {
           console.warn(`[content-generator] Hero image generation failed for ${page.slug}:`, imgErr instanceof Error ? imgErr.message : String(imgErr));

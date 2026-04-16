@@ -209,7 +209,23 @@ async function run() {
           discover_current_score: score.total,
         };
 
-        await supabase.from('pages').update({ metadata: updatedMeta }).eq('id', page.id);
+        await Promise.all([
+          supabase.from('pages').update({ metadata: updatedMeta }).eq('id', page.id),
+          supabase.from('page_title_experiments').upsert(
+            variants.map((title, index) => ({
+              page_id: page.id,
+              page_slug: page.slug,
+              channel: 'discover',
+              variant: `discover-${index + 1}`,
+              title,
+              score: scoreTitle(title).total,
+              status: 'suggested',
+              reason: `Discover score ${score.total}`,
+              metrics: { discover_current_score: score.total },
+            })),
+            { onConflict: 'page_id,channel,variant' } as any,
+          ),
+        ]);
         optimized++;
       }
     }

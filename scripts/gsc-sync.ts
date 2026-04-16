@@ -281,20 +281,40 @@ async function detectDecayAndQueue(): Promise<number> {
 
   if (!decayed.length) return 0;
 
-  // Upsert decayed slugs into content_refresh_queue (no duplicate reason='decay')
-  const rows = decayed.map((slug) => ({
-    page_slug: slug,
+  const { data: pageRows } = await supabase.from('pages').select('id,slug').in('slug', decayed);
+  if (!pageRows?.length) return 0;
+
+  // Upsert decayed slugs into content_refresh_queue (one row per page_id)
+  const rows = pageRows.map((page) => ({
+    page_id: page.id,
+    slug: page.slug,
     reason: 'decay',
-    status: 'pending',
-    metadata: { old_impressions: oldSums[slug], new_impressions: newSums[slug] ?? 0 },
-    created_at: new Date().toISOString(),
+    status: 'queued',
+    low_traffic: false,
+    search_volume_snapshot: newSums[page.slug] ?? 0,
   }));
 
-  const { error } = await supabase.from('content_refresh_queue').upsert(rows, { onConflict: 'page_slug' });
+  const { error } = await supabase.from('content_refresh_queue').upsert(rows, { onConflict: 'page_id' });
   if (error) {
     console.warn(`[decay] Failed to enqueue decay pages: ${error.message}`);
     return 0;
   }
+
+  await supabase.from('page_refresh_signals').upsert(
+    pageRows.map((page) => ({
+      page_id: page.id,
+      page_slug: page.slug,
+      signal_type: 'traffic_decay',
+      severity: 85,
+      status: 'open',
+      detail: 'Impressions dropped more than 40% versus prior 28-day window',
+      metadata: {
+        old_impressions: oldSums[page.slug],
+        new_impressions: newSums[page.slug] ?? 0,
+      },
+    })),
+    { onConflict: 'page_id,signal_type,status' } as any,
+  );
 
   return decayed.length;
 }

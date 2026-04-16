@@ -20,15 +20,8 @@ const TEMPLATE_PROMPTS: Record<string, string> = {
   pillars: 'A comprehensive hub illustration with interconnected topics radiating from a central recovery icon, dark background, minimal, no text.',
 };
 
-export async function generatePageHeroImage(
-  title: string,
-  template: string,
-  keyword: string,
-): Promise<string | null> {
+async function generateImageFromPrompt(prompt: string, fileName: string): Promise<string | null> {
   if (!process.env.OPENAI_API_KEY) return null;
-
-  const basePrompt = TEMPLATE_PROMPTS[template] ?? TEMPLATE_PROMPTS.guides;
-  const prompt = `${basePrompt} Subject matter: ${keyword}. Style: professional health-tech brand, high contrast, suitable as a web article hero image. No human faces, no logos.`;
 
   try {
     const res = await fetch('https://api.openai.com/v1/images/generations', {
@@ -68,8 +61,6 @@ export async function generatePageHeroImage(
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     );
 
-    const fileName = `${template}/${keyword.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${Date.now()}.webp`;
-
     const { error: uploadError } = await supabase.storage
       .from('page-images')
       .upload(fileName, buffer, {
@@ -89,4 +80,27 @@ export async function generatePageHeroImage(
     console.warn('[image-generator] Error:', err instanceof Error ? err.message : String(err));
     return null;
   }
+}
+
+export async function generatePageHeroImage(
+  title: string,
+  template: string,
+  keyword: string,
+): Promise<string | null> {
+  const basePrompt = TEMPLATE_PROMPTS[template] ?? TEMPLATE_PROMPTS.guides;
+  const prompt = `${basePrompt} Subject matter: ${keyword}. Style: professional health-tech brand, high contrast, suitable as a web article hero image. No human faces, no logos.`;
+  const fileName = `${template}/${keyword.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${Date.now()}.webp`;
+  return generateImageFromPrompt(prompt, fileName);
+}
+
+export async function generateSupportingVisual(
+  template: string,
+  slug: string,
+  promptHint: string,
+  assetKind: string,
+): Promise<string | null> {
+  const basePrompt = TEMPLATE_PROMPTS[template] ?? TEMPLATE_PROMPTS.guides;
+  const prompt = `${basePrompt} Supplemental article visual. Focus: ${promptHint}. Clean infographic style, no logos, no interface chrome, no text labels longer than three words.`;
+  const fileName = `${template}/${slug}-${assetKind}-${Date.now()}.webp`;
+  return generateImageFromPrompt(prompt, fileName);
 }
