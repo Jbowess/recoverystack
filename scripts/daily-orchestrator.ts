@@ -51,6 +51,7 @@ const phases: Phase[] = [
       { id: 'clinical-trials-monitor', name: 'Clinical trials monitor', script: 'scripts/clinical-trials-monitor.ts' },
       { id: 'app-review-miner', name: 'App review miner', script: 'scripts/app-review-miner.ts' },
       { id: 'conversion-sync', name: 'Conversion sync', script: 'scripts/conversion-sync.ts' },
+      { id: 'proprietary-data-rollup', name: 'Proprietary data rollup', script: 'scripts/proprietary-data-rollup.ts' },
     ],
   },
   {
@@ -62,6 +63,7 @@ const phases: Phase[] = [
   {
     label: 'Keyword Expansion',
     steps: [
+      { id: 'smart-ring-roadmap-sync', name: 'Smart ring roadmap sync', script: 'scripts/smart-ring-roadmap-sync.ts' },
       { id: 'smart-ring-demand-seed', name: 'Smart ring demand seed', script: 'scripts/smart-ring-demand-seed.ts' },
       { id: 'keyword-expander', name: 'Keyword expander', script: 'scripts/keyword-expander.ts' },
       { id: 'paa-factory', name: 'PAA page factory', script: 'scripts/paa-page-factory.ts' },
@@ -98,6 +100,19 @@ const phases: Phase[] = [
     ],
   },
   {
+    label: 'Distribution',
+    steps: [
+      { id: 'distribution-asset-generator', name: 'Distribution asset generator', script: 'scripts/distribution-asset-generator.ts' },
+      { id: 'social-publish-queue', name: 'Social publish queue', script: 'scripts/social-publish-queue.ts' },
+      { id: 'media-pack-generator', name: 'Media pack generator', script: 'scripts/media-pack-generator.ts' },
+      { id: 'outreach-queue-builder', name: 'Outreach queue builder', script: 'scripts/outreach-queue-builder.ts' },
+      { id: 'partner-crm-sync', name: 'Partner CRM sync', script: 'scripts/partner-crm-sync.ts' },
+      { id: 'creator-crm-sync', name: 'Creator CRM sync', script: 'scripts/creator-crm-sync.ts' },
+      { id: 'email-digest-builder', name: 'Email digest builder', script: 'scripts/email-digest-builder.ts' },
+      { id: 'demand-loop-builder', name: 'Demand loop builder', script: 'scripts/demand-loop-builder.ts' },
+    ],
+  },
+  {
     label: 'Performance Optimization',
     steps: [
       { id: 'ctr-optimizer', name: 'CTR optimizer', script: 'scripts/ctr-optimizer.ts' },
@@ -109,6 +124,10 @@ const phases: Phase[] = [
       { id: 'snippet-optimizer', name: 'Featured snippet optimizer', script: 'scripts/snippet-optimizer.ts' },
       { id: 'cwv-auto-fix', name: 'CWV auto-fix', script: 'scripts/cwv-auto-fix.ts' },
       { id: 'ab-test-manager', name: 'A/B test manager', script: 'scripts/ab-test-manager.ts' },
+      { id: 'distribution-performance-rollup', name: 'Distribution performance rollup', script: 'scripts/distribution-performance-rollup.ts' },
+      { id: 'social-metrics-sync', name: 'Social metrics sync', script: 'scripts/social-metrics-sync.ts' },
+      { id: 'journey-attribution-rollup', name: 'Journey attribution rollup', script: 'scripts/journey-attribution-rollup.ts' },
+      { id: 'ranking-opportunity-audit', name: 'Ranking opportunity audit', script: 'scripts/ranking-opportunity-audit.ts' },
     ],
   },
   {
@@ -132,6 +151,13 @@ const phases: Phase[] = [
       { id: 'cluster-completeness-checker', name: 'Cluster completeness checker', script: 'scripts/cluster-completeness-checker.ts' },
       { id: 'brand-product-sync', name: 'Brand product sync', script: 'scripts/brand-product-sync.ts' },
       { id: 'product-spec-sync', name: 'Product spec sync', script: 'scripts/product-spec-sync.ts' },
+      { id: 'product-truth-sync', name: 'Product truth sync', script: 'scripts/product-truth-sync.ts' },
+      { id: 'volo-product-intelligence-sync', name: 'Volo product intelligence sync', script: 'scripts/volo-product-intelligence-sync.ts' },
+      { id: 'audience-segment-sync', name: 'Audience segment sync', script: 'scripts/audience-segment-sync.ts' },
+      { id: 'brand-voice-governor', name: 'Brand voice governor', script: 'scripts/brand-voice-governor.ts' },
+      { id: 'automation-governor', name: 'Automation governor', script: 'scripts/automation-governor.ts' },
+      { id: 'editorial-trust-upgrade', name: 'Editorial trust upgrade', script: 'scripts/editorial-trust-upgrade.ts' },
+      { id: 'editorial-governance-rollup', name: 'Editorial governance rollup', script: 'scripts/editorial-governance-rollup.ts' },
       // Quality, discovery, and internationalisation rollups
       { id: 'schema-validator', name: 'Schema validator', script: 'scripts/schema-validator.ts' },
       { id: 'link-prospect-miner', name: 'Link prospect miner', script: 'scripts/link-prospect-miner.ts' },

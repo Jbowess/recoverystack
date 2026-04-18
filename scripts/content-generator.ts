@@ -665,7 +665,7 @@ const CONCURRENCY = Math.max(1, Number(process.env.CONCURRENCY ?? 3));
 async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneration>>[number], products: unknown[]) {
     const effectiveTemplate = effectiveTemplateForPage(page);
     const promptTemplate = readFileSync(promptPathForTemplate(effectiveTemplate), 'utf8');
-    const [gapResult, briefResult, queryTargetsResult, sourceReferencesResult, visualAssetsResult, storylineResult, storyEventsResult, storyEntitiesResult] = await Promise.all([
+    const [gapResult, briefResult, queryTargetsResult, sourceReferencesResult, visualAssetsResult, truthCardsResult, trustProfilesResult, storylineResult, storyEventsResult, storyEntitiesResult] = await Promise.all([
       supabase
         .from('content_gaps')
         .select('*')
@@ -702,6 +702,18 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
         .eq('page_id', page.id)
         .order('sort_order', { ascending: true })
         .limit(10),
+      supabase
+        .from('product_truth_cards')
+        .select('product_slug,card_type,title,body,priority,metadata')
+        .eq('product_slug', 'volo-ring')
+        .eq('status', 'active')
+        .order('priority', { ascending: false })
+        .limit(12),
+      supabase
+        .from('editorial_trust_profiles')
+        .select('slug,label,profile_type,evidence_requirements,review_steps,trust_signals')
+        .eq('status', 'active')
+        .limit(12),
       effectiveTemplate === 'news' && page.storyline_id
         ? supabase
             .from('storylines')
@@ -740,6 +752,8 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
     const queryTargets = queryTargetsResult.data ?? [];
     const sourceReferences = sourceReferencesResult.data ?? [];
     const visualAssets = visualAssetsResult.data ?? [];
+    const truthCards = truthCardsResult.error?.message?.includes('product_truth_cards') ? [] : (truthCardsResult.data ?? []);
+    const trustProfiles = trustProfilesResult.error?.message?.includes('editorial_trust_profiles') ? [] : (trustProfilesResult.data ?? []);
     const storyline = storylineResult.data ?? null;
     const storyEvents = (storyEventsResult.data ?? [])
       .map((row: any) => row.news_source_events ? { ...row.news_source_events, significance_score: row.significance_score } : null)
@@ -781,6 +795,7 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
         'Include 3-4 concise key_takeaways.',
         'Whenever evidence is referenced, include source URLs in body_json.references.',
         `For ${effectiveTemplate} pages, include a substantive review_methodology object when the topic is evaluative or comparative.`,
+        'Use the supplied product truth cards and trust profiles as hard guardrails for claims, objections, differentiators, and reviewer methodology.',
         `If FAQs are included for this template, minimum FAQ count is ${rule.minFaqs ?? 0}.`,
         `Comparison slots required for this template: ${rule.requiresComparisonSlots ? 'yes' : 'no'}.`,
         `Target word count: at least ${targetWordCount} words of unique, useful content.`,
@@ -798,6 +813,8 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
         `Query coverage plan JSON: ${JSON.stringify(queryTargets)}`,
         `High-authority sources to cite JSON: ${JSON.stringify(sourceReferences)}`,
         `Visual asset plan JSON: ${JSON.stringify(visualAssets)}`,
+        `Product truth cards JSON: ${JSON.stringify(truthCards)}`,
+        `Editorial trust profiles JSON: ${JSON.stringify(trustProfiles)}`,
         ...(effectiveTemplate === 'news'
           ? [
               `Storyline context JSON: ${JSON.stringify(storyline ?? {})}`,

@@ -153,6 +153,22 @@ async function getDashboardData() {
     performanceFingerprintRows,
     keywordQueueRows,
     clusterMetricsRows,
+    distributionAssetRows,
+    outreachQueueRows,
+    emailDigestRows,
+    distributionMetricRows,
+    partnerContactRows,
+    publicationQueueRows,
+    socialMetricRows,
+    trustProfileRows,
+    roadmapRows,
+    productTruthRows,
+    audienceSegmentRows,
+    brandVoiceRows,
+    automationPolicyRows,
+    leadMagnetRows,
+    creatorRelationshipRows,
+    serpSnapshotRows,
     newsroomFeedRows,
     newsroomEventRows,
     newsroomEntityRows,
@@ -186,6 +202,22 @@ async function getDashboardData() {
     safeSelect('performance_fingerprints', 'template,top_performer_count,avg_word_count,avg_faq_count,best_ctr_word_range,computed_at'),
     safeSelect('keyword_queue', 'status,source'),
     safeSelect('cluster_metrics', '*', 300),
+    safeSelect('distribution_assets', 'channel,status,asset_type'),
+    safeSelect('outreach_queue', 'channel,status,target_type'),
+    safeSelect('email_digest_issues', 'status'),
+    safeSelect('distribution_asset_metrics', 'impressions,clicks,engagements,conversions'),
+    safeSelect('partner_contacts', 'target_type,status,priority'),
+    safeSelect('channel_publication_queue', 'channel,publish_status,publish_priority'),
+    safeSelect('social_channel_metrics', 'channel,impressions,clicks,engagements,conversions,revenue_usd'),
+    safeSelect('editorial_trust_profiles', 'profile_type,status'),
+    safeSelect('growth_roadmap_items', 'template,status,funnel_stage,priority'),
+    safeSelect('product_truth_cards', 'product_slug,card_type,status,priority'),
+    safeSelect('audience_segments', 'slug,label'),
+    safeSelect('brand_voice_profiles', 'slug,status'),
+    safeSelect('automation_policies', 'policy_key,enabled,severity'),
+    safeSelect('lead_magnet_offers', 'slug,status,target_segment'),
+    safeSelect('creator_relationships', 'relationship_stage,primary_platform'),
+    safeSelect('serp_snapshot_history', 'source'),
     safeSelect('news_source_feeds', 'beat,active'),
     safeSelect('news_source_events', 'status,event_type,beat'),
     safeSelect('topic_entities', 'entity_type,beat,authority_score'),
@@ -211,6 +243,31 @@ async function getDashboardData() {
   const keywordByStatus = countBy(keywordQueueRows.data, 'status');
   const keywordBySource = countBy(keywordQueueRows.data, 'source');
   const clusterMetricsSummary = numericSummary(clusterMetricsRows.data);
+  const distributionByChannel = countBy(distributionAssetRows.data, 'channel');
+  const distributionByStatus = countBy(distributionAssetRows.data, 'status');
+  const distributionByType = countBy(distributionAssetRows.data, 'asset_type');
+  const outreachByStatus = countBy(outreachQueueRows.data, 'status');
+  const outreachByType = countBy(outreachQueueRows.data, 'target_type');
+  const emailDigestByStatus = countBy(emailDigestRows.data, 'status');
+  const distributionMetricSummary = numericSummary(distributionMetricRows.data);
+  const partnerByType = countBy(partnerContactRows.data, 'target_type');
+  const partnerByStatus = countBy(partnerContactRows.data, 'status');
+  const publicationByChannel = countBy(publicationQueueRows.data, 'channel');
+  const publicationByStatus = countBy(publicationQueueRows.data, 'publish_status');
+  const publicationSummary = numericSummary(publicationQueueRows.data);
+  const socialMetricByChannel = countBy(socialMetricRows.data, 'channel');
+  const socialMetricSummary = numericSummary(socialMetricRows.data);
+  const trustProfilesByType = countBy(trustProfileRows.data, 'profile_type');
+  const roadmapByTemplate = countBy(roadmapRows.data, 'template');
+  const roadmapByStatus = countBy(roadmapRows.data, 'status');
+  const roadmapByFunnel = countBy(roadmapRows.data, 'funnel_stage');
+  const productTruthByType = countBy(productTruthRows.data, 'card_type');
+  const audienceSegmentCount = audienceSegmentRows.data.length;
+  const brandVoiceCount = brandVoiceRows.data.length;
+  const automationPolicyBySeverity = countBy(automationPolicyRows.data, 'severity');
+  const leadMagnetByStatus = countBy(leadMagnetRows.data, 'status');
+  const creatorByStage = countBy(creatorRelationshipRows.data, 'relationship_stage');
+  const serpSnapshotsBySource = countBy(serpSnapshotRows.data, 'source');
   const newsroomFeedsByBeat = countBy(newsroomFeedRows.data, 'beat');
   const newsroomEventsByStatus = countBy(newsroomEventRows.data, 'status');
   const newsroomEventsByType = countBy(newsroomEventRows.data, 'event_type');
@@ -253,6 +310,62 @@ async function getDashboardData() {
     clusterMetrics: {
       summary: clusterMetricsSummary,
       error: clusterMetricsRows.error,
+    },
+    distribution: {
+      byChannel: distributionByChannel,
+      byStatus: distributionByStatus,
+      byType: distributionByType,
+      total: distributionAssetRows.data.length,
+      metrics: distributionMetricSummary,
+      outreachByStatus,
+      outreachByType,
+      outreachTotal: outreachQueueRows.data.length,
+      emailDigestByStatus,
+      emailDigestTotal: emailDigestRows.data.length,
+      error:
+        distributionAssetRows.error ||
+        outreachQueueRows.error ||
+        emailDigestRows.error ||
+        distributionMetricRows.error,
+    },
+    growthExecution: {
+      partnerByType,
+      partnerByStatus,
+      partnerTotal: partnerContactRows.data.length,
+      publicationByChannel,
+      publicationByStatus,
+      publicationSummary,
+      publicationTotal: publicationQueueRows.data.length,
+      socialMetricByChannel,
+      socialMetricSummary,
+      socialMetricTotal: socialMetricRows.data.length,
+      trustProfilesByType,
+      trustProfileTotal: trustProfileRows.data.length,
+      roadmapByTemplate,
+      roadmapByStatus,
+      roadmapByFunnel,
+      roadmapTotal: roadmapRows.data.length,
+      productTruthByType,
+      productTruthTotal: productTruthRows.data.length,
+      audienceSegmentCount,
+      brandVoiceCount,
+      automationPolicyBySeverity,
+      leadMagnetByStatus,
+      creatorByStage,
+      serpSnapshotsBySource,
+      error:
+        partnerContactRows.error ||
+        publicationQueueRows.error ||
+        socialMetricRows.error ||
+        trustProfileRows.error ||
+        roadmapRows.error ||
+        productTruthRows.error ||
+        audienceSegmentRows.error ||
+        brandVoiceRows.error ||
+        automationPolicyRows.error ||
+        leadMagnetRows.error ||
+        creatorRelationshipRows.error ||
+        serpSnapshotRows.error,
     },
     newsroom: {
       feedsByBeat: newsroomFeedsByBeat,
@@ -439,6 +552,136 @@ export default async function AdminDashboard({
                 </ul>
               </div>
             </div>
+          </>
+        )}
+
+        <h3 style={{ marginBottom: 6 }}>distribution engine</h3>
+        {data.distribution.error ? (
+          <p style={{ color: '#92400e' }}>{data.distribution.error}</p>
+        ) : (
+          <>
+            <p style={{ color: '#4b5563' }}>
+              Assets: {data.distribution.total} | Outreach items: {data.distribution.outreachTotal} | Email digests: {data.distribution.emailDigestTotal}
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <strong>Assets by channel</strong>
+                <ul>
+                  {Object.entries(data.distribution.byChannel).map(([channel, count]) => (
+                    <li key={`dist-channel-${channel}`}>{channel}: {count}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <strong>Assets by status</strong>
+                <ul>
+                  {Object.entries(data.distribution.byStatus).map(([status, count]) => (
+                    <li key={`dist-status-${status}`}>{status}: {count}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <strong>Assets by type</strong>
+                <ul>
+                  {Object.entries(data.distribution.byType).map(([type, count]) => (
+                    <li key={`dist-type-${type}`}>{type}: {count}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <strong>Outreach queue</strong>
+                <ul>
+                  {Object.entries(data.distribution.outreachByStatus).map(([status, count]) => (
+                    <li key={`outreach-status-${status}`}>{status}: {count}</li>
+                  ))}
+                  {Object.entries(data.distribution.outreachByType).map(([type, count]) => (
+                    <li key={`outreach-type-${type}`}>{type}: {count} target(s)</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+            <p style={{ color: '#4b5563', marginBottom: 6 }}>Email digest issue status</p>
+            <ul>
+              {Object.entries(data.distribution.emailDigestByStatus).map(([status, count]) => (
+                <li key={`digest-${status}`}>{status}: {count}</li>
+              ))}
+            </ul>
+            <p style={{ color: '#4b5563', marginBottom: 6 }}>Distribution metric summary</p>
+            <pre style={{ background: '#f8fafc', padding: 12, borderRadius: 6, overflowX: 'auto' }}>
+              {JSON.stringify(data.distribution.metrics, null, 2)}
+            </pre>
+          </>
+        )}
+
+        <h3 style={{ marginBottom: 6 }}>growth execution engine</h3>
+        {data.growthExecution.error ? (
+          <p style={{ color: '#92400e' }}>{data.growthExecution.error}</p>
+        ) : (
+          <>
+            <p style={{ color: '#4b5563' }}>
+              Partners: {data.growthExecution.partnerTotal} | Publication queue: {data.growthExecution.publicationTotal} | Social metric rows: {data.growthExecution.socialMetricTotal}
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <strong>Partner contacts</strong>
+                <ul>
+                  {Object.entries(data.growthExecution.partnerByType).map(([label, count]) => (
+                    <li key={`partner-type-${label}`}>{label}: {count}</li>
+                  ))}
+                  {Object.entries(data.growthExecution.partnerByStatus).map(([label, count]) => (
+                    <li key={`partner-status-${label}`}>{label}: {count} active state(s)</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <strong>Publication queue</strong>
+                <ul>
+                  {Object.entries(data.growthExecution.publicationByChannel).map(([label, count]) => (
+                    <li key={`pub-channel-${label}`}>{label}: {count}</li>
+                  ))}
+                  {Object.entries(data.growthExecution.publicationByStatus).map(([label, count]) => (
+                    <li key={`pub-status-${label}`}>{label}: {count}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <strong>Editorial trust</strong>
+                <ul>
+                  {Object.entries(data.growthExecution.trustProfilesByType).map(([label, count]) => (
+                    <li key={`trust-${label}`}>{label}: {count}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <strong>Roadmap / product truth</strong>
+                <ul>
+                  {Object.entries(data.growthExecution.roadmapByStatus).map(([label, count]) => (
+                    <li key={`roadmap-status-${label}`}>{label}: {count}</li>
+                  ))}
+                  {Object.entries(data.growthExecution.roadmapByFunnel).map(([label, count]) => (
+                    <li key={`roadmap-funnel-${label}`}>{label}: {count}</li>
+                  ))}
+                  {Object.entries(data.growthExecution.productTruthByType).map(([label, count]) => (
+                    <li key={`truth-${label}`}>{label}: {count}</li>
+                  ))}
+                  <li>audience segments: {data.growthExecution.audienceSegmentCount}</li>
+                  <li>brand voice profiles: {data.growthExecution.brandVoiceCount}</li>
+                </ul>
+              </div>
+            </div>
+            <p style={{ color: '#4b5563', marginBottom: 6 }}>Social metric summary</p>
+            <pre style={{ background: '#f8fafc', padding: 12, borderRadius: 6, overflowX: 'auto' }}>
+              {JSON.stringify(data.growthExecution.socialMetricSummary, null, 2)}
+            </pre>
+            <p style={{ color: '#4b5563', marginBottom: 6 }}>Moat systems snapshot</p>
+            <pre style={{ background: '#f8fafc', padding: 12, borderRadius: 6, overflowX: 'auto' }}>
+              {JSON.stringify({
+                automationPolicyBySeverity: data.growthExecution.automationPolicyBySeverity,
+                leadMagnetByStatus: data.growthExecution.leadMagnetByStatus,
+                creatorByStage: data.growthExecution.creatorByStage,
+                serpSnapshotsBySource: data.growthExecution.serpSnapshotsBySource,
+              }, null, 2)}
+            </pre>
           </>
         )}
 
