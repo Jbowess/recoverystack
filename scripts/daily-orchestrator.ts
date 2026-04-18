@@ -67,6 +67,9 @@ const phases: Phase[] = [
       { id: 'smart-ring-demand-seed', name: 'Smart ring demand seed', script: 'scripts/smart-ring-demand-seed.ts' },
       { id: 'keyword-expander', name: 'Keyword expander', script: 'scripts/keyword-expander.ts' },
       { id: 'paa-factory', name: 'PAA page factory', script: 'scripts/paa-page-factory.ts' },
+      { id: 'competitor-brand-page-generator', name: 'Competitor brand page generator', script: 'scripts/competitor-brand-page-generator.ts' },
+      { id: 'use-case-page-splitter', name: 'Use-case page splitter', script: 'scripts/use-case-page-splitter.ts' },
+      { id: 'buying-guide-generator', name: 'Buying guide generator', script: 'scripts/buying-guide-generator.ts' },
     ],
   },
   {
@@ -122,6 +125,7 @@ const phases: Phase[] = [
       { id: 'persona-distributor', name: 'Persona distribution builder', script: 'scripts/persona-distributor.ts' },
       { id: 'staleness-scorer', name: 'Content staleness scorer', script: 'scripts/staleness-scorer.ts' },
       { id: 'snippet-optimizer', name: 'Featured snippet optimizer', script: 'scripts/snippet-optimizer.ts' },
+      { id: 'geo-optimizer', name: 'GEO optimizer', script: 'scripts/geo-optimizer.ts' },
       { id: 'cwv-auto-fix', name: 'CWV auto-fix', script: 'scripts/cwv-auto-fix.ts' },
       { id: 'ab-test-manager', name: 'A/B test manager', script: 'scripts/ab-test-manager.ts' },
       { id: 'distribution-performance-rollup', name: 'Distribution performance rollup', script: 'scripts/distribution-performance-rollup.ts' },

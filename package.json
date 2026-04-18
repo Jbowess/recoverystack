@@ -109,7 +109,11 @@
     "api:costs:report": "tsx scripts/api-cost-monitor.ts --report",
     "cwv:fix": "tsx scripts/cwv-auto-fix.ts",
     "video:seo": "tsx scripts/video-seo-generator.ts",
-    "locale:generate": "tsx scripts/locale-generator.ts"
+    "locale:generate": "tsx scripts/locale-generator.ts",
+    "geo:optimize": "tsx scripts/geo-optimizer.ts",
+    "brand:pages": "tsx scripts/competitor-brand-page-generator.ts",
+    "usecase:split": "tsx scripts/use-case-page-splitter.ts",
+    "guides:generate": "tsx scripts/buying-guide-generator.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",
