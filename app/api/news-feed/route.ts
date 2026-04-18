@@ -19,6 +19,7 @@ const TEMPLATE_CATEGORY_MAP: Record<string, string> = {
   compatibility: 'Compatibility',
   trends: 'Trend',
   pillars: 'Overview',
+  news: 'News',
 };
 
 type FeedItem = {

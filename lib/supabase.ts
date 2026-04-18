@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import type { PageRecord, TemplateType } from '@/lib/types';
+import { getSupabasePublicKey, getSupabaseUrl } from '@/lib/supabase-env';
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const url = getSupabaseUrl();
+const publicKey = getSupabasePublicKey();
 
 function createMissingClient(message: string) {
   return new Proxy(
@@ -15,9 +16,12 @@ function createMissingClient(message: string) {
   ) as any;
 }
 
-export const supabase: any = url && anon
-  ? createClient(url, anon)
-  : createMissingClient('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY');
+export const supabase: any = url && publicKey
+  ? createClient(url, publicKey)
+  : createMissingClient(
+      'Missing NEXT_PUBLIC_SUPABASE_URL and/or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ' +
+        '(fallback: NEXT_PUBLIC_SUPABASE_ANON_KEY)',
+    );
 
 export async function getAllPublishedSlugs() {
   const { data } = await supabase

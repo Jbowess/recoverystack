@@ -42,6 +42,7 @@ function readStringArray(value: unknown): string[] | null {
 
 export function getEditorialMetadata(page: Pick<PageRecord, 'metadata' | 'template' | 'published_at' | 'updated_at'>): EditorialMetadata {
   const meta = page.metadata ?? {};
+  const claimStatus = readOptionalString(meta.claim_verification_status);
 
   const author: EditorialProfile = {
     slug: readString(meta.author_slug, DEFAULT_AUTHOR.slug),
@@ -75,6 +76,7 @@ export function getEditorialMetadata(page: Pick<PageRecord, 'metadata' | 'templa
     author.credentials?.[0] ? `${author.credentials[0]} reviewed` : 'Editorially reviewed',
     reviewer ? `Reviewed by ${reviewer.name}` : 'Evidence-backed references',
     page.template === 'reviews' || page.template === 'alternatives' ? 'Testing methodology included' : 'People-first guidance',
+    claimStatus === 'verified' ? 'Claims verified against sources' : claimStatus === 'mixed' ? 'Claims partially verified' : 'Evidence review in progress',
   ];
 
   return { author, reviewer, trustSignals };

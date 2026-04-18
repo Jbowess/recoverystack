@@ -8,6 +8,8 @@ type QualityPageInput = {
   title?: string | null;
   intro?: string | null;
   meta_description?: string | null;
+  metadata?: Record<string, unknown> | null;
+  published_at?: string | null;
 };
 
 const bannedPhrases = [
@@ -59,6 +61,7 @@ const BodySchema = z.object({
     scoring: z.array(z.string()).optional(),
     use_cases: z.array(z.string()).optional(),
   }).optional(),
+  news_format: z.string().optional(),
 });
 
 const SchemaOrgItemSchema = z.object({
@@ -173,6 +176,18 @@ export function validateInternalLinks(page: QualityPageInput): string[] {
 
   const links = parsedLinks.data;
 
+  // News pages: lighter linking requirements — 1 pillar + 1-3 siblings acceptable
+  if (page.template === 'news') {
+    const nonDescriptive = links.filter((link) => !isDescriptiveAnchor(link.anchor)).map((link) => link.anchor);
+    if (nonDescriptive.length) {
+      errors.push(`internal_links contain non-descriptive anchors: ${nonDescriptive.join(', ')}`);
+    }
+    if (links.length < 1) {
+      errors.push('news internal_links must include at least 1 link');
+    }
+    return errors;
+  }
+
   // Pillar pages: must link down to at least 5 child pages (no up-link required)
   if (page.template === 'pillars') {
     const childLinks = links.filter((link) => (link.template ?? '').toLowerCase() !== 'pillars');
@@ -213,11 +228,75 @@ export function runPublishGuards(page: QualityPageInput): string[] {
     ...validateContentDepth(page),
     ...validateTitleAndMeta(page),
     ...validateEeatSignals(page),
+    ...validateNewsFormat(page),
+    ...validateNewsroomSignals(page),
   ];
 
   const banned = lintBannedPhrases([page.body_json, page.title, page.intro]);
   if (banned.length) {
     errors.push(`banned phrases found: ${banned.join(', ')}`);
+  }
+
+  return errors;
+}
+
+export function validateNewsFormat(page: QualityPageInput): string[] {
+  const errors: string[] = [];
+  if (page.template !== 'news') return errors;
+
+  const VALID_NEWS_FORMATS = ['breaking', 'research', 'roundup', 'expert_reaction', 'data_brief'] as const;
+  const body = (page.body_json ?? {}) as { news_format?: string };
+  const metaFormat = (page.metadata?.news_format as string | undefined) ?? '';
+  const bodyFormat = body.news_format ?? '';
+  const format = metaFormat || bodyFormat;
+
+  if (!format) {
+    errors.push('news: news_format is required (breaking | research | roundup | expert_reaction | data_brief)');
+  } else if (!VALID_NEWS_FORMATS.includes(format as (typeof VALID_NEWS_FORMATS)[number])) {
+    errors.push(`news: news_format "${format}" is not a recognised format`);
+  }
+
+  return errors;
+}
+
+export function validateNewsroomSignals(page: QualityPageInput): string[] {
+  const errors: string[] = [];
+  if (page.template !== 'news') return errors;
+
+  const body = (page.body_json ?? {}) as {
+    sections?: Array<{ heading?: string }>;
+    references?: Array<{ source?: string; url?: string }>;
+    newsroom_context?: { source_events?: unknown[]; what_we_do_not_know_yet?: unknown[] };
+  };
+
+  const headings = Array.isArray(body.sections)
+    ? body.sections.map((section) => String(section?.heading ?? '').toLowerCase())
+    : [];
+
+  if (!headings.some((heading) => heading.includes("don't know") || heading.includes('do not know'))) {
+    errors.push(`newsroom: missing "What we don't know yet" section`);
+  }
+
+  const sourceCount = Array.isArray(body.references) ? body.references.length : 0;
+  if (sourceCount < 3) {
+    errors.push(`newsroom: news pages require at least 3 references`);
+  }
+
+  const namedSourceCount = Array.isArray(body.references)
+    ? body.references.filter((ref) => typeof ref?.source === 'string' && ref.source.trim()).length
+    : 0;
+  if (namedSourceCount < 2) {
+    errors.push('newsroom: at least 2 references should include a named source/publication');
+  }
+
+  const sourceEvents = Array.isArray(body.newsroom_context?.source_events) ? body.newsroom_context?.source_events.length : 0;
+  if (sourceEvents < 1) {
+    errors.push('newsroom: no linked source events were embedded into newsroom_context');
+  }
+
+  const lastVerifiedAt = page.metadata?.last_verified_at;
+  if (typeof lastVerifiedAt !== 'string' || !lastVerifiedAt.trim()) {
+    errors.push('newsroom: metadata.last_verified_at is required for news pages');
   }
 
   return errors;
@@ -234,6 +313,7 @@ const MIN_BODY_WORDS: Record<string, number> = {
   costs: 500,
   compatibility: 500,
   trends: 400,
+  news: 350,
 };
 
 const DEFAULT_MIN_WORDS = 400;
@@ -350,7 +430,7 @@ export function validateEeatSignals(page: QualityPageInput): string[] {
     errors.push('E-E-A-T: no citation or authority reference found in content (expected year, study reference, or named authority)');
   }
 
-  if (['protocols', 'metrics', 'reviews', 'alternatives'].includes(page.template ?? '') && referenceCount < 2) {
+  if (['protocols', 'metrics', 'reviews', 'alternatives', 'news'].includes(page.template ?? '') && referenceCount < 2) {
     errors.push(`E-E-A-T: ${page.template} template requires at least 2 source references`);
   }
 

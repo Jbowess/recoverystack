@@ -71,7 +71,7 @@ export default async function NotFound() {
               gap: 16,
             }}
           >
-            {popular.map((page) => (
+            {popular.map((page: { slug: string; template: string; title: string; meta_description?: string | null }) => (
               <a
                 key={page.slug}
                 href={`/${page.template}/${page.slug}`}

@@ -258,7 +258,19 @@ img {
 
 .rs-newsletter {
   margin-top: 56px;
-  border: 1px solid rgba(14, 165, 233, 0.45);
+  background: rgba(14, 165, 233, 0.08); /* subtle accent tint — differentiates CTA from body cards */
+  border: 1px solid rgba(14, 165, 233, 0.35);
+}
+
+/* Ensure newsletter heading is always white/visible on dark card */
+.rs-newsletter h2 {
+  color: var(--rs-text);
+}
+
+/* Body copy in newsletter must always be readable on dark surface */
+.rs-newsletter p,
+.rs-newsletter .rs-excerpt {
+  color: var(--rs-text-secondary);
 }
 
 .rs-form-row {
@@ -1217,13 +1229,14 @@ img {
 
 .rs-newsletter-copy {
   margin: 0;
-  color: var(--rs-text-secondary);
+  color: var(--rs-text-secondary); /* #94a3b8 — legible on dark card */
   line-height: 1.7;
 }
 
 .rs-newsletter-note {
   margin: 12px 0 0;
-  color: var(--rs-text-dim);
+  color: var(--rs-text-secondary); /* raised from --rs-text-dim (#475569) which was too dark on dark card */
   font-size: 12px;
   line-height: 1.6;
+  opacity: 0.75;
 }

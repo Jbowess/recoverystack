@@ -5,6 +5,7 @@ const SITE_URL = process.env.SITE_URL ?? 'https://recoverystack.io';
 
 const TEMPLATE_PRIORITIES: Record<string, number> = {
   pillars: 0.9,
+  news: 0.9,     // news pages get high priority + daily change frequency
   guides: 0.8,
   alternatives: 0.7,
   protocols: 0.7,
@@ -86,10 +87,11 @@ export default async function sitemap({
   return templatePages.map((p) => {
     const pageUrl = `${SITE_URL}/${p.template}/${p.slug}`;
     const lastMod = new Date(p.updated_at);
+    const isNews = p.template === 'news';
     return {
       url: pageUrl,
       lastModified: Number.isNaN(lastMod.getTime()) ? undefined : lastMod.toISOString(),
-      changeFrequency: 'weekly' as const,
+      changeFrequency: (isNews ? 'daily' : 'weekly') as 'daily' | 'weekly',
       priority: TEMPLATE_PRIORITIES[p.template] ?? 0.6,
       images: [`${pageUrl}/opengraph-image`],
     };

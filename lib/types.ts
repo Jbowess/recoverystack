@@ -8,7 +8,8 @@ export type TemplateType =
   | 'trends'
   | 'pillars'
   | 'reviews'
-  | 'checklists';
+  | 'checklists'
+  | 'news';
 
 export type InternalLink = { slug: string; anchor: string; template?: TemplateType };
 
@@ -17,6 +18,51 @@ export type PageBodySection = {
   heading: string;
   kind: 'paragraphs' | 'faq' | 'steps' | 'list' | 'table' | 'definition_box';
   content: unknown;
+};
+
+export type NewsSourceEvent = {
+  id: string;
+  title: string;
+  summary: string | null;
+  url: string;
+  source_domain: string | null;
+  source_type?: string | null;
+  published_at: string | null;
+  event_type: string;
+  relevance_score: number;
+  authority_score: number;
+  freshness_score: number;
+  significance_score?: number | null;
+  beat: string;
+  extraction?: Record<string, unknown> | null;
+  metadata?: Record<string, unknown> | null;
+};
+
+export type TopicEntity = {
+  id: string;
+  slug: string;
+  canonical_name: string;
+  entity_type: string;
+  beat: string;
+  authority_score: number;
+  confidence_score: number;
+  metadata?: Record<string, unknown> | null;
+};
+
+export type Storyline = {
+  id: string;
+  slug: string;
+  title: string;
+  beat: string;
+  storyline_type: string;
+  status: string;
+  authority_score: number;
+  freshness_score: number;
+  update_count: number;
+  summary?: string | null;
+  latest_event_at?: string | null;
+  canonical_entity_id?: string | null;
+  metadata?: Record<string, unknown> | null;
 };
 
 export type PageReference = {
@@ -78,6 +124,18 @@ export type PageRecord = {
     references?: PageReference[];
     review_methodology?: ReviewMethodology;
     info_gain_feeds?: InfoGainFeeds;
+    newsroom_context?: {
+      story_summary?: string;
+      what_changed?: string[];
+      known_facts?: string[];
+      what_we_do_not_know_yet?: string[];
+      key_claims?: string[];
+      source_categories?: string[];
+      timeline?: Array<{ label: string; date?: string | null }>;
+      source_events?: NewsSourceEvent[];
+      storyline?: Storyline | null;
+      entities?: TopicEntity[];
+    };
   } | null;
   pillar_id: string | null;
   primary_keyword: string | null;
@@ -85,6 +143,14 @@ export type PageRecord = {
   internal_links: InternalLink[] | null;
   schema_org: unknown;
   metadata: Record<string, unknown> | null;
+  content_type?: string | null;
+  news_format?: string | null;
+  beat?: string | null;
+  freshness_tier?: string | null;
+  story_status?: string | null;
+  source_event_id?: string | null;
+  storyline_id?: string | null;
+  last_verified_at?: string | null;
   status: 'draft' | 'approved' | 'published' | 'archived';
   last_generated_at?: string | null;
   needs_revalidation?: boolean;

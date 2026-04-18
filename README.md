@@ -18,7 +18,7 @@ RecoveryStack now validates required runtime env vars with clear error messages 
 
 Required runtime vars:
 - `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY`)
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `REVALIDATE_SECRET`
 - `CRON_SECRET`
@@ -30,12 +30,14 @@ If any are missing, startup fails with an explicit `[env] Missing required runti
 Use the unified orchestration script to run the full daily content pipeline in phases:
 
 1. Discovery: `trend-scraper`, `gap-analyzer`, `cannibalization-check`, `competitor-spy`
+   Newsroom additions: `news-intake`, `entity-sync`, `storyline-builder`
 2. Keyword expansion: `keyword-expander`, `paa-page-factory`
 3. Brief generation: `brief-generator`
 4. Generation: `content-generator`
 5. Linking and quality: `linker`, `quality-gate`
 6. Deploy: `deploy`
-7. Rollup: `cluster-metrics-rollup`, `topical-map`, `orphan-link-audit`
+7. Performance optimization: `ctr-optimizer`, `discover-optimizer`, `news-freshness`
+8. Rollup: `cluster-metrics-rollup`, `topical-map`, `orphan-link-audit`, `authority-rollup`
 
 ### Run the full daily flow
 ```bash
@@ -116,6 +118,7 @@ jobs:
       - run: npm run nightly:run
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           GSC_CLIENT_EMAIL: ${{ secrets.GSC_CLIENT_EMAIL }}
           GSC_PRIVATE_KEY: ${{ secrets.GSC_PRIVATE_KEY }}
@@ -143,10 +146,58 @@ Status codes:
 ### Run individual steps
 ```bash
 npm run trend:scrape
+npm run news:intake
+npm run entities:sync
+npm run storylines:build
 npm run gap:analyze
 npm run content:generate
+npm run news:freshness
+npm run authority:rollup
 npm run links:rebuild
 npm run deploy:trigger
+```
+
+## Newsroom foundation
+RecoveryStack now includes a newsroom layer for scalable SEO news coverage in fitness technology and recovery:
+
+- `news_source_feeds`: tracked upstream feeds such as brand blogs, research feeds, and regulatory sources
+- `news_source_events`: ingested source events with freshness, authority, and event typing
+- `topic_entities` + `topic_entity_aliases`: canonical brands, products, metrics, and categories
+- `storylines` + `storyline_events`: grouped developing stories instead of isolated page ideas
+- `page_storylines` + `page_update_log`: page-to-story relationships and update history
+- `entity_coverage_daily`: authority rollups by entity over time
+
+These systems are intended to move the repo from static pSEO generation toward a repeatable recovery-tech newsroom with stronger topical authority.
+
+The newsroom pipeline now also captures richer article intelligence during intake:
+- Canonical URL resolution and source taxonomy (`brand_press`, `regulatory`, `research_primary`, `publisher`, `community`, `video`)
+- Lightweight full-article extraction from source pages instead of title/summary-only ingestion
+- Structured `known_facts`, `key_claims`, `quotes`, `metrics`, `timeline`, and `unknowns` payloads in `news_source_events.extraction`
+- Significance scoring and clustering keys for smarter storyline merging across repeated developments
+
+## Editorial intelligence ops
+Apply `0031_editorial_intelligence_ops.sql` to enable the operational newsroom layer:
+
+- `source_watchlists` + `source_watchlist_hits`: tracked brands, topics, regulators, and research feeds
+- `page_claims` + `claim_evidence_links`: claim verification graph for published pages
+- `story_followup_jobs`: scheduled 6h / 24h / 72h / 168h follow-ups for news pages
+- `comparison_dataset_snapshots`: reusable structured data products for pricing, firmware, validation, and compatibility
+- `source_quality_scores`: source weighting / decay model
+- `serp_winner_patterns`: template + intent pattern rollups from winning pages
+- `persona_distribution_queue`: audience-specific newsletter/social variants
+- `editorial_review_queue`: manual review lane for high-impact or weakly-verified pages
+
+Operational scripts:
+```bash
+npm run watchlists:sync
+npm run brand:monitor
+npm run claim:verify
+npm run story:followup
+npm run compare:datasets
+npm run source:quality
+npm run serp:winners
+npm run review:queue
+npm run distribute:persona
 ```
 
 ## Smoke-test seed (idempotent)

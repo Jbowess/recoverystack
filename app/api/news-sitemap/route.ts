@@ -15,6 +15,7 @@
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getSupabasePublicKey, getSupabaseUrl } from '@/lib/supabase-env';
 
 const SITE = process.env.SITE_URL ?? 'https://recoverystack.io';
 const PUBLICATION_NAME = 'RecoveryStack';
@@ -34,17 +35,19 @@ function escapeXml(str: string): string {
 
 export async function GET() {
   const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
+    getSupabaseUrl() ?? '',
+    getSupabasePublicKey() ?? '',
   );
 
   const cutoff = new Date(Date.now() - TWO_DAYS_MS).toISOString();
 
-  // Include trends template primarily, but also any freshly-published content
+  // Google News sitemap: only include news template pages published in the last 48 hours.
+  // Evergreen guides and other templates are excluded — Google News wants genuine news articles.
   const { data } = await supabase
     .from('pages')
     .select('slug, template, title, published_at, updated_at, primary_keyword')
     .eq('status', 'published')
+    .eq('template', 'news')
     .gte('published_at', cutoff)
     .order('published_at', { ascending: false })
     .limit(1000);

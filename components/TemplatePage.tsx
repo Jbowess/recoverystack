@@ -361,8 +361,12 @@ export default async function TemplatePage({ page, pillarLink, siblingLinks, sch
 
       <header className="rs-navbar" role="banner">
         <div className="rs-container rs-navbar-inner">
-          <a href="/" className="rs-logo">RECOVERYSTACK</a>
+          <a href="/" className="rs-logo" aria-label="RecoveryStack home">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="RecoveryStack" height={32} style={{ display: 'block', height: '32px', width: 'auto' }} />
+          </a>
           <nav aria-label="Primary" className="rs-nav-links">
+            <a href="/news">News</a>
             <a href="/guides">Guides</a>
             <a href="/alternatives">Alternatives</a>
             <a href="/protocols">Protocols</a>

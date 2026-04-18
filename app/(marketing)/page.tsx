@@ -128,9 +128,21 @@ async function getFeaturedPages() {
       .order('published_at', { ascending: false })
       .limit(6);
 
-    return data ?? [];
+    return (data ?? []) as Array<{
+      slug: string;
+      template: string;
+      title: string;
+      meta_description: string | null;
+      published_at: string | null;
+    }>;
   } catch {
-    return [];
+    return [] as Array<{
+      slug: string;
+      template: string;
+      title: string;
+      meta_description: string | null;
+      published_at: string | null;
+    }>;
   }
 }
 

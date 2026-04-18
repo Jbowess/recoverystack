@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       revalidatePath(buildPagePath(page as any));
     }
 
-    return NextResponse.json({ updated: pages.length, pages: pages.map((page) => ({ id: page.id, slug: page.slug, template: page.template, status })) });
+    return NextResponse.json({ updated: pages.length, pages: pages.map((page: any) => ({ id: page.id, slug: page.slug, template: page.template, status })) });
   }
 
   const update: Record<string, unknown> = { status };

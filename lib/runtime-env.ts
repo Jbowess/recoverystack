@@ -1,6 +1,5 @@
 export const REQUIRED_RUNTIME_ENV_VARS = [
   'NEXT_PUBLIC_SUPABASE_URL',
-  'NEXT_PUBLIC_SUPABASE_ANON_KEY',
   'SUPABASE_SERVICE_ROLE_KEY',
   'REVALIDATE_SECRET',
   'CRON_SECRET',
@@ -12,6 +11,7 @@ export type RuntimeEnvVar = (typeof REQUIRED_RUNTIME_ENV_VARS)[number];
 export type RuntimeEnvValidationResult = {
   ok: boolean;
   missing: RuntimeEnvVar[];
+  missingAnyOf: string[][];
 };
 
 function isMissing(value: string | undefined): boolean {
@@ -22,7 +22,11 @@ export function validateRuntimeEnv(
   requiredVars: readonly RuntimeEnvVar[] = REQUIRED_RUNTIME_ENV_VARS,
 ): RuntimeEnvValidationResult {
   const missing = requiredVars.filter((name) => isMissing(process.env[name])) as RuntimeEnvVar[];
-  return { ok: missing.length === 0, missing };
+  const missingAnyOf = [
+    ['NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'NEXT_PUBLIC_SUPABASE_ANON_KEY'],
+  ].filter((group) => group.every((name) => isMissing(process.env[name])));
+
+  return { ok: missing.length === 0 && missingAnyOf.length === 0, missing, missingAnyOf };
 }
 
 export function assertRuntimeEnv(context = 'startup'): void {
@@ -30,7 +34,10 @@ export function assertRuntimeEnv(context = 'startup'): void {
 
   if (result.ok) return;
 
-  const joined = result.missing.join(', ');
+  const joined = [
+    ...result.missing,
+    ...result.missingAnyOf.map((group) => `one of: ${group.join(' | ')}`),
+  ].join(', ');
   throw new Error(
     `[env] Missing required runtime environment variable(s) for ${context}: ${joined}. ` +
       'Set these in your deployment environment (for example Vercel Project Settings → Environment Variables) and restart the app.',

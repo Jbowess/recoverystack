@@ -20,6 +20,7 @@ const HASHTAG_MAP: Record<string, string[]> = {
   compatibility: ['#WearableTech', '#RecoveryStack', '#FitnessTracker'],
   trends: ['#RecoveryTrends', '#SportsTech', '#AthletePerformance'],
   pillars: ['#RecoveryScience', '#SportScience', '#PerformanceOptimization'],
+  news: ['#RecoveryNews', '#FitnessTech', '#WearableHealth', '#SportScience'],
 };
 
 function buildOAuthHeader(

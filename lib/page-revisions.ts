@@ -39,7 +39,7 @@ export async function saveRevision(
     if (fetchError || !revisions) return;
 
     if (revisions.length > MAX_REVISIONS_PER_PAGE) {
-      const toDelete = revisions.slice(MAX_REVISIONS_PER_PAGE).map((r) => r.id);
+      const toDelete = revisions.slice(MAX_REVISIONS_PER_PAGE).map((r: any) => r.id);
       await supabaseAdmin.from('page_revisions').delete().in('id', toDelete);
     }
   } catch (err) {

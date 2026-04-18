@@ -15,6 +15,7 @@ const ALLOWED_TEMPLATES: TemplateType[] = [
   'pillars',
   'reviews',
   'checklists',
+  'news',
 ];
 
 const TEMPLATE_COPY: Record<
@@ -71,6 +72,11 @@ const TEMPLATE_COPY: Record<
     description: 'Checklist content built for practical action and repeatable recovery decisions.',
     newsletterAngle: 'The newsletter keeps the checklist current as the market changes.',
   },
+  news: {
+    title: 'News',
+    description: 'Breaking news, research briefs, and expert commentary on fitness technology and recovery.',
+    newsletterAngle: 'Get the news digest in RecoveryStack News — the weekly brief for recovery-focused athletes.',
+  },
 };
 
 function isTemplate(value: string): value is TemplateType {
@@ -86,7 +92,12 @@ async function getPages(template: TemplateType) {
     .order('published_at', { ascending: false })
     .limit(24);
 
-  return data ?? [];
+  return (data ?? []) as Array<{
+    slug: string;
+    title: string;
+    meta_description: string | null;
+    published_at: string | null;
+  }>;
 }
 
 export async function generateMetadata({

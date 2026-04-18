@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getSupabasePublicKey, getSupabaseUrl } from '@/lib/supabase-env';
 
 const SITE = process.env.SITE_URL ?? 'https://recoverystack.io';
 const FEED_TITLE = 'RecoveryStack.io — Recovery Intelligence';
@@ -16,8 +17,8 @@ function escapeXml(str: string): string {
 
 export async function GET() {
   const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
+    getSupabaseUrl() ?? '',
+    getSupabasePublicKey() ?? '',
   );
 
   const { data } = await supabase

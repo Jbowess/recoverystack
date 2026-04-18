@@ -88,6 +88,20 @@ const REDDIT_FEEDS = [
   { subreddit: 'Biohackers', url: 'https://www.reddit.com/r/Biohackers/.rss' },
   { subreddit: 'running', url: 'https://www.reddit.com/r/running/.rss' },
   { subreddit: 'Fitness', url: 'https://www.reddit.com/r/Fitness/.rss' },
+  { subreddit: 'swimming', url: 'https://www.reddit.com/r/swimming/.rss' },
+  { subreddit: 'triathlon', url: 'https://www.reddit.com/r/triathlon/.rss' },
+  { subreddit: 'weightlifting', url: 'https://www.reddit.com/r/weightlifting/.rss' },
+  { subreddit: 'wearables', url: 'https://www.reddit.com/r/wearables/.rss' },
+  { subreddit: 'Supplements', url: 'https://www.reddit.com/r/Supplements/.rss' },
+] as const;
+
+// Industry publication RSS feeds — domain-filtered for fitness/recovery/health-tech news
+const INDUSTRY_RSS_FEEDS = [
+  { publication: 'Wareable', url: 'https://www.wareable.com/rss' },
+  { publication: 'Gear Patrol Health', url: 'https://gearpatrol.com/feed/' },
+  { publication: 'Ars Technica Tech', url: 'https://feeds.arstechnica.com/arstechnica/index' },
+  { publication: 'Men\'s Health Fitness', url: 'https://www.menshealth.com/rss/all.xml/' },
+  { publication: 'Outside Online', url: 'https://www.outsideonline.com/feed/' },
 ] as const;
 
 const GOOGLE_TRENDS_RSS = `https://trends.google.com/trending/rss?geo=${encodeURIComponent(
@@ -96,7 +110,7 @@ const GOOGLE_TRENDS_RSS = `https://trends.google.com/trending/rss?geo=${encodeUR
 
 type TrendSeed = {
   term: string;
-  source: 'reddit' | 'gtrends';
+  source: 'reddit' | 'gtrends' | 'industry_rss' | 'news_api' | 'youtube_search' | 'youtube_channel';
   normalizedTerm: string;
   score: number;
   competition: 'low' | 'med' | 'high';
@@ -285,6 +299,114 @@ function parseTrafficToScore(approxTraffic: string | null): number {
   return clampScore(score);
 }
 
+async function ingestIndustryRss(): Promise<TrendSeed[]> {
+  const rows: TrendSeed[] = [];
+
+  for (const feed of INDUSTRY_RSS_FEEDS) {
+    try {
+      const xml = await fetchText(feed.url);
+      const items = extractItems(xml);
+
+      for (const item of items) {
+        const title = extractTag(item, 'title');
+        if (!title) continue;
+
+        const term = normalizeTerm(title);
+        if (!term || term.length < 4) continue;
+
+        // Industry publications score slightly higher than Reddit (editorial signal)
+        const score = heuristicScoreFromLength(65, term);
+
+        rows.push({
+          term,
+          source: 'industry_rss',
+          normalizedTerm: normalizeKeyword(term),
+          score,
+          competition: scoreToCompetition(score),
+          status: 'new',
+          observedAt: new Date().toISOString(),
+          sourceItemId: extractTag(item, 'guid') ?? extractTag(item, 'link'),
+          payload: {
+            publication: feed.publication,
+            title,
+            link: extractTag(item, 'link'),
+            published_at: extractTag(item, 'pubDate') ?? extractTag(item, 'dc:date'),
+          },
+        });
+      }
+
+      console.log(`[industry-rss] ${feed.publication}: parsed ${items.length} items`);
+    } catch (error) {
+      console.warn(`[industry-rss] ${feed.publication}: ingestion error (non-fatal)`, error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  return rows;
+}
+
+async function ingestNewsApi(): Promise<TrendSeed[]> {
+  const apiKey = process.env.NEWS_API_KEY;
+  if (!apiKey) return [];
+
+  const rows: TrendSeed[] = [];
+  const queries = ['wearable fitness', 'HRV recovery', 'smart ring health', 'sleep tracking technology', 'fitness tech'];
+
+  for (const q of queries) {
+    try {
+      const url = new URL('https://newsapi.org/v2/everything');
+      url.searchParams.set('q', q);
+      url.searchParams.set('sortBy', 'publishedAt');
+      url.searchParams.set('pageSize', '10');
+      url.searchParams.set('language', 'en');
+      url.searchParams.set('apiKey', apiKey);
+
+      const res = await fetch(url.toString(), {
+        headers: { 'User-Agent': 'recoverystack-trend-scraper/1.0' },
+      });
+
+      if (!res.ok) {
+        console.warn(`[newsapi] Query "${q}" failed: ${res.status}`);
+        continue;
+      }
+
+      const json = await res.json();
+      const articles: Array<{ title?: string; url?: string; publishedAt?: string; source?: { name?: string } }> = json?.articles ?? [];
+
+      for (const article of articles) {
+        if (!article.title) continue;
+        const term = normalizeTerm(article.title);
+        if (!term || term.length < 4) continue;
+
+        const score = heuristicScoreFromLength(70, term); // NewsAPI articles score higher — editorial, timely
+
+        rows.push({
+          term,
+          source: 'news_api',
+          normalizedTerm: normalizeKeyword(term),
+          score,
+          competition: scoreToCompetition(score),
+          status: 'new',
+          observedAt: new Date().toISOString(),
+          sourceItemId: article.url ?? null,
+          payload: {
+            query: q,
+            title: article.title,
+            url: article.url ?? null,
+            source: article.source?.name ?? null,
+            published_at: article.publishedAt ?? null,
+          },
+        });
+      }
+
+      console.log(`[newsapi] "${q}": ${articles.length} articles`);
+    } catch (error) {
+      console.warn(`[newsapi] Query "${q}" error (non-fatal):`, error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  return rows;
+}
+
 async function ingestGoogleTrends(): Promise<TrendSeed[]> {
   const rows: TrendSeed[] = [];
 
@@ -430,9 +552,170 @@ function parseApproxTraffic(approxTraffic: string): number | null {
   return Math.round(raw * multiplier);
 }
 
+// ── YouTube Data API v3 signal ingestion ────────────────────────────────────
+// Pulls trending/recent videos from recovery-relevant YouTube channels and search
+// terms. High-view-count recovery/wearables videos are a leading indicator of
+// consumer interest — topics that go viral on YouTube often surface as SEO demand
+// 2-4 weeks later.
+//
+// Requires: YOUTUBE_API_KEY env var.
+// Optional: YOUTUBE_CHANNEL_IDS (comma-separated) to override default channels.
+
+const YOUTUBE_SEARCH_QUERIES = [
+  'wearable fitness tracker 2025',
+  'HRV recovery training',
+  'oura ring review',
+  'sleep optimization',
+  'smart ring health',
+  'recovery protocol athletes',
+  'fitness tech news',
+];
+
+// Channels known for high-quality recovery/fitness tech content
+const DEFAULT_YOUTUBE_CHANNEL_IDS = [
+  'UCaBqRxHEMomgFU-AkSfodCw', // Thomas DeLauer
+  'UCWX3yGbOBM6TGMoOSHiCPdQ', // Huberman Lab (partial)
+];
+
+async function ingestYouTube(): Promise<TrendSeed[]> {
+  const apiKey = process.env.YOUTUBE_API_KEY;
+  if (!apiKey) return [];
+
+  const rows: TrendSeed[] = [];
+  const channelIds = process.env.YOUTUBE_CHANNEL_IDS
+    ? process.env.YOUTUBE_CHANNEL_IDS.split(',').map((s) => s.trim()).filter(Boolean)
+    : DEFAULT_YOUTUBE_CHANNEL_IDS;
+
+  // 1. Search-based signal: recent videos matching our queries
+  for (const q of YOUTUBE_SEARCH_QUERIES) {
+    try {
+      const url = new URL('https://www.googleapis.com/youtube/v3/search');
+      url.searchParams.set('part', 'snippet');
+      url.searchParams.set('q', q);
+      url.searchParams.set('type', 'video');
+      url.searchParams.set('order', 'date');
+      url.searchParams.set('maxResults', '10');
+      url.searchParams.set('publishedAfter', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
+      url.searchParams.set('key', apiKey);
+
+      const res = await fetch(url.toString(), {
+        headers: { 'User-Agent': 'recoverystack-trend-scraper/1.0' },
+      });
+
+      if (!res.ok) {
+        console.warn(`[youtube] Search "${q}" failed: ${res.status}`);
+        continue;
+      }
+
+      const json = await res.json();
+      const items: Array<{ id?: { videoId?: string }; snippet?: { title?: string; publishedAt?: string; channelTitle?: string } }> = json?.items ?? [];
+
+      for (const item of items) {
+        const title = item.snippet?.title;
+        if (!title) continue;
+
+        const term = normalizeTerm(title);
+        if (!term || term.length < 4) continue;
+
+        // YouTube editorial/creator content: score slightly above Reddit
+        const score = heuristicScoreFromLength(68, term);
+
+        rows.push({
+          term,
+          source: 'youtube_search',
+          normalizedTerm: normalizeKeyword(term),
+          score,
+          competition: scoreToCompetition(score),
+          status: 'new',
+          observedAt: new Date().toISOString(),
+          sourceItemId: item.id?.videoId ?? null,
+          payload: {
+            source_type: 'youtube_search',
+            query: q,
+            title,
+            video_id: item.id?.videoId ?? null,
+            channel: item.snippet?.channelTitle ?? null,
+            published_at: item.snippet?.publishedAt ?? null,
+          },
+        });
+      }
+
+      console.log(`[youtube] search "${q}": ${items.length} videos`);
+    } catch (error) {
+      console.warn(`[youtube] Search "${q}" error (non-fatal):`, error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  // 2. Channel-based signal: recent uploads from known channels
+  for (const channelId of channelIds) {
+    try {
+      const url = new URL('https://www.googleapis.com/youtube/v3/search');
+      url.searchParams.set('part', 'snippet');
+      url.searchParams.set('channelId', channelId);
+      url.searchParams.set('type', 'video');
+      url.searchParams.set('order', 'date');
+      url.searchParams.set('maxResults', '5');
+      url.searchParams.set('key', apiKey);
+
+      const res = await fetch(url.toString(), {
+        headers: { 'User-Agent': 'recoverystack-trend-scraper/1.0' },
+      });
+
+      if (!res.ok) {
+        console.warn(`[youtube] Channel ${channelId} failed: ${res.status}`);
+        continue;
+      }
+
+      const json = await res.json();
+      const items: Array<{ id?: { videoId?: string }; snippet?: { title?: string; publishedAt?: string; channelTitle?: string } }> = json?.items ?? [];
+
+      for (const item of items) {
+        const title = item.snippet?.title;
+        if (!title) continue;
+
+        const term = normalizeTerm(title);
+        if (!term || term.length < 4) continue;
+
+        const score = heuristicScoreFromLength(72, term); // Channel content scores higher (curated source)
+
+        rows.push({
+          term,
+          source: 'youtube_channel',
+          normalizedTerm: normalizeKeyword(term),
+          score,
+          competition: scoreToCompetition(score),
+          status: 'new',
+          observedAt: new Date().toISOString(),
+          sourceItemId: item.id?.videoId ?? null,
+          payload: {
+            source_type: 'youtube_channel',
+            channel_id: channelId,
+            title,
+            video_id: item.id?.videoId ?? null,
+            channel: item.snippet?.channelTitle ?? null,
+            published_at: item.snippet?.publishedAt ?? null,
+          },
+        });
+      }
+
+      console.log(`[youtube] channel ${channelId}: ${items.length} videos`);
+    } catch (error) {
+      console.warn(`[youtube] Channel ${channelId} error (non-fatal):`, error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  return rows;
+}
+
 async function run() {
-  const [redditRows, googleRows] = await Promise.all([ingestReddit(), ingestGoogleTrends()]);
-  const allRows = [...redditRows, ...googleRows];
+  const [redditRows, googleRows, industryRows, newsApiRows, youtubeRows] = await Promise.all([
+    ingestReddit(),
+    ingestGoogleTrends(),
+    ingestIndustryRss(),
+    ingestNewsApi(),
+    ingestYouTube(),
+  ]);
+  const allRows = [...redditRows, ...googleRows, ...industryRows, ...newsApiRows, ...youtubeRows];
 
   if (!allRows.length) {
     console.warn('No trend rows collected from feeds. Exiting without DB writes.');

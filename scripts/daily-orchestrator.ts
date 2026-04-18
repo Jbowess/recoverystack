@@ -25,9 +25,20 @@ const phases: Phase[] = [
     steps: [
       { id: 'gsc-sync', name: 'GSC metrics sync', script: 'scripts/gsc-sync.ts' },
       { id: 'trend-scraper', name: 'Trend scraper', script: 'scripts/trend-scraper.ts' },
+      { id: 'watchlist-sync', name: 'Watchlist sync', script: 'scripts/watchlist-sync.ts' },
+      { id: 'brand-monitor', name: 'Watchlist monitor', script: 'scripts/brand-monitor.ts' },
+      { id: 'news-intake', name: 'News intake', script: 'scripts/news-intake.ts' },
+      { id: 'entity-sync', name: 'Entity sync', script: 'scripts/entity-sync.ts' },
+      { id: 'storyline-builder', name: 'Storyline builder', script: 'scripts/storyline-builder.ts' },
       { id: 'gap-analyzer', name: 'Gap analyzer', script: 'scripts/gap-analyzer.ts' },
       { id: 'cannibalization-check', name: 'Cannibalization check', script: 'scripts/cannibalization-check.ts' },
       { id: 'competitor-spy', name: 'Competitor intelligence', script: 'scripts/competitor-spy.ts' },
+    ],
+  },
+  {
+    label: 'News Wave',
+    steps: [
+      { id: 'news-wave', name: 'News velocity pipeline', script: 'scripts/news-wave.ts' },
     ],
   },
   {
@@ -49,6 +60,7 @@ const phases: Phase[] = [
     steps: [
       { id: 'content-generator', name: 'Content generator', script: 'scripts/content-generator.ts' },
       { id: 'visual-asset-generator', name: 'Supporting visual generator', script: 'scripts/visual-asset-generator.ts' },
+      { id: 'claim-verifier', name: 'Claim verifier', script: 'scripts/claim-verifier.ts' },
     ],
   },
   {
@@ -69,6 +81,9 @@ const phases: Phase[] = [
     steps: [
       { id: 'ctr-optimizer', name: 'CTR optimizer', script: 'scripts/ctr-optimizer.ts' },
       { id: 'discover-optimizer', name: 'Discover optimizer', script: 'scripts/discover-optimizer.ts' },
+      { id: 'news-freshness', name: 'News freshness monitor', script: 'scripts/news-freshness.ts' },
+      { id: 'story-followup', name: 'Story follow-up scheduler', script: 'scripts/story-followup.ts' },
+      { id: 'persona-distributor', name: 'Persona distribution builder', script: 'scripts/persona-distributor.ts' },
     ],
   },
   {
@@ -80,6 +95,12 @@ const phases: Phase[] = [
       { id: 'orphan-link-audit', name: 'Orphan link audit', script: 'scripts/orphan-link-audit.ts' },
       { id: 'backlink-sync', name: 'Backlink sync', script: 'scripts/backlink-sync.ts' },
       { id: 'title-experiment-promoter', name: 'Title experiment promoter', script: 'scripts/title-experiment-promoter.ts' },
+      { id: 'authority-rollup', name: 'Entity authority rollup', script: 'scripts/authority-rollup.ts' },
+      { id: 'comparison-datasets', name: 'Comparison datasets', script: 'scripts/comparison-dataset-builder.ts' },
+      { id: 'source-quality-scorer', name: 'Source quality scorer', script: 'scripts/source-quality-scorer.ts' },
+      { id: 'serp-winner-analyzer', name: 'SERP winner analyzer', script: 'scripts/serp-winner-analyzer.ts' },
+      { id: 'editorial-review-queue', name: 'Editorial review queue', script: 'scripts/editorial-review-queue.ts' },
+      { id: 'news-roundup', name: 'Weekly roundup builder', script: 'scripts/news-roundup.ts' },
     ],
   },
 ];

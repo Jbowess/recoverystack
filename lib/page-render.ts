@@ -31,7 +31,10 @@ export function buildPageMetadata(page: PageRecord, path: string): Metadata {
   return {
     title: page.title,
     description: page.meta_description,
-    alternates: { canonical: url },
+    alternates: {
+      canonical: url,
+      ...(page.template === 'news' ? { types: { 'application/rss+xml': `${SITE}/api/news-rss` } } : {}),
+    },
     authors: [{ name: editorial.author.name, url: `${SITE}/authors/${editorial.author.slug}` }],
     openGraph: {
       type: 'article',
@@ -69,8 +72,8 @@ export function buildSchemaBundle(page: PageRecord, path: string) {
     out.push(personSchema({ slug: reviewerSlug, name: reviewerName, title: reviewerTitle }));
   }
 
-  // Use NewsArticle for trends, standard Article for everything else
-  if (page.template === 'trends') {
+  // Use NewsArticle for news and trends; standard Article for everything else
+  if (page.template === 'news' || page.template === 'trends') {
     out.push(newsArticleSchema(page, url));
   } else {
     out.push(articleSchema(page, url));

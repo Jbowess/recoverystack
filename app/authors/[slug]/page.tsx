@@ -25,11 +25,12 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const { data: author } = await supabase
+  const { data } = await supabase
     .from('authors')
     .select('name, title, bio')
     .eq('slug', slug)
-    .single<Author>();
+    .single();
+  const author = (data ?? null) as Pick<Author, 'name' | 'title' | 'bio'> | null;
 
   if (!author) return { title: 'Author not found' };
 
@@ -42,11 +43,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function AuthorPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
 
-  const { data: author } = await supabase
+  const { data } = await supabase
     .from('authors')
     .select('*')
     .eq('slug', slug)
-    .single<Author>();
+    .single();
+  const author = (data ?? null) as Author | null;
 
   if (!author) notFound();
 
@@ -68,7 +70,7 @@ export default async function AuthorPage({ params }: { params: Promise<{ slug: s
     jobTitle: author.title,
     url: authorUrl,
     description: author.bio ?? undefined,
-    ...(author.credentials?.length ? { hasCredential: author.credentials.map((c) => ({ '@type': 'EducationalOccupationalCredential', credentialCategory: c })) } : {}),
+      ...(author.credentials?.length ? { hasCredential: author.credentials.map((c: string) => ({ '@type': 'EducationalOccupationalCredential', credentialCategory: c })) } : {}),
     sameAs: [author.linkedin_url, author.twitter_url].filter(Boolean),
     worksFor: {
       '@type': 'Organization',
@@ -84,7 +86,8 @@ export default async function AuthorPage({ params }: { params: Promise<{ slug: s
       <div className="rs-shell">
         <header className="rs-navbar" role="banner">
           <div className="rs-container rs-navbar-inner">
-            <a href="/" className="rs-logo">RECOVERYSTACK</a>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <a href="/" className="rs-logo" aria-label="RecoveryStack home"><img src="/logo.png" alt="RecoveryStack" height={32} style={{ display: 'block', height: '32px', width: 'auto' }} /></a>
             <nav aria-label="Primary" className="rs-nav-links">
               <a href="/guides">Guides</a>
               <a href="/alternatives">Alternatives</a>
@@ -155,7 +158,7 @@ export default async function AuthorPage({ params }: { params: Promise<{ slug: s
               <section aria-labelledby="credentials-heading" style={{ marginTop: '1.5rem' }}>
                 <h2 id="credentials-heading">Credentials</h2>
                 <ul>
-                  {author.credentials.map((cred, i) => (
+                  {author.credentials.map((cred: string, i: number) => (
                     <li key={i}>{cred}</li>
                   ))}
                 </ul>

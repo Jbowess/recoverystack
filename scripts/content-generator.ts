@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import { countRequiredCtaMentions } from '@/lib/publish-guards';
 import { buildInfoFeedSections, collectInfoGainFeeds } from '@/lib/info-gain-feeds';
+import { buildNewsroomContext } from '@/lib/newsroom';
 import { rateLimit } from '@/lib/rate-limiter';
 import { buildGeneratedPageUpdate } from '@/lib/page-state';
 import { buildReferenceRow } from '@/lib/seo-planning';
@@ -104,11 +105,51 @@ const CONTENT_ANGLES = [
 
 type ContentAngle = (typeof CONTENT_ANGLES)[number];
 
-function pickContentAngle(slug: string): ContentAngle {
+// News-specific editorial angles — assigned deterministically per slug.
+// These are distinct from evergreen angles: they frame the story, not the reader profile.
+const NEWS_CONTENT_ANGLES = [
+  {
+    id: 'breaking-analysis',
+    label: 'Breaking analysis',
+    instruction:
+      'Lead with why this development matters right now. Frame the article around the immediate implications of the news — what it changes, what it means for the field, and what to watch next. Avoid excessive background; assume the reader is following the space.',
+  },
+  {
+    id: 'research-translation',
+    label: 'Research translation',
+    instruction:
+      'Bridge the gap between study findings and real-world application. Lead with the key finding, explain the methodology briefly, then translate the result into concrete guidance for athletes and coaches. Avoid jargon without explanation.',
+  },
+  {
+    id: 'what-this-means-for-athletes',
+    label: 'What this means for athletes',
+    instruction:
+      'Anchor every paragraph around practical impact on training, recovery, or performance. Open with "Here\'s what this means for your [training/recovery/sleep]" framing. Every development should be filtered through: "does this change what athletes should do tomorrow?"',
+  },
+  {
+    id: 'counter-narrative',
+    label: 'Counter-narrative',
+    instruction:
+      'Lead by identifying the dominant industry narrative around this topic, then present evidence or expert opinion that challenges or complicates it. This isn\'t contrarianism — it\'s honest journalism. Give the mainstream view fair coverage before presenting the counter-evidence.',
+  },
+  {
+    id: 'expert-synthesis',
+    label: 'Expert synthesis',
+    instruction:
+      'Synthesise what multiple experts or sources are saying about this development. Identify where they agree, where they diverge, and what remains unresolved. Structure the article as a landscape of expert opinion rather than a single authoritative take.',
+  },
+] as const;
+
+type NewsContentAngle = (typeof NEWS_CONTENT_ANGLES)[number];
+
+function pickContentAngle(slug: string, template?: string): ContentAngle | NewsContentAngle {
   // Deterministic per slug so retries use the same angle, but different slugs get different angles.
   let hash = 0;
   for (let i = 0; i < slug.length; i++) {
     hash = ((hash * 31) + slug.charCodeAt(i)) >>> 0;
+  }
+  if (template === 'news') {
+    return NEWS_CONTENT_ANGLES[hash % NEWS_CONTENT_ANGLES.length];
   }
   return CONTENT_ANGLES[hash % CONTENT_ANGLES.length];
 }
@@ -147,11 +188,14 @@ const BodySchema = z.object({
     })
     .optional(),
   info_gain_feeds: z.record(z.string(), z.unknown()).optional(),
+  newsroom_context: z.record(z.string(), z.unknown()).optional(),
+  news_format: z.string().optional(),
 });
 
 const GeneratedSchema = z.object({
   intro: z.string().min(1),
   body_json: BodySchema,
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 type ProviderMode = 'auto' | 'openai' | 'ollama';
@@ -172,6 +216,7 @@ const TEMPLATE_RULES: Record<string, TemplateRule> = {
   pillars: { minFaqs: 3, minChildLinks: 5 },
   reviews: { minFaqs: 5, requiresComparisonSlots: true },
   checklists: { minFaqs: 3 },
+  news: { minFaqs: 3 },
 };
 
 const mode = (process.env.GENERATION_PROVIDER as ProviderMode | undefined) ?? 'auto';
@@ -208,6 +253,7 @@ function promptPathForTemplate(template: string) {
     pillars: 'pillar.md',
     reviews: 'review.md',
     checklists: 'checklist.md',
+    news: 'news.md',
   };
   return join(process.cwd(), 'content-prompts', byTemplate[template] ?? 'comparison.md');
 }
@@ -470,6 +516,13 @@ function deterministicChecks(template: string, content: z.infer<typeof Generated
     errors.push(`review_methodology is required for template '${template}'`);
   }
 
+  if (template === 'news') {
+    const headings = content.body_json.sections.map((section) => section.heading.toLowerCase());
+    if (!headings.some((heading) => heading.includes("don't know") || heading.includes('do not know'))) {
+      errors.push(`news pages must include a "What we don't know yet" section`);
+    }
+  }
+
   return errors;
 }
 
@@ -576,7 +629,7 @@ const CONCURRENCY = Math.max(1, Number(process.env.CONCURRENCY ?? 3));
 
 async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneration>>[number], products: unknown[]) {
     const promptTemplate = readFileSync(promptPathForTemplate(page.template), 'utf8');
-    const [gapResult, briefResult, queryTargetsResult, sourceReferencesResult, visualAssetsResult] = await Promise.all([
+    const [gapResult, briefResult, queryTargetsResult, sourceReferencesResult, visualAssetsResult, storylineResult, storyEventsResult, storyEntitiesResult] = await Promise.all([
       supabase
         .from('content_gaps')
         .select('*')
@@ -613,12 +666,52 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
         .eq('page_id', page.id)
         .order('sort_order', { ascending: true })
         .limit(10),
+      page.template === 'news' && page.storyline_id
+        ? supabase
+            .from('storylines')
+            .select('id,slug,title,beat,storyline_type,status,authority_score,freshness_score,update_count,summary,latest_event_at,metadata')
+            .eq('id', page.storyline_id)
+            .single()
+        : Promise.resolve({ data: null, error: null } as any),
+      page.template === 'news' && page.storyline_id
+        ? supabase
+            .from('storyline_events')
+            .select(`
+              significance_score,
+              news_source_events (
+                id,title,summary,url,source_domain,published_at,event_type,relevance_score,authority_score,freshness_score,beat,extraction,metadata
+              )
+            `)
+            .eq('storyline_id', page.storyline_id)
+            .order('significance_score', { ascending: false })
+            .limit(6)
+        : Promise.resolve({ data: [], error: null } as any),
+      page.template === 'news' && page.storyline_id
+        ? supabase
+            .from('storylines')
+            .select(`
+              canonical_entity_id,
+              topic_entities!storylines_canonical_entity_id_fkey (
+                id,slug,canonical_name,entity_type,beat,authority_score,confidence_score,metadata
+              )
+            `)
+            .eq('id', page.storyline_id)
+            .single()
+        : Promise.resolve({ data: null, error: null } as any),
     ]);
     const gapRows = gapResult.data;
     const brief = briefResult.data;
     const queryTargets = queryTargetsResult.data ?? [];
     const sourceReferences = sourceReferencesResult.data ?? [];
     const visualAssets = visualAssetsResult.data ?? [];
+    const storyline = storylineResult.data ?? null;
+    const storyEvents = (storyEventsResult.data ?? [])
+      .map((row: any) => row.news_source_events ? { ...row.news_source_events, significance_score: row.significance_score } : null)
+      .filter(Boolean);
+    const storyEntities = storyEntitiesResult.data?.topic_entities ? [storyEntitiesResult.data.topic_entities] : [];
+    const newsroomContext = page.template === 'news'
+      ? buildNewsroomContext({ storyline, sourceEvents: storyEvents, entities: storyEntities })
+      : null;
 
     const rule = TEMPLATE_RULES[page.template] ?? {};
     const targetWordCount = Number(page.metadata?.target_word_count ?? brief?.target_word_count ?? 1400);
@@ -628,7 +721,7 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
     const attemptErrors: string[] = [];
 
     const recentFingerprints = await fetchRecentFingerprints(supabase, 5);
-    const contentAngle = pickContentAngle(page.slug);
+    const contentAngle = pickContentAngle(page.slug, page.template);
 
     while (attempts < 4 && !valid) {
       attempts += 1;
@@ -647,7 +740,7 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
         `Primary keyword: ${page.primary_keyword ?? ''}`,
         `## Content Angle (MANDATORY — uniquely differentiates this page from similar pages on the site)\nAngle: ${contentAngle.label}\nDirective: ${contentAngle.instruction}\nApply this angle consistently from the intro through the verdict. This is what makes this page's perspective distinct from other pages covering the same keyword.`,
         'Return ONLY valid JSON. Do not include markdown fences.',
-        'Output schema must be exactly: {"intro":"string <=60 words","body_json":{"comparison_table?":{},"verdict":["Best for: ...","Avoid if: ...","Bottom line: ..."],"key_takeaways?":["..."],"sections":[],"faqs?":[],"references?":[{"title":"...","url":"https://...","source":"...","year":"..."}],"review_methodology?":{"summary":"...","tested":["..."],"scoring":["..."],"use_cases":["..."]}}}',
+        'Output schema must be exactly: {"intro":"string <=60 words","body_json":{"comparison_table?":{},"verdict":["Best for: ...","Avoid if: ...","Bottom line: ..."],"key_takeaways?":["..."],"sections":[],"faqs?":[],"references?":[{"title":"...","url":"https://...","source":"...","year":"..."}],"review_methodology?":{"summary":"...","tested":["..."],"scoring":["..."],"use_cases":["..."}],"news_format?":"string"},"metadata?":{"news_format?":"string","published_date?":"YYYY-MM-DD"}}',
         'Verdict is mandatory with exactly 3 bullets in this order: Best for, Avoid if, Bottom line.',
         'Include 3-4 concise key_takeaways.',
         'Whenever evidence is referenced, include source URLs in body_json.references.',
@@ -669,6 +762,14 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
         `Query coverage plan JSON: ${JSON.stringify(queryTargets)}`,
         `High-authority sources to cite JSON: ${JSON.stringify(sourceReferences)}`,
         `Visual asset plan JSON: ${JSON.stringify(visualAssets)}`,
+        ...(page.template === 'news'
+          ? [
+              `Storyline context JSON: ${JSON.stringify(storyline ?? {})}`,
+              `Recent source events JSON: ${JSON.stringify(storyEvents)}`,
+              `Canonical entities JSON: ${JSON.stringify(storyEntities)}`,
+              'For news pages, synthesize what changed, why it matters now, and what remains unknown from the supplied source events.',
+            ]
+          : []),
         // Feed People Also Ask questions for FAQ optimization
         ...(gapRows?.[0]?.serp_snapshot?.people_also_ask?.length
           ? [
@@ -721,6 +822,7 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
         const enrichedBody = {
           ...bodyWithKeyword,
           sections: [...orderedSections, ...feedSections],
+          ...(newsroomContext ? { newsroom_context: newsroomContext } : {}),
           ...(Object.keys(infoFeeds).length > 0 ? { info_gain_feeds: infoFeeds } : {}),
           generation_metadata: {
             component_ids: {
@@ -738,6 +840,7 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
         const enriched = {
           intro,
           body_json: enrichedBody,
+          metadata: generated.metadata,
         };
 
         const structuralErrors = deterministicChecks(page.template, enriched as z.infer<typeof GeneratedSchema>);
@@ -753,15 +856,68 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
         }
 
         const pageUpdate = buildGeneratedPageUpdate(page as any, enriched.intro, enriched.body_json as any);
+
+        // Assign a named author to news pages for E-E-A-T
+        const NEWS_AUTHORS = [
+          { slug: 'dr-sarah-chen', name: 'Dr. Sarah Chen', title: 'Sports Scientist & Sleep Research Lead' },
+          { slug: 'marcus-webb', name: 'Marcus Webb', title: 'Performance Technology Editor' },
+          { slug: 'lena-kowalski', name: 'Lena Kowalski', title: 'Clinical Exercise Physiologist' },
+        ];
+        let authorMeta: Record<string, string> = {};
+        if (page.template === 'news') {
+          let authorHash = 0;
+          for (let i = 0; i < page.slug.length; i++) {
+            authorHash = ((authorHash * 31) + page.slug.charCodeAt(i)) >>> 0;
+          }
+          const assignedAuthor = NEWS_AUTHORS[authorHash % NEWS_AUTHORS.length];
+          authorMeta = {
+            author_slug: assignedAuthor.slug,
+            author_name: assignedAuthor.name,
+            author_title: assignedAuthor.title,
+          };
+        }
+
+        // Extract news_format from generated body if present
+        const newsFormat = typeof (enriched.body_json as any).news_format === 'string'
+          ? (enriched.body_json as any).news_format
+          : typeof generated.metadata?.news_format === 'string'
+            ? generated.metadata.news_format
+          : null;
+
         const mergedMetadata = {
           ...(pageUpdate.metadata ?? {}),
           content_angle: contentAngle.id,
           content_angle_label: contentAngle.label,
+          ...(page.template === 'news'
+            ? {
+                source_diversity: Array.from(new Set(storyEvents.map((event: any) => event.source_domain).filter(Boolean))).length,
+                news_significance_score: storyEvents.length
+                  ? Math.round(
+                      storyEvents.reduce((sum: number, event: any) => sum + Number(event.significance_score ?? event.relevance_score ?? 0), 0)
+                        / storyEvents.length,
+                    )
+                  : null,
+              }
+            : {}),
+          ...(generated.metadata ?? {}),
+          ...authorMeta,
         };
+
+        const extraColumns: Record<string, unknown> = {};
+        if (page.template === 'news') {
+          extraColumns.content_type = 'news';
+          if (newsFormat) extraColumns.news_format = newsFormat;
+          if (storyline?.beat) extraColumns.beat = storyline.beat;
+          if (storyline?.freshness_score != null) {
+            extraColumns.freshness_tier = storyline.freshness_score >= 85 ? 'breaking' : storyline.freshness_score >= 70 ? 'active' : 'monitoring';
+          }
+          extraColumns.story_status = storyline?.status ?? 'active';
+          extraColumns.last_verified_at = new Date().toISOString();
+        }
 
         const { error: pageUpdateError } = await supabase
           .from('pages')
-          .update({ ...pageUpdate, metadata: mergedMetadata })
+          .update({ ...pageUpdate, metadata: mergedMetadata, ...extraColumns })
           .eq('id', page.id);
 
         if (pageUpdateError) {
@@ -786,6 +942,27 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
         if (generatedReferences.length > 0) {
           await supabase.from('page_source_references').upsert(generatedReferences, {
             onConflict: 'page_id,url',
+          });
+        }
+
+        if (page.template === 'news' && page.storyline_id) {
+          await supabase.from('page_storylines').upsert(
+            {
+              page_id: page.id,
+              storyline_id: page.storyline_id,
+              relationship_type: 'primary_coverage',
+            },
+            { onConflict: 'page_id,storyline_id,relationship_type' },
+          );
+
+          await supabase.from('page_update_log').insert({
+            page_id: page.id,
+            page_slug: page.slug,
+            update_type: page.published_at ? 'story_refresh' : 'initial_story_publication',
+            reason: 'content_generator_newsroom_context',
+            summary: newsroomContext?.story_summary ?? page.title,
+            source_event_id: storyEvents[0]?.id ?? page.source_event_id ?? null,
+            storyline_id: page.storyline_id,
           });
         }
 

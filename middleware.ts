@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { getSupabasePublicKey, getSupabaseUrl } from '@/lib/supabase-env';
 
 // ── Redirect cache ──────────────────────────────────────────────────────────
 // In-memory cache for redirect rules. Refreshed every 5 minutes via a
@@ -15,18 +16,18 @@ async function getRedirects(): Promise<Map<string, RedirectRule>> {
   const now = Date.now();
   if (redirectCache.size > 0 && now < redirectCacheExpiry) return redirectCache;
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseUrl = getSupabaseUrl();
+  const supabasePublicKey = getSupabasePublicKey();
 
-  if (!supabaseUrl || !supabaseAnonKey) return redirectCache;
+  if (!supabaseUrl || !supabasePublicKey) return redirectCache;
 
   try {
     const res = await fetch(
       `${supabaseUrl}/rest/v1/redirects?select=from_path,to_path,status_code&limit=2000`,
       {
         headers: {
-          apikey: supabaseAnonKey,
-          Authorization: `Bearer ${supabaseAnonKey}`,
+          apikey: supabasePublicKey,
+          Authorization: `Bearer ${supabasePublicKey}`,
         },
         // Edge fetch: short timeout
         signal: AbortSignal.timeout(3000),

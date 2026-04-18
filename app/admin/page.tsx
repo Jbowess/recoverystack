@@ -131,6 +131,10 @@ async function getDashboardData() {
     componentLibraryRows,
     keywordQueueRows,
     clusterMetricsRows,
+    newsroomFeedRows,
+    newsroomEventRows,
+    newsroomEntityRows,
+    newsroomStorylineRows,
   ] = await Promise.all([
     supabaseAdmin.from('trends').select('*').eq('status', 'new').order('created_at', { ascending: false }).limit(100),
     supabaseAdmin.from('pages').select('id,slug,title,template,status,updated_at').in('status', ['draft', 'approved']).order('updated_at', { ascending: false }).limit(100),
@@ -159,9 +163,13 @@ async function getDashboardData() {
     safeSelect('component_library', 'cluster,active'),
     safeSelect('keyword_queue', 'status,source'),
     safeSelect('cluster_metrics', '*', 300),
+    safeSelect('news_source_feeds', 'beat,active'),
+    safeSelect('news_source_events', 'status,event_type,beat'),
+    safeSelect('topic_entities', 'entity_type,beat,authority_score'),
+    safeSelect('storylines', 'status,beat,freshness_score,authority_score'),
   ]);
 
-  const byTemplate = (counts ?? []).reduce<Record<string, number>>((acc, row: any) => {
+  const byTemplate = (counts ?? []).reduce((acc: Record<string, number>, row: any) => {
     acc[row.template] = (acc[row.template] ?? 0) + 1;
     return acc;
   }, {});
@@ -179,6 +187,11 @@ async function getDashboardData() {
   const keywordByStatus = countBy(keywordQueueRows.data, 'status');
   const keywordBySource = countBy(keywordQueueRows.data, 'source');
   const clusterMetricsSummary = numericSummary(clusterMetricsRows.data);
+  const newsroomFeedsByBeat = countBy(newsroomFeedRows.data, 'beat');
+  const newsroomEventsByStatus = countBy(newsroomEventRows.data, 'status');
+  const newsroomEventsByType = countBy(newsroomEventRows.data, 'event_type');
+  const newsroomEntitiesByType = countBy(newsroomEntityRows.data, 'entity_type');
+  const newsroomStorylinesByStatus = countBy(newsroomStorylineRows.data, 'status');
 
   return {
     newTrends: newTrends ?? [],
@@ -211,6 +224,18 @@ async function getDashboardData() {
     clusterMetrics: {
       summary: clusterMetricsSummary,
       error: clusterMetricsRows.error,
+    },
+    newsroom: {
+      feedsByBeat: newsroomFeedsByBeat,
+      eventsByStatus: newsroomEventsByStatus,
+      eventsByType: newsroomEventsByType,
+      entitiesByType: newsroomEntitiesByType,
+      storylinesByStatus: newsroomStorylinesByStatus,
+      feedTotal: newsroomFeedRows.data.length,
+      eventTotal: newsroomEventRows.data.length,
+      entityTotal: newsroomEntityRows.data.length,
+      storylineTotal: newsroomStorylineRows.data.length,
+      error: newsroomFeedRows.error || newsroomEventRows.error || newsroomEntityRows.error || newsroomStorylineRows.error,
     },
   };
 }
@@ -386,6 +411,54 @@ export default async function AdminDashboard({
             )}
           </>
         )}
+
+        <h3 style={{ marginBottom: 6 }}>newsroom system visibility</h3>
+        {data.newsroom.error ? (
+          <p style={{ color: '#92400e' }}>{data.newsroom.error}</p>
+        ) : (
+          <>
+            <p style={{ color: '#4b5563' }}>
+              Feeds: {data.newsroom.feedTotal} · Source events: {data.newsroom.eventTotal} · Entities: {data.newsroom.entityTotal} · Storylines: {data.newsroom.storylineTotal}
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <strong>Feeds by beat</strong>
+                <ul>
+                  {Object.entries(data.newsroom.feedsByBeat).sort(([a], [b]) => a.localeCompare(b)).map(([label, count]) => (
+                    <li key={label}>{label}: {count}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <strong>Events by status</strong>
+                <ul>
+                  {Object.entries(data.newsroom.eventsByStatus).sort(([a], [b]) => a.localeCompare(b)).map(([label, count]) => (
+                    <li key={label}>{label}: {count}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <strong>Events by type</strong>
+                <ul>
+                  {Object.entries(data.newsroom.eventsByType).sort(([a], [b]) => a.localeCompare(b)).map(([label, count]) => (
+                    <li key={label}>{label}: {count}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <strong>Entities / storylines</strong>
+                <ul>
+                  {Object.entries(data.newsroom.entitiesByType).sort(([a], [b]) => a.localeCompare(b)).map(([label, count]) => (
+                    <li key={`entity-${label}`}>entity {label}: {count}</li>
+                  ))}
+                  {Object.entries(data.newsroom.storylinesByStatus).sort(([a], [b]) => a.localeCompare(b)).map(([label, count]) => (
+                    <li key={`story-${label}`}>storyline {label}: {count}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </>
+        )}
       </section>
 
       <section id="deploy" style={{ marginTop: 24, border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
@@ -468,7 +541,7 @@ export default async function AdminDashboard({
               .sort(([a], [b]) => a.localeCompare(b))
               .map(([template, count]) => (
                 <li key={template}>
-                  {template}: {count}
+                  {template}: {String(count)}
                 </li>
               ))}
           </ul>

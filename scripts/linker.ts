@@ -101,13 +101,58 @@ async function run() {
     for (const page of all) {
       const existing = page.internal_links ?? [];
       assertNoGenericAnchors(page.slug, existing);
-      if (page.template !== 'pillars') {
+      // News pages use a flat link model (→ evergreen) — not the cluster pillar/sibling model
+      if (page.template !== 'pillars' && page.template !== 'news') {
         assertClusterConstraints(page.slug, existing as Array<{ template?: string }>);
       }
     }
   }
 
-  for (const page of all.filter((p) => p.template !== 'pillars')) {
+  // News pages: link to the most relevant evergreen guide/protocol/metric on the same topic.
+  // They do not participate in the cluster pillar/sibling model.
+  const evergreenTemplates = ['guides', 'alternatives', 'protocols', 'metrics', 'costs', 'compatibility', 'pillars'];
+  for (const page of all.filter((p) => p.template === 'news')) {
+    // Find evergreen pages whose keywords overlap with this news page's keyword
+    const newsKeywords = [
+      page.primary_keyword ?? '',
+      ...(page.secondary_keywords ?? []),
+    ].map((k) => k.toLowerCase()).filter(Boolean);
+
+    const candidates = all
+      .filter((p) => evergreenTemplates.includes(p.template))
+      .map((p) => {
+        const pageKeywords = [
+          p.primary_keyword ?? '',
+          ...(p.secondary_keywords ?? []),
+          ...(p.query_targets ?? []),
+        ].map((k) => k.toLowerCase());
+        const overlap = newsKeywords.filter((k) => pageKeywords.some((pk) => pk.includes(k) || k.includes(pk))).length;
+        return { ...p, overlap };
+      })
+      .filter((p) => p.overlap > 0)
+      .sort((a, b) => b.overlap - a.overlap)
+      .slice(0, 3);
+
+    if (candidates.length === 0) {
+      console.log(`[linker] News page '${page.slug}' — no evergreen candidates found, skipping`);
+      continue;
+    }
+
+    const internal_links = candidates.map((c) => ({
+      slug: c.slug,
+      template: c.template,
+      anchor: c.primary_keyword ?? c.slug,
+    })).filter((l) => validSlugs.has(l.slug));
+
+    assertNoGenericAnchors(page.slug, internal_links);
+
+    updates += 1;
+    if (!isDryRun && !isVerifyMode) {
+      await supabase.from('pages').update({ internal_links, needs_revalidation: true }).eq('id', page.pageId);
+    }
+  }
+
+  for (const page of all.filter((p) => p.template !== 'pillars' && p.template !== 'news')) {
     const pillar = all.find((x) => x.pageId === page.pillar_id);
     if (!pillar) {
       // Gracefully handle orphaned cluster pages: try to find a pillar in the same cluster

@@ -77,6 +77,7 @@ export async function GET() {
       env: {
         ok: env.ok,
         missing: env.missing,
+        missingAnyOf: env.missingAnyOf,
       },
       db: {
         connected: dbConnected,
