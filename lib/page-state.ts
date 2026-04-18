@@ -1,5 +1,6 @@
 import { buildSchemaBundle } from '@/lib/page-render';
 import { runPublishGuards } from '@/lib/publish-guards';
+import { NEWSLETTER_URL, PRODUCT_DESTINATION_URL } from '@/lib/brand';
 import type { PageRecord, PageReference, ReviewMethodology } from '@/lib/types';
 
 type PageLike = Pick<
@@ -90,6 +91,16 @@ function buildKeyTakeaways(page: PageLike) {
 }
 
 function withEditorialDefaults(page: PageLike) {
+  const conversionGoalByTemplate: Partial<Record<PageLike['template'], string>> = {
+    alternatives: 'product_comparison',
+    reviews: 'product_validation',
+    costs: 'pricing_evaluation',
+    compatibility: 'fit_confirmation',
+    metrics: 'signal_education',
+    pillars: 'cluster_entry',
+    guides: 'newsletter_capture',
+  };
+
   return {
     ...(page.metadata ?? {}),
     author_slug: typeof page.metadata?.author_slug === 'string' ? page.metadata.author_slug : 'editorial-team',
@@ -110,6 +121,36 @@ function withEditorialDefaults(page: PageLike) {
       typeof page.metadata?.hero_image_alt === 'string'
         ? page.metadata.hero_image_alt
         : `${page.title} hero image`,
+    market_focus:
+      typeof page.metadata?.market_focus === 'string'
+        ? page.metadata.market_focus
+        : 'smart_ring',
+    conversion_goal:
+      typeof page.metadata?.conversion_goal === 'string'
+        ? page.metadata.conversion_goal
+        : conversionGoalByTemplate[page.template] ?? 'newsletter_capture',
+    conversion_stage:
+      typeof page.metadata?.conversion_stage === 'string'
+        ? page.metadata.conversion_stage
+        : ['alternatives', 'reviews', 'costs', 'compatibility'].includes(page.template)
+          ? 'buyer'
+          : ['metrics', 'guides', 'pillars'].includes(page.template)
+            ? 'consideration'
+            : 'awareness',
+    newsletter_url:
+      typeof page.metadata?.newsletter_url === 'string'
+        ? page.metadata.newsletter_url
+        : NEWSLETTER_URL,
+    product_destination_url:
+      typeof page.metadata?.product_destination_url === 'string'
+        ? page.metadata.product_destination_url
+        : PRODUCT_DESTINATION_URL,
+    product_cta_label:
+      typeof page.metadata?.product_cta_label === 'string'
+        ? page.metadata.product_cta_label
+        : ['alternatives', 'reviews', 'costs', 'compatibility'].includes(page.template)
+          ? 'See the ring product page'
+          : 'Explore the Volo Ring',
   };
 }
 

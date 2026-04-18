@@ -11,12 +11,18 @@ type BucketConfig = {
 };
 
 const DEFAULTS: Record<string, BucketConfig> = {
-  serpapi: { maxTokens: 3, refillRate: 1 },       // ~1 req/sec, burst of 3
-  openai: { maxTokens: 5, refillRate: 2 },        // ~2 req/sec, burst of 5
-  ollama: { maxTokens: 3, refillRate: 1 },        // ~1 req/sec, burst of 3
-  pubmed: { maxTokens: 3, refillRate: 0.33 },     // ~1 req/3sec
-  reddit: { maxTokens: 2, refillRate: 0.5 },      // ~1 req/2sec
-  revalidate: { maxTokens: 10, refillRate: 5 },   // ~5 req/sec for ISR
+  serpapi:       { maxTokens: 3,  refillRate: 1    }, // ~1 req/sec, burst of 3
+  openai:        { maxTokens: 5,  refillRate: 2    }, // ~2 req/sec, burst of 5
+  ollama:        { maxTokens: 3,  refillRate: 1    }, // ~1 req/sec, burst of 3
+  pubmed:        { maxTokens: 3,  refillRate: 0.33 }, // ~1 req/3sec
+  reddit:        { maxTokens: 2,  refillRate: 0.5  }, // ~1 req/2sec
+  revalidate:    { maxTokens: 10, refillRate: 5    }, // ~5 req/sec for ISR
+  fetch:         { maxTokens: 5,  refillRate: 2    }, // general HTTP fetching
+  dataforseo:    { maxTokens: 5,  refillRate: 1    }, // DataForSEO batch API
+  ahrefs:        { maxTokens: 3,  refillRate: 0.5  }, // Ahrefs API (conservative)
+  youtube:       { maxTokens: 5,  refillRate: 1    }, // YouTube Data API v3
+  clinicaltrials:{ maxTokens: 5,  refillRate: 2    }, // ClinicalTrials.gov (public, generous)
+  appstore:      { maxTokens: 3,  refillRate: 0.5  }, // App Store / Play Store scraping
 };
 
 class TokenBucket {

@@ -1,10 +1,10 @@
 /**
- * Full-stack smoke test — validates that all critical system components are
- * healthy before a batch run or as part of a daily cron check.
+ * Full-stack smoke test validates critical system components before batch runs
+ * and as part of daily cron monitoring.
  *
  * Usage:
  *   npx tsx scripts/smoke-test.ts
- *   npx tsx scripts/smoke-test.ts --strict   (exit 1 on any degraded check)
+ *   npx tsx scripts/smoke-test.ts --strict
  *
  * Checks:
  *  1. Environment variables present
@@ -13,7 +13,7 @@
  *  4. component_library is seeded (>= 1 active row)
  *  5. keyword_queue has actionable items
  *  6. Health endpoint returns ok
- *  7. Sitemap endpoint responds with at least 1 URL
+ *  7. Sitemap endpoint returns a sitemap index or URLs
  */
 
 import { config } from 'dotenv';
@@ -46,19 +46,21 @@ function fail(name: string, detail: string) {
 
 async function checkEnv() {
   const required = ['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
-  const missing = required.filter((k) => !process.env[k]);
+  const missing = required.filter((key) => !process.env[key]);
   if (missing.length) {
     fail('env-vars', `missing: ${missing.join(', ')}`);
     return null;
   }
+
   pass('env-vars');
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
 
-async function checkDbConnection(supabase: // eslint-disable-next-line @typescript-eslint/no-explicit-any
-any) {
+async function checkDbConnection(
+  supabase: any, // eslint-disable-line @typescript-eslint/no-explicit-any
+) {
   try {
     const { error } = await supabase.from('pages').select('id', { count: 'exact', head: true });
     if (error) throw error;
@@ -70,8 +72,9 @@ any) {
   }
 }
 
-async function checkRequiredTables(supabase: // eslint-disable-next-line @typescript-eslint/no-explicit-any
-any) {
+async function checkRequiredTables(
+  supabase: any, // eslint-disable-line @typescript-eslint/no-explicit-any
+) {
   const tables = [
     'pages',
     'pipeline_runs',
@@ -87,7 +90,6 @@ any) {
   for (const table of tables) {
     try {
       const { error } = await supabase.from(table).select('id', { count: 'exact', head: true }).limit(0);
-      // 42P01 = relation does not exist
       if (error?.code === '42P01' || /does not exist/i.test(error?.message ?? '')) {
         missing.push(table);
       }
@@ -103,8 +105,9 @@ any) {
   }
 }
 
-async function checkComponentLibrary(supabase: // eslint-disable-next-line @typescript-eslint/no-explicit-any
-any) {
+async function checkComponentLibrary(
+  supabase: any, // eslint-disable-line @typescript-eslint/no-explicit-any
+) {
   try {
     const { count, error } = await supabase
       .from('component_library')
@@ -114,7 +117,7 @@ any) {
     if (error) throw error;
 
     if ((count ?? 0) === 0) {
-      fail('component-library', 'no active components found — run reseed via admin');
+      fail('component-library', 'no active components found - run reseed via admin');
     } else {
       pass('component-library', `${count} active components`);
     }
@@ -123,8 +126,9 @@ any) {
   }
 }
 
-async function checkKeywordQueue(supabase: // eslint-disable-next-line @typescript-eslint/no-explicit-any
-any) {
+async function checkKeywordQueue(
+  supabase: any, // eslint-disable-line @typescript-eslint/no-explicit-any
+) {
   try {
     const { count, error } = await supabase
       .from('keyword_queue')
@@ -151,12 +155,24 @@ async function checkHealthEndpoint() {
       degraded('health-endpoint', `HTTP ${res.status} from ${url}`);
       return;
     }
-    const json = await res.json().catch(() => null);
-    const status = json?.status ?? 'unknown';
+
+    const contentType = res.headers.get('content-type') ?? '';
+    const rawText = await res.text();
+    if (/Parked Domain name on Hostinger DNS system/i.test(rawText)) {
+      degraded('health-endpoint', 'public domain is serving a parked-domain page, not the app');
+      return;
+    }
+    if (!contentType.toLowerCase().includes('application/json')) {
+      degraded('health-endpoint', `expected JSON but received ${contentType || 'unknown content type'}`);
+      return;
+    }
+
+    const json = JSON.parse(rawText) as Record<string, unknown>;
+    const status = json?.status ?? (json?.ok === true ? 'ok' : json?.ok === false ? 'error' : 'unknown');
     if (status === 'ok') {
       pass('health-endpoint', `status=${status}`);
     } else {
-      degraded('health-endpoint', `status=${status} — ${JSON.stringify(json).slice(0, 200)}`);
+      degraded('health-endpoint', `status=${status} - ${JSON.stringify(json).slice(0, 200)}`);
     }
   } catch (err) {
     degraded('health-endpoint', `fetch failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -171,10 +187,22 @@ async function checkSitemapEndpoint() {
       degraded('sitemap-endpoint', `HTTP ${res.status} from ${url}`);
       return;
     }
+
     const text = await res.text();
+    if (/Parked Domain name on Hostinger DNS system/i.test(text)) {
+      degraded('sitemap-endpoint', 'public domain is serving a parked-domain page, not sitemap XML');
+      return;
+    }
     const urlCount = (text.match(/<loc>/g) ?? []).length;
-    if (urlCount === 0) {
-      degraded('sitemap-endpoint', 'sitemap returned 0 <loc> entries');
+    const hasSitemapIndex = /<sitemapindex[\s>]/i.test(text);
+    const hasUrlSet = /<urlset[\s>]/i.test(text);
+
+    if (urlCount === 0 && !hasSitemapIndex && !hasUrlSet) {
+      degraded('sitemap-endpoint', 'sitemap response did not include a sitemap index or URL set');
+    } else if (urlCount === 0 && hasSitemapIndex) {
+      pass('sitemap-endpoint', 'sitemap index detected');
+    } else if (urlCount === 0 && hasUrlSet) {
+      degraded('sitemap-endpoint', 'urlset detected but contained 0 <loc> entries');
     } else {
       pass('sitemap-endpoint', `${urlCount} URLs found`);
     }
@@ -185,7 +213,7 @@ async function checkSitemapEndpoint() {
 
 async function run() {
   console.log(`\n${'='.repeat(60)}`);
-  console.log('SMOKE TEST  —  ' + new Date().toISOString());
+  console.log(`SMOKE TEST  -  ${new Date().toISOString()}`);
   console.log(`SITE_URL: ${SITE_URL}`);
   console.log(`${'='.repeat(60)}\n`);
 
@@ -212,32 +240,31 @@ async function run() {
 
   printResults();
 
-  const failCount = results.filter((r) => r.status === 'fail').length;
-  const degradedCount = results.filter((r) => r.status === 'degraded').length;
+  const failCount = results.filter((result) => result.status === 'fail').length;
+  const degradedCount = results.filter((result) => result.status === 'degraded').length;
 
   if (failCount > 0) {
-    console.error(`\nSMOKE TEST FAILED — ${failCount} failure(s), ${degradedCount} degraded`);
+    console.error(`\nSMOKE TEST FAILED - ${failCount} failure(s), ${degradedCount} degraded`);
     process.exit(1);
   }
 
   if (strict && degradedCount > 0) {
-    console.error(`\nSMOKE TEST DEGRADED — ${degradedCount} degraded check(s) (--strict mode)`);
+    console.error(`\nSMOKE TEST DEGRADED - ${degradedCount} degraded check(s) (--strict mode)`);
     process.exit(1);
   }
 
   if (degradedCount > 0) {
-    console.warn(`\nSMOKE TEST PASSED WITH WARNINGS — ${degradedCount} degraded check(s)`);
+    console.warn(`\nSMOKE TEST PASSED WITH WARNINGS - ${degradedCount} degraded check(s)`);
   } else {
-    console.log(`\nSMOKE TEST PASSED — all ${results.length} checks ok`);
+    console.log(`\nSMOKE TEST PASSED - all ${results.length} checks ok`);
   }
 }
 
 function printResults() {
-  const icons: Record<CheckResult['status'], string> = { ok: '✓', degraded: '~', fail: '✗' };
-  for (const r of results) {
-    const icon = icons[r.status];
-    const detail = r.detail ? `  (${r.detail})` : '';
-    console.log(`  ${icon} ${r.name}${detail}`);
+  const icons: Record<CheckResult['status'], string> = { ok: 'OK', degraded: '~', fail: 'X' };
+  for (const result of results) {
+    const detail = result.detail ? `  (${result.detail})` : '';
+    console.log(`  ${icons[result.status]} ${result.name}${detail}`);
   }
 }
 

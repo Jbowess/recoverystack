@@ -21,6 +21,13 @@ type Phase = {
 
 const phases: Phase[] = [
   {
+    label: 'Cost & Health Check',
+    steps: [
+      { id: 'api-cost-monitor', name: 'API cost monitor', script: 'scripts/api-cost-monitor.ts' },
+      { id: 'queue-state-repair', name: 'Queue state repair', script: 'scripts/queue-state-repair.ts' },
+    ],
+  },
+  {
     label: 'Discovery',
     steps: [
       { id: 'gsc-sync', name: 'GSC metrics sync', script: 'scripts/gsc-sync.ts' },
@@ -33,6 +40,17 @@ const phases: Phase[] = [
       { id: 'gap-analyzer', name: 'Gap analyzer', script: 'scripts/gap-analyzer.ts' },
       { id: 'cannibalization-check', name: 'Cannibalization check', script: 'scripts/cannibalization-check.ts' },
       { id: 'competitor-spy', name: 'Competitor intelligence', script: 'scripts/competitor-spy.ts' },
+      // Information gathering — run in parallel with other discovery steps
+      { id: 'rank-tracker', name: 'Rank tracker', script: 'scripts/rank-tracker.ts' },
+      { id: 'serp-feature-detector', name: 'SERP feature detector', script: 'scripts/serp-feature-detector.ts' },
+      { id: 'keyword-data-sync', name: 'Keyword volume sync', script: 'scripts/keyword-data-sync.ts' },
+      { id: 'competitor-content-extractor', name: 'Competitor content extractor', script: 'scripts/competitor-content-extractor.ts' },
+      { id: 'competitor-alert', name: 'Competitor alert', script: 'scripts/competitor-alert.ts' },
+      { id: 'gsc-opportunity-miner', name: 'GSC opportunity miner', script: 'scripts/gsc-opportunity-miner.ts' },
+      { id: 'community-sentiment-miner', name: 'Community sentiment miner', script: 'scripts/community-sentiment-miner.ts' },
+      { id: 'clinical-trials-monitor', name: 'Clinical trials monitor', script: 'scripts/clinical-trials-monitor.ts' },
+      { id: 'app-review-miner', name: 'App review miner', script: 'scripts/app-review-miner.ts' },
+      { id: 'conversion-sync', name: 'Conversion sync', script: 'scripts/conversion-sync.ts' },
     ],
   },
   {
@@ -44,6 +62,7 @@ const phases: Phase[] = [
   {
     label: 'Keyword Expansion',
     steps: [
+      { id: 'smart-ring-demand-seed', name: 'Smart ring demand seed', script: 'scripts/smart-ring-demand-seed.ts' },
       { id: 'keyword-expander', name: 'Keyword expander', script: 'scripts/keyword-expander.ts' },
       { id: 'paa-factory', name: 'PAA page factory', script: 'scripts/paa-page-factory.ts' },
     ],
@@ -61,6 +80,7 @@ const phases: Phase[] = [
       { id: 'content-generator', name: 'Content generator', script: 'scripts/content-generator.ts' },
       { id: 'visual-asset-generator', name: 'Supporting visual generator', script: 'scripts/visual-asset-generator.ts' },
       { id: 'claim-verifier', name: 'Claim verifier', script: 'scripts/claim-verifier.ts' },
+      { id: 'video-seo-generator', name: 'Video SEO generator', script: 'scripts/video-seo-generator.ts' },
     ],
   },
   {
@@ -68,6 +88,7 @@ const phases: Phase[] = [
     steps: [
       { id: 'linker', name: 'Linker', script: 'scripts/linker.ts' },
       { id: 'quality-gate', name: 'Quality gate', script: 'scripts/quality-gate.ts' },
+      { id: 'content-diff', name: 'Content diff checker', script: 'scripts/content-diff.ts' },
     ],
   },
   {
@@ -84,6 +105,10 @@ const phases: Phase[] = [
       { id: 'news-freshness', name: 'News freshness monitor', script: 'scripts/news-freshness.ts' },
       { id: 'story-followup', name: 'Story follow-up scheduler', script: 'scripts/story-followup.ts' },
       { id: 'persona-distributor', name: 'Persona distribution builder', script: 'scripts/persona-distributor.ts' },
+      { id: 'staleness-scorer', name: 'Content staleness scorer', script: 'scripts/staleness-scorer.ts' },
+      { id: 'snippet-optimizer', name: 'Featured snippet optimizer', script: 'scripts/snippet-optimizer.ts' },
+      { id: 'cwv-auto-fix', name: 'CWV auto-fix', script: 'scripts/cwv-auto-fix.ts' },
+      { id: 'ab-test-manager', name: 'A/B test manager', script: 'scripts/ab-test-manager.ts' },
     ],
   },
   {
@@ -91,6 +116,7 @@ const phases: Phase[] = [
     steps: [
       { id: 'cluster-metrics-rollup', name: 'Cluster metrics rollup', script: 'scripts/cluster-metrics-rollup.ts' },
       { id: 'page-quality-scorer', name: 'Page quality scorer', script: 'scripts/page-quality-scorer.ts' },
+      { id: 'adaptive-feedback-loop', name: 'Adaptive feedback loop', script: 'scripts/adaptive-feedback-loop.ts' },
       { id: 'topical-map', name: 'Topical authority map', script: 'scripts/topical-map.ts' },
       { id: 'orphan-link-audit', name: 'Orphan link audit', script: 'scripts/orphan-link-audit.ts' },
       { id: 'backlink-sync', name: 'Backlink sync', script: 'scripts/backlink-sync.ts' },
@@ -101,6 +127,15 @@ const phases: Phase[] = [
       { id: 'serp-winner-analyzer', name: 'SERP winner analyzer', script: 'scripts/serp-winner-analyzer.ts' },
       { id: 'editorial-review-queue', name: 'Editorial review queue', script: 'scripts/editorial-review-queue.ts' },
       { id: 'news-roundup', name: 'Weekly roundup builder', script: 'scripts/news-roundup.ts' },
+      // Performance intelligence rollups
+      { id: 'performance-fingerprint', name: 'Performance fingerprint', script: 'scripts/performance-fingerprint.ts' },
+      { id: 'cluster-completeness-checker', name: 'Cluster completeness checker', script: 'scripts/cluster-completeness-checker.ts' },
+      { id: 'brand-product-sync', name: 'Brand product sync', script: 'scripts/brand-product-sync.ts' },
+      { id: 'product-spec-sync', name: 'Product spec sync', script: 'scripts/product-spec-sync.ts' },
+      // Quality, discovery, and internationalisation rollups
+      { id: 'schema-validator', name: 'Schema validator', script: 'scripts/schema-validator.ts' },
+      { id: 'link-prospect-miner', name: 'Link prospect miner', script: 'scripts/link-prospect-miner.ts' },
+      { id: 'locale-generator', name: 'Locale generator', script: 'scripts/locale-generator.ts' },
     ],
   },
 ];

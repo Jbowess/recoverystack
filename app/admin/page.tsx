@@ -105,6 +105,27 @@ function numericSummary(rows: any[]) {
   };
 }
 
+function topWeightedByCluster(rows: any[]) {
+  const grouped = new Map<string, Array<{ name: string; weight: number }>>();
+
+  for (const row of rows) {
+    const cluster = String(row?.cluster ?? 'unknown').trim() || 'unknown';
+    const name = String(row?.name ?? '').trim();
+    const weight = Number(row?.weight ?? 0);
+    if (!name || !Number.isFinite(weight)) continue;
+
+    const current = grouped.get(cluster) ?? [];
+    current.push({ name, weight });
+    grouped.set(cluster, current);
+  }
+
+  return Object.fromEntries(
+    [...grouped.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([cluster, items]) => [cluster, items.sort((a, b) => b.weight - a.weight).slice(0, 3)]),
+  );
+}
+
 async function safeSelect(table: string, columns: string, limit = 1000) {
   const response = await supabaseAdmin.from(table).select(columns).limit(limit);
   if (response.error) {
@@ -129,6 +150,7 @@ async function getDashboardData() {
     { count: refreshQueueCount },
     migrationReadiness,
     componentLibraryRows,
+    performanceFingerprintRows,
     keywordQueueRows,
     clusterMetricsRows,
     newsroomFeedRows,
@@ -160,7 +182,8 @@ async function getDashboardData() {
     supabaseAdmin.from('pages').select('id', { count: 'exact', head: true }).eq('status', 'published'),
     supabaseAdmin.from('content_refresh_queue').select('id', { count: 'exact', head: true }).eq('status', 'queued'),
     getMigrationReadinessReport(),
-    safeSelect('component_library', 'cluster,active'),
+    safeSelect('component_library', 'cluster,name,weight,active'),
+    safeSelect('performance_fingerprints', 'template,top_performer_count,avg_word_count,avg_faq_count,best_ctr_word_range,computed_at'),
     safeSelect('keyword_queue', 'status,source'),
     safeSelect('cluster_metrics', '*', 300),
     safeSelect('news_source_feeds', 'beat,active'),
@@ -184,6 +207,7 @@ async function getDashboardData() {
     : { data: [] as any[] };
 
   const componentByCluster = countBy(componentLibraryRows.data, 'cluster');
+  const componentTopWeights = topWeightedByCluster(componentLibraryRows.data);
   const keywordByStatus = countBy(keywordQueueRows.data, 'status');
   const keywordBySource = countBy(keywordQueueRows.data, 'source');
   const clusterMetricsSummary = numericSummary(clusterMetricsRows.data);
@@ -212,8 +236,13 @@ async function getDashboardData() {
     },
     componentLibrary: {
       byCluster: componentByCluster,
+      topWeights: componentTopWeights,
       total: componentLibraryRows.data.length,
       error: componentLibraryRows.error,
+    },
+    feedbackLoop: {
+      fingerprints: performanceFingerprintRows.data,
+      error: performanceFingerprintRows.error,
     },
     keywordQueue: {
       byStatus: keywordByStatus,
@@ -352,7 +381,30 @@ export default async function AdminDashboard({
                   </li>
                 ))}
             </ul>
+            <p style={{ color: '#4b5563', marginBottom: 6 }}>Highest-weight components per cluster</p>
+            <ul>
+              {Object.entries(data.componentLibrary.topWeights).map(([cluster, items]: [string, any]) => (
+                <li key={`weights-${cluster}`}>
+                  {cluster}: {items.map((item: { name: string; weight: number }) => `${item.name} (${item.weight})`).join(', ')}
+                </li>
+              ))}
+            </ul>
           </>
+        )}
+
+        <h3 style={{ marginBottom: 6 }}>adaptive feedback loop</h3>
+        {data.feedbackLoop.error ? (
+          <p style={{ color: '#92400e' }}>{data.feedbackLoop.error}</p>
+        ) : data.feedbackLoop.fingerprints.length ? (
+          <ul>
+            {data.feedbackLoop.fingerprints.map((row: any) => (
+              <li key={row.template}>
+                {row.template}: top performers {row.top_performer_count ?? 0}, avg words {row.avg_word_count ?? 'n/a'}, avg FAQs {row.avg_faq_count ?? 'n/a'}, best CTR range {row.best_ctr_word_range ?? 'n/a'}, computed {formatDateTime(row.computed_at)}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>No adaptive feedback fingerprints written yet.</p>
         )}
 
         <h3 style={{ marginBottom: 6 }}>keyword_queue counts</h3>

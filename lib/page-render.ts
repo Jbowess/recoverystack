@@ -96,7 +96,10 @@ export function buildSchemaBundle(page: PageRecord, path: string) {
   if (faqs.length > 0) out.push(faqSchema(faqs));
   if (['guides', 'alternatives', 'costs', 'compatibility'].includes(page.template)) {
     const price = typeof page.metadata?.price === 'number' ? page.metadata.price : null;
-    out.push(productSchema(PRODUCT_NAME, page.meta_description, PRODUCT_DESTINATION_URL, price));
+    const productUrl = typeof page.metadata?.product_destination_url === 'string'
+      ? page.metadata.product_destination_url
+      : PRODUCT_DESTINATION_URL;
+    out.push(productSchema(PRODUCT_NAME, page.meta_description, productUrl, price));
   }
 
   // AggregateRating for alternatives and reviews — shown in SERP star snippets

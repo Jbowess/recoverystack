@@ -15,6 +15,7 @@
 import { config } from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import { buildClusterName, normalizeKeyword, pageTemplateToQueueTemplateId, type QueueSource } from '@/lib/seo-keywords';
+import { boostSmartRingPriority, isSmartRingKeyword } from '@/lib/market-focus';
 import type { TemplateType } from '@/lib/types';
 
 config({ path: '.env.local' });
@@ -80,26 +81,26 @@ function inferPriority(keyword: string, source: string): number {
   if (/\breview\b/i.test(keyword)) score += 12;
   if (keyword.split(' ').length >= 4) score += 5; // Long-tail bonus
   if (keyword.split(' ').length >= 6) score += 5;
-  return Math.min(score, 99);
+  return boostSmartRingPriority(keyword, score);
 }
 
 // Long-tail modifier patterns applied to each seed keyword
 const MODIFIERS = [
+  'best {kw} for sleep tracking',
+  'best {kw} for recovery',
   'best {kw} for athletes',
-  '{kw} vs alternatives',
+  '{kw} alternatives',
   '{kw} review 2026',
-  '{kw} for beginners',
-  'how to use {kw}',
   '{kw} cost comparison',
   'is {kw} worth it',
   '{kw} accuracy test',
-  '{kw} for sleep tracking',
-  '{kw} for recovery',
+  '{kw} battery life comparison',
+  '{kw} subscription cost',
+  '{kw} sizing guide',
+  '{kw} iphone compatibility',
+  '{kw} android compatibility',
+  '{kw} vs oura',
   '{kw} vs whoop',
-  '{kw} for marathon training',
-  'does {kw} work',
-  '{kw} battery life',
-  '{kw} compatibility guide',
 ];
 
 function generateModifierVariants(keyword: string): string[] {
@@ -121,12 +122,29 @@ interface GapRow {
 
 async function run() {
   // Load all existing keywords to deduplicate against
-  const { data: existing } = await supabase
+  let existing: Array<{ normalized_keyword?: string | null; primary_keyword?: string | null }> | null = null;
+  let existingError: { message?: string } | null = null;
+
+  const normalizedResult = await supabase
+    .from('keyword_queue')
+    .select('normalized_keyword');
+
+  existing = normalizedResult.data as Array<{ normalized_keyword?: string | null }> | null;
+  existingError = normalizedResult.error;
+
+  if (existingError?.message?.includes('normalized_keyword')) {
+    const legacyResult = await supabase
       .from('keyword_queue')
-      .select('normalized_keyword');
+      .select('primary_keyword');
+
+    existing = legacyResult.data as Array<{ primary_keyword?: string | null }> | null;
+    existingError = legacyResult.error;
+  }
+
+  if (existingError) throw existingError;
 
   const existingSet = new Set(
-    (existing ?? []).map((r: { normalized_keyword: string | null }) => normalizeKeyword(r.normalized_keyword ?? '')),
+    (existing ?? []).map((r) => normalizeKeyword(r.normalized_keyword ?? r.primary_keyword ?? '')),
   );
   console.log(`[keyword-expander] ${existingSet.size} existing keywords in queue.`);
 
@@ -175,6 +193,7 @@ async function run() {
       const normalized = normalizeKeyword(kw);
       if (normalized.length < 10 || normalized.length > 120) continue;
       if (seen.has(normalized)) continue;
+      if (!isSmartRingKeyword(kw) && !isSmartRingKeyword(gap.keyword)) continue;
       seen.add(normalized);
 
       const template = inferTemplate(kw);

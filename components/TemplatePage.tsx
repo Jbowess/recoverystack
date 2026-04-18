@@ -506,7 +506,13 @@ export default async function TemplatePage({ page, pillarLink, siblingLinks, sch
 
             <section className="rs-article rs-card" aria-labelledby="conversion-heading">
               <h2 id="conversion-heading">Next step</h2>
-              <ConversionBox pageTemplate={page.template} />
+              <ConversionBox
+                pageTemplate={page.template}
+                primaryKeyword={page.primary_keyword}
+                productUrl={typeof page.metadata?.product_destination_url === 'string' ? page.metadata.product_destination_url : null}
+                newsletterUrl={typeof page.metadata?.newsletter_url === 'string' ? page.metadata.newsletter_url : null}
+                mainSiteUrl={MAIN_SITE_URL}
+              />
             </section>
 
             <section className="rs-related" aria-labelledby="related-heading">

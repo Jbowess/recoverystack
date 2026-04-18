@@ -37,7 +37,7 @@ Use the unified orchestration script to run the full daily content pipeline in p
 5. Linking and quality: `linker`, `quality-gate`
 6. Deploy: `deploy`
 7. Performance optimization: `ctr-optimizer`, `discover-optimizer`, `news-freshness`
-8. Rollup: `cluster-metrics-rollup`, `topical-map`, `orphan-link-audit`, `authority-rollup`
+8. Rollup: `cluster-metrics-rollup`, `page-quality-scorer`, `adaptive-feedback-loop`, `topical-map`, `orphan-link-audit`, `authority-rollup`
 
 ### Run the full daily flow
 ```bash
@@ -153,6 +153,7 @@ npm run gap:analyze
 npm run content:generate
 npm run news:freshness
 npm run authority:rollup
+npm run feedback:learn
 npm run links:rebuild
 npm run deploy:trigger
 ```

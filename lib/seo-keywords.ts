@@ -42,6 +42,27 @@ export function pageTemplateToQueueTemplateId(template: TemplateType): QueueTemp
   return template;
 }
 
+export function toLegacyCompatibleQueueTemplateId(templateId: QueueTemplateId): QueueTemplateId {
+  switch (templateId) {
+    case 'alternatives':
+      return 'comparison';
+    case 'reviews':
+    case 'costs':
+    case 'compatibility':
+    case 'metrics':
+    case 'pillars':
+    case 'guides':
+    case 'checklists':
+    case 'news':
+    case 'trends':
+      return 'guide';
+    case 'protocols':
+      return 'protocol';
+    default:
+      return templateId;
+  }
+}
+
 export function queueTemplateLabel(templateId: QueueTemplateId): string {
   return templateIdToPageTemplate(templateId);
 }

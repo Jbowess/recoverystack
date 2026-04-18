@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import {
-  CONVERSION_VARIANTS,
+  buildConversionVariantConfig,
   resolveConversionVariant,
   type ConversionVariant,
 } from '@/lib/conversion-box';
@@ -11,6 +11,10 @@ const VISITOR_ID_KEY = 'rs_visitor_id';
 
 type Props = {
   pageTemplate?: string | null;
+  primaryKeyword?: string | null;
+  productUrl?: string | null;
+  newsletterUrl?: string | null;
+  mainSiteUrl?: string | null;
 };
 
 function getVisitorId() {
@@ -56,17 +60,27 @@ function trackConversionClick(
   });
 }
 
-export default function ConversionBox({ pageTemplate }: Props) {
+export default function ConversionBox({
+  pageTemplate,
+  primaryKeyword,
+  productUrl,
+  newsletterUrl,
+  mainSiteUrl,
+}: Props) {
   const variant = useMemo(() => {
     const seed = getVisitorId();
     return resolveConversionVariant(process.env.NEXT_PUBLIC_CONVERSION_BOX_VARIANT, seed);
   }, []);
 
-  const config = CONVERSION_VARIANTS[variant];
+  const config = useMemo(
+    () => buildConversionVariantConfig(variant, { pageTemplate, primaryKeyword, productUrl, newsletterUrl, mainSiteUrl }),
+    [mainSiteUrl, newsletterUrl, pageTemplate, primaryKeyword, productUrl, variant],
+  );
 
   return (
     <aside data-variant={variant} data-page-template={pageTemplate ?? undefined}>
       <h2>{config.heading}</h2>
+      <p>{config.body}</p>
       <ul>
         {config.ctas.map((cta) => (
           <li key={cta.id}>

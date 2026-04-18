@@ -229,6 +229,12 @@ const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env
 const targetPageId = process.env.CONTENT_GENERATE_PAGE_ID?.trim();
 const targetPageSlug = process.env.CONTENT_GENERATE_PAGE_SLUG?.trim();
 
+function effectiveTemplateForPage(page: { template: string; metadata?: Record<string, unknown> | null }) {
+  return typeof page.metadata?.desired_template_id === 'string'
+    ? page.metadata.desired_template_id
+    : page.template;
+}
+
 function includesBanned(text: string) {
   const lower = text.toLowerCase();
   return bannedPhrases.some((p) => lower.includes(p.toLowerCase()));
@@ -608,6 +614,35 @@ async function generateWithBestAvailable(prompt: string) {
   }
 }
 
+async function canReach(url: string) {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2500);
+    const response = await fetch(url, { method: 'GET', signal: controller.signal });
+    clearTimeout(timeout);
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function ensureGenerationProviderAvailable() {
+  const hasOpenAiKey = Boolean(process.env.OPENAI_API_KEY);
+  const hasOllama = await canReach(`${ollamaBaseUrl}/api/tags`);
+
+  if (mode === 'openai' && !hasOpenAiKey) {
+    throw new Error('GENERATION_PROVIDER=openai but OPENAI_API_KEY is missing');
+  }
+
+  if (mode === 'ollama' && !hasOllama) {
+    throw new Error(`GENERATION_PROVIDER=ollama but Ollama is unavailable at ${ollamaBaseUrl}`);
+  }
+
+  if (mode === 'auto' && !hasOpenAiKey && !hasOllama) {
+    throw new Error(`No generation provider available. OPENAI_API_KEY is missing and Ollama is unavailable at ${ollamaBaseUrl}`);
+  }
+}
+
 async function loadPagesForGeneration() {
   let query = supabase.from('pages').select('*');
 
@@ -628,7 +663,8 @@ async function loadPagesForGeneration() {
 const CONCURRENCY = Math.max(1, Number(process.env.CONCURRENCY ?? 3));
 
 async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneration>>[number], products: unknown[]) {
-    const promptTemplate = readFileSync(promptPathForTemplate(page.template), 'utf8');
+    const effectiveTemplate = effectiveTemplateForPage(page);
+    const promptTemplate = readFileSync(promptPathForTemplate(effectiveTemplate), 'utf8');
     const [gapResult, briefResult, queryTargetsResult, sourceReferencesResult, visualAssetsResult, storylineResult, storyEventsResult, storyEntitiesResult] = await Promise.all([
       supabase
         .from('content_gaps')
@@ -666,14 +702,14 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
         .eq('page_id', page.id)
         .order('sort_order', { ascending: true })
         .limit(10),
-      page.template === 'news' && page.storyline_id
+      effectiveTemplate === 'news' && page.storyline_id
         ? supabase
             .from('storylines')
             .select('id,slug,title,beat,storyline_type,status,authority_score,freshness_score,update_count,summary,latest_event_at,metadata')
             .eq('id', page.storyline_id)
             .single()
         : Promise.resolve({ data: null, error: null } as any),
-      page.template === 'news' && page.storyline_id
+      effectiveTemplate === 'news' && page.storyline_id
         ? supabase
             .from('storyline_events')
             .select(`
@@ -686,7 +722,7 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
             .order('significance_score', { ascending: false })
             .limit(6)
         : Promise.resolve({ data: [], error: null } as any),
-      page.template === 'news' && page.storyline_id
+      effectiveTemplate === 'news' && page.storyline_id
         ? supabase
             .from('storylines')
             .select(`
@@ -709,11 +745,11 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
       .map((row: any) => row.news_source_events ? { ...row.news_source_events, significance_score: row.significance_score } : null)
       .filter(Boolean);
     const storyEntities = storyEntitiesResult.data?.topic_entities ? [storyEntitiesResult.data.topic_entities] : [];
-    const newsroomContext = page.template === 'news'
+    const newsroomContext = effectiveTemplate === 'news'
       ? buildNewsroomContext({ storyline, sourceEvents: storyEvents, entities: storyEntities })
       : null;
 
-    const rule = TEMPLATE_RULES[page.template] ?? {};
+    const rule = TEMPLATE_RULES[effectiveTemplate] ?? {};
     const targetWordCount = Number(page.metadata?.target_word_count ?? brief?.target_word_count ?? 1400);
 
     let attempts = 0;
@@ -721,21 +757,21 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
     const attemptErrors: string[] = [];
 
     const recentFingerprints = await fetchRecentFingerprints(supabase, 5);
-    const contentAngle = pickContentAngle(page.slug, page.template);
+    const contentAngle = pickContentAngle(page.slug, effectiveTemplate);
 
     while (attempts < 4 && !valid) {
       attempts += 1;
 
       const selectedComponents: SelectedComponents = await selectRandomComponents({
         supabase,
-        template: page.template,
+        template: effectiveTemplate,
         primaryKeyword: page.primary_keyword ?? '',
         recentFingerprints,
       });
 
       const prompt = [
         promptTemplate,
-        `Template: ${page.template}`,
+        `Template: ${effectiveTemplate}`,
         `Title: ${page.title}`,
         `Primary keyword: ${page.primary_keyword ?? ''}`,
         `## Content Angle (MANDATORY — uniquely differentiates this page from similar pages on the site)\nAngle: ${contentAngle.label}\nDirective: ${contentAngle.instruction}\nApply this angle consistently from the intro through the verdict. This is what makes this page's perspective distinct from other pages covering the same keyword.`,
@@ -744,7 +780,7 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
         'Verdict is mandatory with exactly 3 bullets in this order: Best for, Avoid if, Bottom line.',
         'Include 3-4 concise key_takeaways.',
         'Whenever evidence is referenced, include source URLs in body_json.references.',
-        `For ${page.template} pages, include a substantive review_methodology object when the topic is evaluative or comparative.`,
+        `For ${effectiveTemplate} pages, include a substantive review_methodology object when the topic is evaluative or comparative.`,
         `If FAQs are included for this template, minimum FAQ count is ${rule.minFaqs ?? 0}.`,
         `Comparison slots required for this template: ${rule.requiresComparisonSlots ? 'yes' : 'no'}.`,
         `Target word count: at least ${targetWordCount} words of unique, useful content.`,
@@ -762,7 +798,7 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
         `Query coverage plan JSON: ${JSON.stringify(queryTargets)}`,
         `High-authority sources to cite JSON: ${JSON.stringify(sourceReferences)}`,
         `Visual asset plan JSON: ${JSON.stringify(visualAssets)}`,
-        ...(page.template === 'news'
+        ...(effectiveTemplate === 'news'
           ? [
               `Storyline context JSON: ${JSON.stringify(storyline ?? {})}`,
               `Recent source events JSON: ${JSON.stringify(storyEvents)}`,
@@ -843,7 +879,7 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
           metadata: generated.metadata,
         };
 
-        const structuralErrors = deterministicChecks(page.template, enriched as z.infer<typeof GeneratedSchema>);
+        const structuralErrors = deterministicChecks(effectiveTemplate, enriched as z.infer<typeof GeneratedSchema>);
         if (structuralErrors.length > 0) {
           attemptErrors.push(`attempt ${attempts}: ${structuralErrors.join('; ')}`);
           continue;
@@ -864,7 +900,7 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
           { slug: 'lena-kowalski', name: 'Lena Kowalski', title: 'Clinical Exercise Physiologist' },
         ];
         let authorMeta: Record<string, string> = {};
-        if (page.template === 'news') {
+        if (effectiveTemplate === 'news') {
           let authorHash = 0;
           for (let i = 0; i < page.slug.length; i++) {
             authorHash = ((authorHash * 31) + page.slug.charCodeAt(i)) >>> 0;
@@ -888,7 +924,7 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
           ...(pageUpdate.metadata ?? {}),
           content_angle: contentAngle.id,
           content_angle_label: contentAngle.label,
-          ...(page.template === 'news'
+          ...(effectiveTemplate === 'news'
             ? {
                 source_diversity: Array.from(new Set(storyEvents.map((event: any) => event.source_domain).filter(Boolean))).length,
                 news_significance_score: storyEvents.length
@@ -904,7 +940,7 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
         };
 
         const extraColumns: Record<string, unknown> = {};
-        if (page.template === 'news') {
+        if (effectiveTemplate === 'news') {
           extraColumns.content_type = 'news';
           if (newsFormat) extraColumns.news_format = newsFormat;
           if (storyline?.beat) extraColumns.beat = storyline.beat;
@@ -945,7 +981,7 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
           });
         }
 
-        if (page.template === 'news' && page.storyline_id) {
+        if (effectiveTemplate === 'news' && page.storyline_id) {
           await supabase.from('page_storylines').upsert(
             {
               page_id: page.id,
@@ -969,7 +1005,7 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
         // Generate hero image and patch metadata (async, non-blocking for fingerprint)
         try {
           const { generatePageHeroImage } = await import('@/lib/image-generator');
-          const heroUrl = await generatePageHeroImage(page.title, page.template, page.primary_keyword ?? page.title);
+          const heroUrl = await generatePageHeroImage(page.title, effectiveTemplate, page.primary_keyword ?? page.title);
           if (heroUrl) {
             await supabase
               .from('pages')
@@ -1007,7 +1043,7 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
         const { error: fingerprintError } = await supabase.from('generated_page_fingerprints').insert({
           page_id: page.id,
           page_slug: page.slug,
-          template: page.template,
+          template: effectiveTemplate,
           fingerprint: selectedComponents.fingerprint,
           component_ids: {
             intro_hook: selectedComponents.introHook.id,
@@ -1030,12 +1066,13 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
     }
 
     if (!valid) {
-      console.error(`Failed to generate page '${page.slug}' (${page.template}) after ${attempts} attempts:`);
+      console.error(`Failed to generate page '${page.slug}' (${effectiveTemplate}) after ${attempts} attempts:`);
       attemptErrors.forEach((err) => console.error(`  - ${err}`));
     }
 }
 
 async function run() {
+  await ensureGenerationProviderAvailable();
   const pages = await loadPagesForGeneration();
   const { data: products } = await supabase.from('products').select('*');
 

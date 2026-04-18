@@ -28,6 +28,8 @@
 
 import { config } from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
+import { boostSmartRingPriority, isSmartRingKeyword } from '@/lib/market-focus';
+import { toLegacyCompatibleQueueTemplateId } from '@/lib/seo-keywords';
 
 config({ path: '.env.local' });
 
@@ -190,7 +192,7 @@ async function run(): Promise<void> {
 
     if (!matchedPage) {
       // Impression orphan
-      if (row.impressions >= ORPHAN_MIN_IMPRESSIONS) {
+      if (row.impressions >= ORPHAN_MIN_IMPRESSIONS && isSmartRingKeyword(row.query)) {
         orphans.push(row);
       }
       continue;
@@ -248,7 +250,12 @@ async function run(): Promise<void> {
   let orphansEnqueued = 0;
   for (const orphan of orphans) {
     // Priority score: logarithmic scale from impressions
-    const priorityScore = Math.min(100, Math.round(40 + Math.log10(Math.max(1, orphan.impressions)) * 15));
+    const priorityScore = boostSmartRingPriority(
+      orphan.query,
+      Math.min(100, Math.round(40 + Math.log10(Math.max(1, orphan.impressions)) * 15)),
+    );
+
+    const suggestedTemplate = inferTemplate(orphan.query);
 
     const { error: orphanError } = await supabase.from('gsc_impression_orphans').upsert({
       query: orphan.query,
@@ -256,7 +263,7 @@ async function run(): Promise<void> {
       clicks: orphan.clicks,
       avg_position: orphan.position,
       opportunity_type: 'new_page',
-      suggested_template: inferTemplate(orphan.query),
+      suggested_template: suggestedTemplate,
       last_seen_at: new Date().toISOString(),
     }, { onConflict: 'query' });
 
@@ -267,22 +274,34 @@ async function run(): Promise<void> {
 
     // Enqueue high-value orphans into keyword_queue
     if (priorityScore >= ORPHAN_MIN_PRIORITY) {
-      const { error: queueError } = await supabase.from('keyword_queue').upsert({
-        keyword: orphan.query,
-        normalized_keyword: orphan.query.toLowerCase().trim(),
-        source: 'gsc_orphan',
+      const baseQueueRow = {
+        primary_keyword: orphan.query,
+        cluster_name: orphan.query.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80) || 'smart-ring-opportunities',
+        source: 'topical_gap',
         status: 'new',
         priority: priorityScore,
         real_search_volume: orphan.impressions,
-        template_id: inferTemplate(orphan.query),
+        template_id: toLegacyCompatibleQueueTemplateId(suggestedTemplate as any),
         metadata: {
           gsc_impressions: orphan.impressions,
           gsc_clicks: orphan.clicks,
           gsc_position: orphan.position,
           opportunity_type: 'new_page',
           discovered_at: new Date().toISOString(),
+          desired_template_id: suggestedTemplate,
         },
-      }, { onConflict: 'normalized_keyword' });
+      };
+
+      let { error: queueError } = await supabase.from('keyword_queue').upsert({
+        ...baseQueueRow,
+        normalized_keyword: orphan.query.toLowerCase().trim(),
+      }, { onConflict: 'cluster_name,primary_keyword' });
+
+      if (queueError?.message?.includes('normalized_keyword')) {
+        ({ error: queueError } = await supabase.from('keyword_queue').upsert(baseQueueRow, {
+          onConflict: 'cluster_name,primary_keyword',
+        }));
+      }
 
       if (!queueError) orphansEnqueued++;
 

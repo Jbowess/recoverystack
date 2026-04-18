@@ -349,7 +349,14 @@ async function ingestNewsApi(): Promise<TrendSeed[]> {
   if (!apiKey) return [];
 
   const rows: TrendSeed[] = [];
-  const queries = ['wearable fitness', 'HRV recovery', 'smart ring health', 'sleep tracking technology', 'fitness tech'];
+  const queries = [
+    'smart ring wearable',
+    'recovery wearable',
+    'sleep tracking ring',
+    'HRV wearable',
+    'readiness score wearable',
+    'fitness wearable review',
+  ];
 
   for (const q of queries) {
     try {
@@ -562,13 +569,13 @@ function parseApproxTraffic(approxTraffic: string): number | null {
 // Optional: YOUTUBE_CHANNEL_IDS (comma-separated) to override default channels.
 
 const YOUTUBE_SEARCH_QUERIES = [
-  'wearable fitness tracker 2025',
-  'HRV recovery training',
+  'best smart ring 2025',
   'oura ring review',
-  'sleep optimization',
-  'smart ring health',
-  'recovery protocol athletes',
-  'fitness tech news',
+  'whoop review',
+  'oura vs whoop',
+  'best recovery wearable',
+  'best hrv wearable',
+  'sleep tracking ring',
 ];
 
 // Channels known for high-quality recovery/fitness tech content

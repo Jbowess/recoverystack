@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { slugify } from '@/lib/slugify';
 import type { TemplateType } from '@/lib/types';
 import { templateIdToPageTemplate, type QueueSource, type QueueTemplateId } from '@/lib/seo-keywords';
+import { buildSmartRingTemplateCopy, boostSmartRingPriority, isSmartRingKeyword } from '@/lib/market-focus';
 import { assessTrendRelevance } from '@/lib/trend-relevance';
 
 config({ path: '.env.local' });
@@ -47,6 +48,8 @@ const cooldownMs = cooldownDays * 24 * 60 * 60 * 1000;
 
 // Cluster quota: max pages per cluster per batch run (default 2)
 const clusterQuota = Number(process.env.BATCH_CLUSTER_QUOTA ?? 2);
+const generationProvider = (process.env.GENERATION_PROVIDER ?? 'auto').toLowerCase();
+const ollamaBaseUrl = process.env.OLLAMA_BASE_URL ?? 'http://127.0.0.1:11434';
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -94,6 +97,7 @@ type DraftSeed = {
   source: QueueSource;
   term: string;
   template: TemplateType;
+  storageTemplate: TemplateType;
   slug: string;
   title: string;
   h1: string;
@@ -102,6 +106,11 @@ type DraftSeed = {
 };
 
 function templateCopy(templateId: QueueRow['template_id'], term: string) {
+  const smartRingCopy = buildSmartRingTemplateCopy(templateId, term);
+  if (smartRingCopy) {
+    return smartRingCopy;
+  }
+
   if (templateId === 'comparison') {
     return {
       title: `${term}: comparison, tradeoffs, and best fit`,
@@ -184,6 +193,10 @@ function templateCopy(templateId: QueueRow['template_id'], term: string) {
 // ── Pre-generation queue validator ──────────────────────────────────────────
 // Domain allowlist tokens — any substring match qualifies the keyword as on-topic
 function isKeywordRelevant(keyword: string): { relevant: boolean; reason?: string } {
+  if (isSmartRingKeyword(keyword)) {
+    return { relevant: true };
+  }
+
   const assessment = assessTrendRelevance(keyword);
   if (assessment.relevant) {
     return { relevant: true };
@@ -204,12 +217,57 @@ function canonicalKeywordSlug(keyword: string): string {
   return normalized || slugify(keyword);
 }
 
+function toLegacyCompatiblePageTemplate(template: TemplateType): TemplateType {
+  switch (template) {
+    case 'reviews':
+    case 'checklists':
+      return 'guides';
+    case 'news':
+      return 'trends';
+    default:
+      return template;
+  }
+}
+
+async function canReach(url: string): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2500);
+    const response = await fetch(url, { method: 'GET', signal: controller.signal });
+    clearTimeout(timeout);
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function ensureGenerationProviderAvailable() {
+  const hasOpenAiKey = Boolean(process.env.OPENAI_API_KEY);
+  const hasOllama = await canReach(`${ollamaBaseUrl}/api/tags`);
+
+  if (generationProvider === 'openai' && !hasOpenAiKey) {
+    throw new Error('GENERATION_PROVIDER=openai but OPENAI_API_KEY is missing.');
+  }
+
+  if (generationProvider === 'ollama' && !hasOllama) {
+    throw new Error(`GENERATION_PROVIDER=ollama but Ollama is unavailable at ${ollamaBaseUrl}.`);
+  }
+
+  if (generationProvider === 'auto' && !hasOpenAiKey && !hasOllama) {
+    throw new Error(`No generation provider available. OPENAI_API_KEY is missing and Ollama is unavailable at ${ollamaBaseUrl}.`);
+  }
+}
+
 function buildSeed(row: QueueRow): DraftSeed {
   const termSlug = slugify(row.primary_keyword);
-  const template = templateIdToPageTemplate(row.template_id);
+  const requestedTemplateId = typeof row.metadata?.desired_template_id === 'string'
+    ? row.metadata.desired_template_id as QueueTemplateId
+    : row.template_id;
+  const template = templateIdToPageTemplate(requestedTemplateId);
+  const storageTemplate = toLegacyCompatiblePageTemplate(template);
   const slugPrefix = template;
   const slug = `${slugPrefix}-${termSlug}`;
-  const copy = templateCopy(row.template_id, row.primary_keyword);
+  const copy = templateCopy(requestedTemplateId, row.primary_keyword);
 
   return {
     queueId: row.id,
@@ -217,6 +275,7 @@ function buildSeed(row: QueueRow): DraftSeed {
     source: row.source,
     term: row.primary_keyword,
     template,
+    storageTemplate,
     slug,
     title: copy.title,
     h1: copy.h1,
@@ -309,16 +368,28 @@ async function run() {
   const evergreenTarget = Math.max(1, Math.round(pagesPerRun * evergreenRatio));
   const trendTarget = Math.max(1, pagesPerRun - evergreenTarget);
 
-  const [evergreenRows, trendRows, existingKeywordSlugs] = await Promise.all([
+  const [evergreenRowsRaw, trendRowsRaw, existingKeywordSlugs] = await Promise.all([
     loadQueueCandidates('evergreen', Math.max(evergreenTarget * 3, evergreenTarget)),
     loadQueueCandidates('discovery', Math.max(trendTarget * 3, trendTarget)),
     loadExistingPageKeywordSlugs(),
   ]);
 
+  const rankRows = (rows: QueueRow[]) =>
+    [...rows].sort((a, b) => {
+      const aPriority = boostSmartRingPriority(a.primary_keyword, a.priority ?? 50);
+      const bPriority = boostSmartRingPriority(b.primary_keyword, b.priority ?? 50);
+      if (bPriority !== aPriority) return bPriority - aPriority;
+      return (b.score ?? 0) - (a.score ?? 0);
+    });
+
+  const evergreenRows = rankRows(evergreenRowsRaw);
+  const trendRows = rankRows(trendRowsRaw);
+
   type SkippedRow = { row: QueueRow; reason: string };
 
   const selectedRows: QueueRow[] = [];
   const skippedRows: SkippedRow[] = [];
+  const blockedRowIds = new Set<string>();
   const seenCanonical = new Set(existingKeywordSlugs);
   const clusterCounts: Record<string, number> = {};
   const now = Date.now();
@@ -331,6 +402,7 @@ async function run() {
       const relevance = isKeywordRelevant(row.primary_keyword);
       if (!relevance.relevant) {
         skippedRows.push({ row, reason: `irrelevant: ${relevance.reason}` });
+        blockedRowIds.add(row.id);
         continue;
       }
 
@@ -339,6 +411,7 @@ async function run() {
         const lastGenMs = new Date(row.last_generated_at).getTime();
         if (Number.isFinite(lastGenMs) && now - lastGenMs < cooldownMs) {
           skippedRows.push({ row, reason: `cooldown (last generated ${Math.round((now - lastGenMs) / 86400000)}d ago, cooldown=${cooldownDays}d)` });
+          blockedRowIds.add(row.id);
           continue;
         }
       }
@@ -347,12 +420,14 @@ async function run() {
       const clusterCount = clusterCounts[row.cluster_name] ?? 0;
       if (clusterCount >= clusterQuota) {
         skippedRows.push({ row, reason: `cluster_quota (cluster=${row.cluster_name} limit=${clusterQuota})` });
+        blockedRowIds.add(row.id);
         continue;
       }
 
       const canonical = canonicalKeywordSlug(row.primary_keyword);
       if (!canonical || seenCanonical.has(canonical)) {
         skippedRows.push({ row, reason: 'near_duplicate_keyword_slug' });
+        blockedRowIds.add(row.id);
         continue;
       }
 
@@ -371,6 +446,7 @@ async function run() {
     for (const row of topUps) {
       if (selectedRows.length >= pagesPerRun) break;
       if (selectedRows.some((x) => x.id === row.id)) continue;
+      if (blockedRowIds.has(row.id)) continue;
       const canonical = canonicalKeywordSlug(row.primary_keyword);
       if (!canonical || seenCanonical.has(canonical)) continue;
       seenCanonical.add(canonical);
@@ -405,6 +481,8 @@ async function run() {
     return;
   }
 
+  await ensureGenerationProviderAvailable();
+
   await markQueueStatus(selectedRows.map((r) => r.id), 'queued');
 
   const failedSeeds: DraftSeed[] = [];
@@ -417,13 +495,18 @@ async function run() {
           .upsert(
             {
               slug: seed.slug,
-              template: seed.template,
+              template: seed.storageTemplate,
               title: seed.title,
               meta_description: seed.metaDescription,
               h1: seed.h1,
               intro: `Draft pending generation for ${seed.term}.`,
               primary_keyword: seed.primaryKeyword,
               status: 'draft',
+              metadata: {
+                ...((selectedRows.find((r) => r.id === seed.queueId)?.metadata ?? {}) as Record<string, unknown>),
+                desired_template_id: seed.template,
+                storage_template: seed.storageTemplate,
+              },
             },
             { onConflict: 'slug' },
           )

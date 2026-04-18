@@ -25,23 +25,31 @@ const supabase = createClient(
 const SERPAPI_KEY = process.env.SERPAPI_API_KEY;
 const SITE_URL = process.env.SITE_URL ?? 'https://recoverystack.io';
 
-// Keywords to check competitors against — seed set from your niche
+// Keywords to check competitors against.
+// Priority is deliberately narrow: recovery/performance wearables first.
 const NICHE_SEED_QUERIES = [
-  'recovery wearable',
-  'hrv tracking device',
-  'sleep recovery ring',
-  'athlete recovery protocol',
+  'best recovery wearable',
+  'best smart ring for recovery',
+  'best recovery tracker',
+  'sleep tracking ring',
+  'hrv wearable for athletes',
+  'readiness score wearable',
+  'recovery score wearable',
+  'wearable recovery tracker',
+  'fitness wearable for recovery',
+  'athlete recovery wearable',
   'whoop alternative',
   'oura ring alternative',
-  'best recovery tracker',
-  'readiness score wearable',
-  'recovery score device',
-  'sleep tracking ring',
-  'resting heart rate tracking',
-  'body battery wearable',
-  'strain score fitness tracker',
-  'recovery science athlete',
-  'cold plunge protocol',
+  'whoop vs oura',
+  'oura ring vs whoop',
+  'oura vs ultrahuman ring',
+  'garmin body battery alternative',
+  'best ring for sleep tracking',
+  'best wearable for hrv tracking',
+  'wearable subscription comparison',
+  'smart ring without subscription',
+  'resting heart rate wearable',
+  'strain score wearable',
 ];
 
 const COMPETITOR_POSITION_THRESHOLD = 5; // Only steal from top-5 competitors

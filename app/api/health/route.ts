@@ -73,6 +73,7 @@ export async function GET() {
   return NextResponse.json(
     {
       ok,
+      status: ok ? 'ok' : 'error',
       timestamp: new Date().toISOString(),
       env: {
         ok: env.ok,
