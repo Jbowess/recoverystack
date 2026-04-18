@@ -116,107 +116,56 @@ export default async function TemplateIndexPage({
   const pages = await getPages(template);
 
   return (
-    <main
-      style={{
-        maxWidth: 1100,
-        margin: '0 auto',
-        padding: '56px 16px 80px',
-        fontFamily: 'system-ui, sans-serif',
-        color: '#111827',
-      }}
-    >
-      <section style={{ marginBottom: 36 }}>
-        <p
-          style={{
-            margin: '0 0 10px',
-            color: '#64748b',
-            fontSize: 12,
-            fontWeight: 700,
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-          }}
-        >
-          RecoveryStack topic hub
-        </p>
-        <h1 style={{ margin: '0 0 12px', fontSize: 36, lineHeight: 1.1 }}>{copy.title}</h1>
-        <p style={{ margin: '0 0 20px', maxWidth: 760, color: '#475569', lineHeight: 1.7 }}>
-          {copy.description} {copy.newsletterAngle}
-        </p>
-        <a
-          href={NEWSLETTER_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: 'inline-block',
-            padding: '12px 22px',
-            background: '#0f172a',
-            color: '#fff',
-            borderRadius: 9999,
-            textDecoration: 'none',
-            fontWeight: 700,
-            fontSize: 14,
-          }}
-        >
-          Continue to RecoveryStack News
-        </a>
-      </section>
-
-      {pages.length > 0 ? (
-        <section
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-            gap: 16,
-          }}
-        >
-          {pages.map((page) => (
-            <a
-              key={page.slug}
-              href={`/${template}/${page.slug}`}
-              style={{
-                textDecoration: 'none',
-                color: 'inherit',
-                border: '1px solid #e2e8f0',
-                borderRadius: 12,
-                padding: '18px 18px 20px',
-                background: '#fff',
-              }}
-            >
-              <p
-                style={{
-                  margin: '0 0 10px',
-                  color: '#16a34a',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: '0.07em',
-                  textTransform: 'uppercase',
-                }}
+    <main className="seo-shell seo-page">
+      <section className="seo-section">
+        <div className="seo-container">
+          <div className="glass-card" style={{ borderRadius: 28, padding: 32 }}>
+            <p className="section-label">RecoveryStack Topic Hub</p>
+            <h1 className="headline-display is-compact">{copy.title}</h1>
+            <p className="seo-body-copy" style={{ marginTop: 18, maxWidth: 760 }}>
+              {copy.description} {copy.newsletterAngle}
+            </p>
+            <div className="seo-actions">
+              <a
+                className="btn-primary"
+                href={NEWSLETTER_URL}
+                target="_blank"
+                rel="noopener noreferrer"
               >
-                {copy.title}
-              </p>
-              <h2 style={{ margin: '0 0 10px', fontSize: 17, lineHeight: 1.35 }}>{page.title}</h2>
-              <p style={{ margin: 0, color: '#64748b', fontSize: 14, lineHeight: 1.6 }}>
-                {(page.meta_description ?? '').slice(0, 140)}
-                {(page.meta_description ?? '').length > 140 ? '...' : ''}
-              </p>
-            </a>
-          ))}
-        </section>
-      ) : (
-        <section
-          style={{
-            border: '1px solid #e2e8f0',
-            borderRadius: 12,
-            padding: '24px',
-            background: '#fff',
-          }}
-        >
-          <h2 style={{ margin: '0 0 8px', fontSize: 20 }}>No published pages yet</h2>
-          <p style={{ margin: 0, color: '#64748b', lineHeight: 1.6 }}>
-            This topic hub is ready, but there are no published pages in this cluster yet.
-          </p>
-        </section>
-      )}
+                Continue to RecoveryStack News
+              </a>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 28 }}>
+            {pages.length > 0 ? (
+              <section className="seo-grid-3" aria-label={`${copy.title} pages`}>
+                {pages.map((page) => (
+                  <a
+                    key={page.slug}
+                    href={`/${template}/${page.slug}`}
+                    className="glass-card seo-article-card sensor-glow"
+                  >
+                    <span className="seo-eyebrow">{copy.title}</span>
+                    <h3>{page.title}</h3>
+                    <p>
+                      {(page.meta_description ?? '').slice(0, 150)}
+                      {(page.meta_description ?? '').length > 150 ? '...' : ''}
+                    </p>
+                  </a>
+                ))}
+              </section>
+            ) : (
+              <section className="glass-card seo-card" aria-live="polite">
+                <h3>No published pages yet</h3>
+                <p>
+                  This topic hub is ready, but there are no published pages in this cluster yet.
+                </p>
+              </section>
+            )}
+          </div>
+        </div>
+      </section>
     </main>
   );
 }
