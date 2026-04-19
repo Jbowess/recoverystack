@@ -1,5 +1,5 @@
 -- ============================================================
--- 0034_use_case_and_buying_guide_pages.sql
+-- 0038_use_case_and_buying_guide_pages.sql
 -- Tracking tables for programmatic page generation:
 --   use_case_pages  — category × modifier sub-pages
 --   buying_guide_pages — buying guide intent pages

@@ -1,5 +1,5 @@
 -- ============================================================
--- 0031_information_gathering_extensions.sql
+-- 0033_information_gathering_extensions.sql
 -- Extends 0030 with clinical trials, app review aggregates,
 -- corrected performance_fingerprints + cluster_completeness
 -- schemas, and additional briefs enrichment columns.

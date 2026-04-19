@@ -1,5 +1,5 @@
 -- ============================================================
--- 0030_information_gathering_tables.sql
+-- 0031_information_gathering_tables.sql
 -- Enterprise information-gathering infrastructure tables.
 -- Supports: competitor content analysis, product specs,
 --           community Q&A, app reviews, keyword volume data,

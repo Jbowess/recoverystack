@@ -337,6 +337,25 @@ CREATE TABLE IF NOT EXISTS authors (
 );
 
 -- Add reviewer_slug column to authors if not already present (for peer review pairs)
+ALTER TABLE authors ADD COLUMN IF NOT EXISTS title text;
+ALTER TABLE authors ADD COLUMN IF NOT EXISTS bio text;
+ALTER TABLE authors ADD COLUMN IF NOT EXISTS credentials text[] NOT NULL DEFAULT '{}';
+ALTER TABLE authors ADD COLUMN IF NOT EXISTS expertise_templates text[] NOT NULL DEFAULT '{}';
+ALTER TABLE authors ADD COLUMN IF NOT EXISTS expertise_beats text[] NOT NULL DEFAULT '{}';
+ALTER TABLE authors ADD COLUMN IF NOT EXISTS persona text;
+ALTER TABLE authors ADD COLUMN IF NOT EXISTS author_type text NOT NULL DEFAULT 'expert';
+ALTER TABLE authors ADD COLUMN IF NOT EXISTS linkedin_url text;
+ALTER TABLE authors ADD COLUMN IF NOT EXISTS twitter_url text;
+ALTER TABLE authors ADD COLUMN IF NOT EXISTS institution_url text;
+ALTER TABLE authors ADD COLUMN IF NOT EXISTS avatar_url text;
+ALTER TABLE authors ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true;
+ALTER TABLE authors ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
+ALTER TABLE authors DROP CONSTRAINT IF EXISTS authors_author_type_check;
+ALTER TABLE authors
+  ADD CONSTRAINT authors_author_type_check
+  CHECK (author_type IN ('expert', 'editorial', 'ai_assisted'));
+
 ALTER TABLE authors ADD COLUMN IF NOT EXISTS reviewer_slug text REFERENCES authors(slug);
 
 -- ── Extend existing tables ────────────────────────────────────────────────────

@@ -4,6 +4,7 @@
 - Core app: `app/`, `components/`, `lib/`
 - Automation scripts: [`scripts/README.md`](scripts/README.md)
 - Repo structure and operating conventions: [`docs/REPO_STRUCTURE.md`](docs/REPO_STRUCTURE.md)
+- Supabase migration workflow: [`docs/SUPABASE_MIGRATIONS.md`](docs/SUPABASE_MIGRATIONS.md)
 - Brand context and page standards: `docs/BRAND_CONTEXT.md`, `docs/SEO_PAGE_STYLE_GUIDE.md`
 
 Phase 1 scaffold is complete:
@@ -253,7 +254,7 @@ The newsroom pipeline now also captures richer article intelligence during intak
 - Significance scoring and clustering keys for smarter storyline merging across repeated developments
 
 ## Editorial intelligence ops
-Apply `0031_editorial_intelligence_ops.sql` to enable the operational newsroom layer:
+Apply `0032_editorial_intelligence_ops.sql` to enable the operational newsroom layer:
 
 - `source_watchlists` + `source_watchlist_hits`: tracked brands, topics, regulators, and research feeds
 - `page_claims` + `claim_evidence_links`: claim verification graph for published pages
