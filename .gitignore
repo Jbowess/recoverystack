@@ -3,3 +3,7 @@ node_modules/
 .next/
 tsconfig.tsbuildinfo
 *.tsbuildinfo
+next-dev.log
+next-dev.err
+*.log
+__pycache__/

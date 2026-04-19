@@ -1,5 +1,11 @@
 # RecoveryStack pSEO System
 
+## Repo map
+- Core app: `app/`, `components/`, `lib/`
+- Automation scripts: [`scripts/README.md`](scripts/README.md)
+- Repo structure and operating conventions: [`docs/REPO_STRUCTURE.md`](docs/REPO_STRUCTURE.md)
+- Brand context and page standards: `docs/BRAND_CONTEXT.md`, `docs/SEO_PAGE_STYLE_GUIDE.md`
+
 Phase 1 scaffold is complete:
 - Next.js app routes for 8 SEO templates
 - Supabase client + base schema migration
