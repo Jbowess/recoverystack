@@ -35,6 +35,7 @@ const supabase = createClient(
 const DRY_RUN = process.argv.includes('--dry-run') || process.env.DRY_RUN === '1';
 const SNIPPET_POSITION_THRESHOLD = Number(process.env.SNIPPET_POSITION_THRESHOLD ?? 5);
 const LIMIT = Number(process.env.SNIPPET_LIMIT ?? 100);
+const SMART_RING_ONLY = process.argv.includes('--smart-ring-only');
 
 type SnippetOpportunity = {
   keyword: string;
@@ -47,6 +48,12 @@ type SnippetOpportunity = {
   instructions: string[];
   priority_score: number;
 };
+
+function isSmartRingKeyword(keyword: string, pageSlug: string): boolean {
+  const haystack = `${keyword} ${pageSlug}`.toLowerCase();
+  return ['smart ring', 'ringconn', 'oura', 'ultrahuman', 'galaxy ring', 'volo ring', 'wearable ring', 'sleep ring', 'recovery ring']
+    .some((term) => haystack.includes(term));
+}
 
 // ── Strategy instructions per snippet type ────────────────────────────────────
 function buildStrategy(snippetType: string, keyword: string, currentSnippetText: string | null): {
@@ -169,6 +176,7 @@ async function run(): Promise<void> {
     featured_snippet_owned: boolean;
   }>) {
     if (!rank.page_slug) continue;
+    if (SMART_RING_ONLY && !isSmartRingKeyword(rank.keyword, rank.page_slug)) continue;
 
     const { data: serpFeature } = await supabase
       .from('serp_features')
@@ -205,7 +213,7 @@ async function run(): Promise<void> {
 
   opportunities.sort((a, b) => b.priority_score - a.priority_score);
 
-  console.log(`[snippet-optimizer] Found ${opportunities.length} snippet opportunities, ${displacedKeywords.length} displacements (dryRun=${DRY_RUN})`);
+  console.log(`[snippet-optimizer] Found ${opportunities.length} snippet opportunities, ${displacedKeywords.length} displacements (dryRun=${DRY_RUN}, smartRingOnly=${SMART_RING_ONLY})`);
 
   for (const opp of opportunities) {
     console.log(

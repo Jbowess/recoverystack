@@ -275,14 +275,24 @@ async function run(): Promise<void> {
     .limit(LIMIT);
 
   // Secondary: top-ranking high-quality pages (AI overview detection fallback)
-  const { data: topPages } = await supabase
+  // quality_score column added by migration 0037; fall back to metadata.seo_quality_score until applied
+  const { data: topPagesRaw } = await supabase
     .from('pages')
-    .select('slug, template, title, meta_description, primary_keyword, body_json, schema_org, quality_score, metadata')
+    .select('slug, template, title, meta_description, primary_keyword, body_json, schema_org, metadata')
     .eq('status', 'published')
-    .gte('quality_score', MIN_QUALITY)
     .lte('metadata->>current_position', String(MAX_POSITION))
-    .order('quality_score', { ascending: false })
-    .limit(LIMIT);
+    .limit(LIMIT * 4);
+
+  const topPages = (topPagesRaw ?? [])
+    .map((p) => ({
+      ...p,
+      quality_score: typeof (p.metadata as Record<string, unknown>)?.seo_quality_score === 'number'
+        ? (p.metadata as Record<string, unknown>).seo_quality_score as number
+        : null,
+    }))
+    .filter((p) => p.quality_score === null || p.quality_score >= MIN_QUALITY)
+    .sort((a, b) => (b.quality_score ?? 0) - (a.quality_score ?? 0))
+    .slice(0, LIMIT);
 
   // Build a unified set, AI overview pages take priority
   const slugsProcessed = new Set<string>();
@@ -297,12 +307,18 @@ async function run(): Promise<void> {
     if (slugsProcessed.has(row.page_slug)) continue;
     slugsProcessed.add(row.page_slug);
 
-    const { data: page } = await supabase
+    const { data: pageRaw } = await supabase
       .from('pages')
-      .select('slug, template, title, meta_description, primary_keyword, body_json, schema_org, quality_score, metadata')
+      .select('slug, template, title, meta_description, primary_keyword, body_json, schema_org, metadata')
       .eq('slug', row.page_slug)
       .eq('status', 'published')
       .single();
+    const page = pageRaw ? {
+      ...pageRaw,
+      quality_score: typeof (pageRaw.metadata as Record<string, unknown>)?.seo_quality_score === 'number'
+        ? (pageRaw.metadata as Record<string, unknown>).seo_quality_score as number
+        : null,
+    } : null;
 
     if (page) {
       queue.push({

@@ -419,12 +419,25 @@ export function buildPublicationQueueRecord(asset: DistributionAssetRow) {
     targetAccount = PRODUCT_DESTINATION_URL;
   }
 
+  const repurposingScore = typeof asset.payload?.repurposing_score === 'number'
+    ? Number(asset.payload.repurposing_score)
+    : null;
+  if (repurposingScore !== null) {
+    publishPriority = Math.min(99, publishPriority + Math.round((repurposingScore - 50) / 8));
+  }
+  if (asset.payload?.recurring_series) {
+    publishPriority = Math.min(99, publishPriority + 4);
+  }
+
   const payload = {
     hook: asset.hook,
     summary: asset.summary,
     asset_type: asset.asset_type,
     publish_window_local: schedule.toISOString(),
     recommended_goal: ['newsletter', 'affiliate_outreach'].includes(channel) ? 'conversion' : 'reach',
+    repurposing_score: repurposingScore,
+    angle_type: asset.payload?.angle_type ?? null,
+    recurring_series: asset.payload?.recurring_series ?? null,
   };
 
   return {

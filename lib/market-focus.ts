@@ -151,6 +151,37 @@ export function boostSmartRingPriority(keyword: string, basePriority: number): n
   return Math.min(99, boosted);
 }
 
+const COMMERCIAL_INTENT_SIGNALS = [
+  'best', 'top', 'vs', 'versus', 'alternative', 'alternatives',
+  'review', 'reviews', 'compare', 'comparison', 'compared',
+  'price', 'pricing', 'cost', 'costs', 'worth it', 'buy', 'buying',
+  'subscription', 'no subscription', 'without subscription',
+  'under $', 'budget', 'cheap', 'affordable',
+  'for women', 'for men', 'for athletes', 'for runners',
+  'for sleep', 'for recovery', 'for hrv', 'for beginners', 'for seniors',
+  'most accurate', 'waterproof', 'battery life',
+  'should i buy', 'is it worth', 'which is better',
+];
+
+const INFORMATIONAL_PENALTY_SIGNALS = [
+  'what is', 'what are', 'how does', 'how do',
+  'history of', 'who invented', 'definition', 'meaning',
+  'explained', 'science behind', 'anatomy', 'overview of',
+  'introduction to',
+];
+
+export function scoreCommercialIntent(keyword: string): number {
+  const lower = keyword.toLowerCase().trim();
+  let score = 50;
+  for (const signal of COMMERCIAL_INTENT_SIGNALS) {
+    if (lower.includes(signal)) score += 10;
+  }
+  for (const signal of INFORMATIONAL_PENALTY_SIGNALS) {
+    if (lower.includes(signal)) score -= 25;
+  }
+  return Math.max(0, Math.min(100, score));
+}
+
 export function buildSmartRingTemplateCopy(
   templateId: string,
   term: string,

@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { slugify } from '@/lib/slugify';
 import type { TemplateType } from '@/lib/types';
 import { templateIdToPageTemplate, type QueueSource, type QueueTemplateId } from '@/lib/seo-keywords';
-import { buildSmartRingTemplateCopy, boostSmartRingPriority, isSmartRingKeyword } from '@/lib/market-focus';
+import { buildSmartRingTemplateCopy, boostSmartRingPriority, isSmartRingKeyword, scoreCommercialIntent } from '@/lib/market-focus';
 import { assessTrendRelevance } from '@/lib/trend-relevance';
 
 config({ path: '.env.local' });
@@ -45,6 +45,11 @@ const evergreenRatio = Math.max(0, Math.min(1, Number(process.env.BATCH_EVERGREE
 // Cooldown: skip keywords generated within the last N days (default 30)
 const cooldownDays = Number(process.env.BATCH_COOLDOWN_DAYS ?? 30);
 const cooldownMs = cooldownDays * 24 * 60 * 60 * 1000;
+
+// Commercial intent minimum — discovery-source keywords below this score are skipped.
+// Evergreen/use_case_splitter/buying_guide_generator sources bypass this gate (already curated).
+const minCommercialIntent = Number(process.env.BATCH_MIN_COMMERCIAL_INTENT ?? 25);
+const COMMERCIAL_INTENT_BYPASS_SOURCES = new Set(['evergreen', 'use_case_splitter', 'buying_guide_generator', 'competitor_seed']);
 
 // Cluster quota: max pages per cluster per batch run (default 2)
 const clusterQuota = Number(process.env.BATCH_CLUSTER_QUOTA ?? 2);
@@ -397,6 +402,16 @@ async function run() {
   const pickRows = (rows: QueueRow[], target: number) => {
     for (const row of rows) {
       if (selectedRows.length >= pagesPerRun) break;
+
+      // Commercial intent gate: skip informational keywords from discovery sources
+      if (!COMMERCIAL_INTENT_BYPASS_SOURCES.has(row.source)) {
+        const ciScore = scoreCommercialIntent(row.primary_keyword);
+        if (ciScore < minCommercialIntent) {
+          skippedRows.push({ row, reason: `low_commercial_intent (score=${ciScore}, min=${minCommercialIntent})` });
+          blockedRowIds.add(row.id);
+          continue;
+        }
+      }
 
       // Pre-generation relevance gate
       const relevance = isKeywordRelevant(row.primary_keyword);

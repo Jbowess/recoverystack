@@ -21,6 +21,7 @@ const supabase = createClient(
 const openaiModel = process.env.CODEX_MODEL ?? 'gpt-4o';
 const CTR_THRESHOLD = 0.025; // 2.5%
 const POSITION_MAX = 10;
+const SMART_RING_ONLY = process.argv.includes('--smart-ring-only');
 
 interface MetricRow {
   page_slug: string;
@@ -36,6 +37,18 @@ interface PageRow {
   template: string;
   primary_keyword: string | null;
   metadata: Record<string, unknown> | null;
+}
+
+function isSmartRingPage(page: PageRow): boolean {
+  const haystack = [
+    page.slug,
+    page.title,
+    page.primary_keyword ?? '',
+    String(page.metadata?.market_focus ?? ''),
+  ].join(' ').toLowerCase();
+
+  return ['smart ring', 'ringconn', 'oura', 'ultrahuman', 'galaxy ring', 'volo ring', 'wearable ring', 'sleep ring', 'recovery ring']
+    .some((term) => haystack.includes(term));
 }
 
 async function generateTitleVariants(
@@ -159,7 +172,7 @@ async function run() {
   }
 
   // Process top 10 worst performers for title variant generation
-  const candidates = underperforming.slice(0, 10);
+  const candidates = underperforming.slice(0, 25);
   const slugs = candidates.map((c) => c.slug);
 
   const { data: pageRows, error: pageErr } = await supabase
@@ -170,8 +183,10 @@ async function run() {
   if (pageErr) throw pageErr;
   if (!pageRows) return;
 
+  const scopedPages = (pageRows as PageRow[]).filter((page) => !SMART_RING_ONLY || isSmartRingPage(page));
+
   let updated = 0;
-  for (const page of pageRows as PageRow[]) {
+  for (const page of scopedPages) {
     const stats = candidates.find((c) => c.slug === page.slug);
     if (!stats) continue;
 
@@ -215,7 +230,7 @@ async function run() {
     }
   }
 
-  console.log(`\n[ctr-optimizer] Updated ${updated} page(s) with title variants.`);
+  console.log(`\n[ctr-optimizer] Updated ${updated} page(s) with title variants (scopedPages=${scopedPages.length}).`);
 }
 
 run().catch((e) => {

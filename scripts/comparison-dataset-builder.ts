@@ -8,6 +8,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
+const DRY_RUN = process.argv.includes('--dry-run') || process.env.DRY_RUN === '1';
+const SMART_RING_ONLY = process.argv.includes('--smart-ring-only');
+
 type ProductSpec = {
   slug: string;
   brand: string;
@@ -25,7 +28,19 @@ type ProductSpec = {
   status?: string | null;
 };
 
+function isSmartRingSpec(item: ProductSpec): boolean {
+  return [item.slug, item.brand, item.model, item.product_type]
+    .join(' ')
+    .toLowerCase()
+    .includes('ring');
+}
+
 async function storeDataset(datasetKey: string, title: string, beat: string, rows: unknown[], metadata: Record<string, unknown>) {
+  if (DRY_RUN) {
+    console.log(`[comparison-dataset-builder] dry-run ${datasetKey} rows=${rows.length}`);
+    return;
+  }
+
   await supabase.from('comparison_dataset_snapshots').upsert(
     {
       dataset_key: datasetKey,
@@ -54,11 +69,20 @@ async function run() {
     return;
   }
 
+  const scopedSpecs = SMART_RING_ONLY ? specs.filter(isSmartRingSpec) : specs;
+  if (!scopedSpecs.length) {
+    console.log(`[comparison-dataset-builder] no ${SMART_RING_ONLY ? 'smart ring ' : ''}product_specs rows found`);
+    return;
+  }
+
+  const beat = SMART_RING_ONLY ? 'smart_rings' : 'wearables';
+  const prefix = SMART_RING_ONLY ? 'smart-ring-' : '';
+
   await storeDataset(
-    'wearable-pricing-index',
-    'Wearable Pricing Index',
-    'wearables',
-    specs.map((item) => ({
+    `${prefix}wearable-pricing-index`,
+    SMART_RING_ONLY ? 'Smart Ring Pricing Index' : 'Wearable Pricing Index',
+    beat,
+    scopedSpecs.map((item) => ({
       slug: item.slug,
       brand: item.brand,
       model: item.model,
@@ -67,14 +91,14 @@ async function run() {
       subscription_usd: item.subscription_usd ?? null,
       total_year_one_cost_usd: (item.price_usd ?? 0) + ((item.subscription_usd ?? 0) * 12),
     })),
-    { description: 'Current price and subscription tracker for recovery wearables.' },
+    { description: SMART_RING_ONLY ? 'Current price and subscription tracker for smart rings.' : 'Current price and subscription tracker for recovery wearables.' },
   );
 
   await storeDataset(
-    'firmware-change-tracker',
-    'Firmware Change Tracker',
-    'wearables',
-    specs
+    `${prefix}firmware-change-tracker`,
+    SMART_RING_ONLY ? 'Smart Ring Firmware Change Tracker' : 'Firmware Change Tracker',
+    beat,
+    scopedSpecs
       .filter((item) => item.firmware_version || item.last_firmware_date)
       .map((item) => ({
         slug: item.slug,
@@ -83,38 +107,72 @@ async function run() {
         firmware_version: item.firmware_version ?? null,
         last_firmware_date: item.last_firmware_date ?? null,
       })),
-    { description: 'Latest known firmware versions and change dates.' },
+    { description: SMART_RING_ONLY ? 'Latest known smart ring firmware versions and change dates.' : 'Latest known firmware versions and change dates.' },
   );
 
   await storeDataset(
-    'metric-validation-matrix',
-    'Metric Validation Matrix',
-    'wearables',
-    specs.map((item) => ({
+    `${prefix}metric-validation-matrix`,
+    SMART_RING_ONLY ? 'Smart Ring Metric Validation Matrix' : 'Metric Validation Matrix',
+    beat,
+    scopedSpecs.map((item) => ({
       slug: item.slug,
       brand: item.brand,
       model: item.model,
       validated_metrics: item.validated_metrics ?? [],
       metrics_tracked: item.metrics_tracked ?? [],
     })),
-    { description: 'Validated metrics versus tracked metrics across devices.' },
+    { description: SMART_RING_ONLY ? 'Validated metrics versus tracked metrics across smart rings.' : 'Validated metrics versus tracked metrics across devices.' },
   );
 
   await storeDataset(
-    'platform-compatibility-matrix',
-    'Platform Compatibility Matrix',
-    'wearables',
-    specs.map((item) => ({
+    `${prefix}platform-compatibility-matrix`,
+    SMART_RING_ONLY ? 'Smart Ring Platform Compatibility Matrix' : 'Platform Compatibility Matrix',
+    beat,
+    scopedSpecs.map((item) => ({
       slug: item.slug,
       brand: item.brand,
       model: item.model,
       compatible_platforms: item.compatible_platforms ?? [],
       battery_days: item.battery_days ?? null,
     })),
-    { description: 'Compatibility and battery-life comparison dataset.' },
+    { description: SMART_RING_ONLY ? 'Compatibility and battery-life comparison dataset for smart rings.' : 'Compatibility and battery-life comparison dataset.' },
   );
 
-  console.log(`[comparison-dataset-builder] snapshots stored for ${specs.length} products`);
+  if (SMART_RING_ONLY) {
+    await storeDataset(
+      'smart-ring-subscription-value-matrix',
+      'Smart Ring Subscription Value Matrix',
+      beat,
+      scopedSpecs.map((item) => ({
+        slug: item.slug,
+        brand: item.brand,
+        model: item.model,
+        hardware_price_usd: item.price_usd ?? null,
+        subscription_usd: item.subscription_usd ?? null,
+        year_one_cost_usd: (item.price_usd ?? 0) + ((item.subscription_usd ?? 0) * 12),
+        subscription_required: (item.subscription_usd ?? 0) > 0,
+      })),
+      { description: 'Total cost of ownership comparison for smart rings, including recurring subscription burden.' },
+    );
+
+    await storeDataset(
+      'smart-ring-sensor-and-platform-matrix',
+      'Smart Ring Sensor and Platform Matrix',
+      beat,
+      scopedSpecs.map((item) => ({
+        slug: item.slug,
+        brand: item.brand,
+        model: item.model,
+        validated_metrics: item.validated_metrics ?? [],
+        metrics_tracked: item.metrics_tracked ?? [],
+        compatible_platforms: item.compatible_platforms ?? [],
+        battery_days: item.battery_days ?? null,
+      })),
+      { description: 'Smart ring sensor, metric, compatibility, and battery comparison layer for buyer-intent pages.' },
+    );
+  }
+
+  console.log(`[comparison-dataset-builder] snapshots stored for ${scopedSpecs.length} ${SMART_RING_ONLY ? 'smart ring ' : ''}products dryRun=${DRY_RUN}`);
 }
 
 run().catch((error) => {

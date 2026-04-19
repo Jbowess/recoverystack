@@ -26,10 +26,18 @@ async function run() {
   let generated = 0;
   for (const row of (data ?? []) as Array<any>) {
     const assetType = row.channel === 'instagram' ? 'visual_brief' : row.channel === 'short_video' ? 'scene_pack' : 'quote_card_pack';
+    const angleType = row.payload?.angle_type ? String(row.payload.angle_type) : 'unspecified';
+    const persona = row.payload?.persona ? String(row.payload.persona) : 'general';
+    const claimType = row.payload?.claim_type ? String(row.payload.claim_type) : 'general';
+    const proof = Array.isArray(row.payload?.source_signals) ? String(row.payload.source_signals[0] ?? '') : '';
     const body = [
       `Primary asset: ${row.title ?? row.page_slug}`,
       `Format: ${assetType}`,
       `Summary: ${row.summary ?? ''}`,
+      `Angle: ${angleType}`,
+      `Persona: ${persona}`,
+      `Claim type: ${claimType}`,
+      proof ? `Proof point: ${proof}` : 'Proof point: use the strongest claim from the source asset.',
       'Include one strong hook, one comparison frame, and one CTA frame.',
     ].join('\n');
 
@@ -46,7 +54,13 @@ async function run() {
       title: `${row.title ?? row.page_slug} ${assetType}`,
       summary: row.summary ?? null,
       body,
-      payload: { derived_from_asset_id: row.id, derived_from_type: row.asset_type },
+      payload: {
+        derived_from_asset_id: row.id,
+        derived_from_type: row.asset_type,
+        angle_type: angleType,
+        persona,
+        claim_type: claimType,
+      },
     }, {
       onConflict: 'page_id,channel,asset_type',
     });

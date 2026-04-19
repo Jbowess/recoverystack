@@ -155,6 +155,28 @@ const COMPETITORS: CompetitorDef[] = [
     vs_targets: ['Oura Ring', 'WHOOP', 'RingConn'],
   },
   {
+    domain: 'ringconn.com',
+    brand_name: 'RingConn',
+    category: 'smart ring',
+    use_cases: ['sleep tracking', 'HRV tracking', 'recovery', 'subscription-free smart ring'],
+    price_range: '$279-$329',
+    subscription_model: false,
+    estimated_dr: 41,
+    flagship_product: 'RingConn Gen 2',
+    vs_targets: ['Oura Ring', 'Ultrahuman Ring', 'Samsung Galaxy Ring'],
+  },
+  {
+    domain: 'samsung.com',
+    brand_name: 'Samsung Galaxy Ring',
+    category: 'smart ring',
+    use_cases: ['sleep tracking', 'Galaxy ecosystem integration', 'daily wellness', 'activity tracking'],
+    price_range: '$399',
+    subscription_model: false,
+    estimated_dr: 90,
+    flagship_product: 'Samsung Galaxy Ring',
+    vs_targets: ['Oura Ring', 'Ultrahuman Ring', 'RingConn'],
+  },
+  {
     domain: 'coros.com',
     brand_name: 'COROS',
     category: 'endurance sports watch',
@@ -227,7 +249,7 @@ function buildVsSpec(c: CompetitorDef, vsTarget: string): PageSpec {
   const slug = slugify(`${c.brand_name}-vs-${vsTarget}`);
   return {
     slug,
-    template: 'comparisons',
+    template: 'alternatives',
     primary_keyword: keyword,
     title: `${c.brand_name} vs ${vsTarget}: Which Is Better in ${CURRENT_YEAR}?`,
     meta_description: `${c.brand_name} vs ${vsTarget} — head-to-head comparison of price, accuracy, battery life, and who each suits. Our verdict after testing both.`,

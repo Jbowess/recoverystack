@@ -158,6 +158,76 @@ npm run links:rebuild
 npm run deploy:trigger
 ```
 
+## Smart ring growth playbook
+Run the smart-ring buyer-intent stack end to end:
+
+```bash
+npm run smart-ring:growth
+```
+
+This runbook:
+- seeds smart-ring money keywords
+- generates smart-ring use-case pages
+- generates smart-ring buying guides
+- creates competitor-capture pages for Oura, Ultrahuman, RingConn, and Samsung Galaxy Ring
+- runs cannibalization checks
+- runs briefs, generation, linking, schema validation, and GEO optimization
+
+Optional flags:
+- `npm run smart-ring:growth -- --dry-run`
+- `npm run smart-ring:growth -- --skip-generation`
+- `npm run smart-ring:growth -- --skip-post-publish`
+
+## Smart ring system focus
+Run the higher-priority operating loop for the smart-ring business:
+
+```bash
+npm run smart-ring:focus
+```
+
+This runbook layers on top of growth generation and focuses on:
+- product spec, truth, and price freshness
+- app-review and community sentiment mining
+- smart-ring-only comparison datasets
+- conversion and journey attribution
+- smart-ring query coverage, orphan repair, CTR, snippet, and GEO work
+- recurring series, creator briefs, press briefs, lead magnets, community prompts, video packages, brand frameworks, reach rollups, and tool ideas
+
+Optional flags:
+- `npm run smart-ring:focus -- --dry-run`
+- `npm run smart-ring:focus -- --skip-growth`
+- `npm run smart-ring:focus -- --skip-data`
+- `npm run smart-ring:focus -- --skip-attribution`
+- `npm run smart-ring:focus -- --skip-repurposing`
+- `npm run smart-ring:focus -- --skip-optimization`
+
+## Repurposing feedback loop
+Turn owned-channel winners into new SEO inputs:
+
+```bash
+npm run repurposing:feedback
+```
+
+This script reads recent distribution winners and:
+- suggests SEO title experiments from winning hooks
+- queues new keyword opportunities into `keyword_queue`
+- updates brief subtopics and weaknesses from repurposing winners
+
+Use:
+- `npm run repurposing:feedback -- --dry-run`
+
+Additional reach/buildout scripts:
+- `npm run brand:reach`
+- `npm run repurposing:score`
+- `npm run series:generate`
+- `npm run creator:briefs`
+- `npm run press:briefs`
+- `npm run lead:generate`
+- `npm run tools:mine`
+- `npm run frameworks:seed`
+- `npm run community:prompts`
+- `npm run video:package`
+
 ## Newsroom foundation
 RecoveryStack now includes a newsroom layer for scalable SEO news coverage in fitness technology and recovery:
 

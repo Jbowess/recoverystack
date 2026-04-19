@@ -15,6 +15,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
+const SMART_RING_ONLY = process.argv.includes('--smart-ring-only');
+
 type PageRow = {
   id: string;
   slug: string;
@@ -43,6 +45,19 @@ type BriefRow = {
   search_volume: number | null;
   keyword_difficulty: number | null;
 };
+
+function isSmartRingPage(page: PageRow): boolean {
+  const haystack = [
+    page.slug,
+    page.title,
+    page.primary_keyword ?? '',
+    ...(page.secondary_keywords ?? []),
+    String(page.metadata?.market_focus ?? ''),
+  ].join(' ').toLowerCase();
+
+  return ['smart ring', 'ringconn', 'oura', 'ultrahuman', 'galaxy ring', 'volo ring', 'wearable ring', 'sleep ring', 'recovery ring']
+    .some((term) => haystack.includes(term));
+}
 
 function buildVisualPlan(page: PageRow, targetWords: number) {
   const templates = [
@@ -105,6 +120,7 @@ async function run() {
   if (briefsResult.error) throw briefsResult.error;
 
   const pages = (pagesResult.data ?? []) as PageRow[];
+  const scopedPages = SMART_RING_ONLY ? pages.filter(isSmartRingPage) : pages;
   const gapsBySlug = new Map<string, GapRow>();
   for (const row of (gapsResult.data ?? []) as GapRow[]) {
     if (!gapsBySlug.has(row.page_slug)) gapsBySlug.set(row.page_slug, row);
@@ -119,7 +135,7 @@ async function run() {
   let referenceRowsWritten = 0;
   let visualRowsWritten = 0;
 
-  for (const page of pages) {
+  for (const page of scopedPages) {
     const brief = briefsBySlug.get(page.slug);
     const gap = gapsBySlug.get(page.slug);
 
@@ -232,7 +248,7 @@ async function run() {
   }
 
   console.log(
-    `[query-coverage-planner] planned pages=${pages.length} query_targets=${queryRowsWritten} references=${referenceRowsWritten} visual_assets=${visualRowsWritten}`,
+    `[query-coverage-planner] planned pages=${scopedPages.length} query_targets=${queryRowsWritten} references=${referenceRowsWritten} visual_assets=${visualRowsWritten}`,
   );
 }
 

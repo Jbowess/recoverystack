@@ -89,6 +89,15 @@ const MODIFIERS: Modifier[] = [
   { id: 'no-subscription', label: 'without subscription', intent: 'subscription', priority_boost: 25 },
   { id: 'no-monthly-fee',  label: 'with no monthly fee',  intent: 'subscription', priority_boost: 25 },
   { id: 'one-time-payment', label: 'one time payment',    intent: 'subscription', priority_boost: 22 },
+  // Health outcomes — buyers searching these have clear purchase intent
+  { id: 'for-cycle-tracking',  label: 'for cycle tracking',          intent: 'use_case', priority_boost: 18 },
+  { id: 'for-blood-oxygen',    label: 'for blood oxygen monitoring',  intent: 'use_case', priority_boost: 14 },
+  { id: 'for-heart-rate',      label: 'for heart rate monitoring',   intent: 'use_case', priority_boost: 12 },
+  { id: 'for-weight-loss',     label: 'for weight loss',             intent: 'use_case', priority_boost: 16 },
+  { id: 'for-stress',          label: 'for stress management',       intent: 'use_case', priority_boost: 15 },
+  // Feature / form factor
+  { id: 'titanium',            label: 'titanium',                    intent: 'feature',  priority_boost: 13 },
+  { id: 'smallest',            label: 'smallest',                    intent: 'feature',  priority_boost: 12, prefix: 'smallest' },
 ];
 
 // ── Category definitions ──────────────────────────────────────────────────────
@@ -112,10 +121,11 @@ const CATEGORIES: CategoryDef[] = [
     cluster: 'smart-rings',
     allowed_modifier_ids: [
       'for-women', 'for-men', 'for-athletes', 'for-sleep', 'for-hrv',
-      'for-runners', 'for-swimming', 'for-triathletes', 'for-recovery',
+      'for-runners', 'for-cycling', 'for-crossfit', 'for-swimming', 'for-triathletes', 'for-recovery',
       'for-travel', 'for-anxiety', 'for-beginners', 'for-seniors',
+      'for-cycle-tracking', 'for-blood-oxygen', 'for-heart-rate', 'for-weight-loss', 'for-stress',
       'under-200', 'under-300', 'under-500', 'budget',
-      'waterproof', 'long-battery', 'accurate',
+      'waterproof', 'long-battery', 'accurate', 'lightweight', 'titanium', 'smallest',
       'no-subscription', 'no-monthly-fee', 'one-time-payment',
     ],
   },
@@ -158,7 +168,7 @@ const CATEGORIES: CategoryDef[] = [
     cluster: 'sleep-tracking',
     allowed_modifier_ids: [
       'for-women', 'for-men', 'for-seniors', 'for-beginners', 'for-athletes',
-      'for-anxiety', 'for-travel',
+      'for-anxiety', 'for-travel', 'for-cycle-tracking', 'for-stress',
       'under-100', 'under-200', 'under-300', 'budget', 'cheap',
       'accurate', 'waterproof', 'long-battery',
       'no-subscription', 'no-monthly-fee',

@@ -1,5 +1,6 @@
 import { config } from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
+import { buildPersonaDistributionPayloads, isDistributablePage, type DistributionPageInput } from '@/lib/distribution-engine';
 
 config({ path: '.env.local' });
 
@@ -8,25 +9,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
-const PERSONAS = [
-  {
-    persona: 'athletes',
-    angle: 'What changes training, recovery, and performance right now.',
-  },
-  {
-    persona: 'biohackers',
-    angle: 'What this means for self-tracking, experimentation, and optimization.',
-  },
-  {
-    persona: 'clinicians',
-    angle: 'What is evidence-backed, what is uncertain, and what needs caution.',
-  },
-  {
-    persona: 'consumers',
-    angle: 'What matters before buying, subscribing, or changing habits.',
-  },
-];
-
 type PageRow = {
   id: string;
   slug: string;
@@ -34,12 +16,16 @@ type PageRow = {
   meta_description: string | null;
   template: string;
   beat: string | null;
+  intro: string | null;
+  primary_keyword: string | null;
+  body_json: DistributionPageInput['body_json'];
+  metadata: Record<string, unknown> | null;
 };
 
 async function run() {
   const { data, error } = await supabase
     .from('pages')
-    .select('id,slug,title,meta_description,template,beat')
+    .select('id,slug,title,meta_description,template,beat,intro,primary_keyword,body_json,metadata')
     .eq('status', 'published')
     .order('published_at', { ascending: false })
     .limit(80);
@@ -48,12 +34,11 @@ async function run() {
 
   let generated = 0;
   for (const page of (data ?? []) as PageRow[]) {
-    for (const persona of PERSONAS) {
+    if (!isDistributablePage(page as DistributionPageInput)) continue;
+
+    for (const variant of buildPersonaDistributionPayloads(page as DistributionPageInput)) {
       const payload = {
-        subject: `${page.title} for ${persona.persona}`,
-        hook: `${page.title}. ${persona.angle}`,
-        summary: page.meta_description ?? `RecoveryStack coverage for ${page.beat ?? 'recovery technology'}.`,
-        cta: page.template === 'news' ? `Read the full news analysis at /news/${page.slug}` : `Read the full guide at /${page.template}/${page.slug}`,
+        ...variant.payload,
         beat: page.beat,
       };
 
@@ -62,7 +47,7 @@ async function run() {
           page_id: page.id,
           page_slug: page.slug,
           channel: 'newsletter',
-          persona: persona.persona,
+          persona: variant.persona,
           status: 'draft',
           payload,
         },

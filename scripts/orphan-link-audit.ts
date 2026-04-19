@@ -6,7 +6,7 @@
  * up to 2 sibling pages based on keyword overlap.
  *
  * Pages with no inbound internal links receive zero PageRank flow from
- * your site's authority — Google deprioritises them even when crawlable.
+ * your site's authority, so Google deprioritizes them even when crawlable.
  *
  * Run: npm run orphan:audit
  */
@@ -23,6 +23,7 @@ const supabase = createClient(
 
 const MIN_INBOUND_LINKS = 3;
 const isDryRun = process.argv.includes('--dry-run') || process.env.DRY_RUN === '1';
+const SMART_RING_ONLY = process.argv.includes('--smart-ring-only');
 
 interface PageRow {
   id: string;
@@ -49,15 +50,30 @@ function keywordOverlap(a: string | null, b: string | null): number {
   const tokA = tokenize(a);
   const tokB = tokenize(b);
   let overlap = 0;
-  for (const t of tokA) { if (tokB.has(t)) overlap++; }
+  for (const t of tokA) {
+    if (tokB.has(t)) overlap++;
+  }
   return overlap / Math.max(tokA.size, tokB.size, 1);
 }
 
-function buildAnchorText(fromKeyword: string | null, toKeyword: string | null): string {
+function buildAnchorText(toKeyword: string | null): string {
   const target = toKeyword ?? 'recovery guide';
-  // Use first 4-5 meaningful words of target keyword
-  const words = target.split(' ').filter((w) => w.length > 2).slice(0, 5);
-  return words.join(' ');
+  return target
+    .split(' ')
+    .filter((w) => w.length > 2)
+    .slice(0, 5)
+    .join(' ');
+}
+
+function isSmartRingPage(page: PageRow): boolean {
+  const haystack = [
+    page.slug,
+    page.primary_keyword ?? '',
+    ...(page.secondary_keywords ?? []),
+  ].join(' ').toLowerCase();
+
+  return ['smart ring', 'ringconn', 'oura', 'ultrahuman', 'galaxy ring', 'volo ring', 'wearable ring', 'sleep ring', 'recovery ring']
+    .some((term) => haystack.includes(term));
 }
 
 async function run() {
@@ -73,35 +89,34 @@ async function run() {
   }
 
   const all = pages as PageRow[];
+  const scopedPages = SMART_RING_ONLY ? all.filter(isSmartRingPage) : all;
 
-  // Build inbound link count map: slug → count of pages that link TO it
-  const inboundCount = new Map<string, number>(all.map((p) => [p.slug, 0]));
+  const inboundCount = new Map<string, number>(scopedPages.map((p) => [p.slug, 0]));
 
-  for (const page of all) {
+  for (const page of scopedPages) {
     for (const link of page.internal_links ?? []) {
+      if (SMART_RING_ONLY && !inboundCount.has(link.slug)) continue;
       const count = inboundCount.get(link.slug) ?? 0;
       inboundCount.set(link.slug, count + 1);
     }
   }
 
-  const orphans = all.filter((p) => (inboundCount.get(p.slug) ?? 0) < MIN_INBOUND_LINKS);
+  const orphans = scopedPages.filter((p) => (inboundCount.get(p.slug) ?? 0) < MIN_INBOUND_LINKS);
 
-  console.log(`[orphan-audit] ${all.length} published pages. Orphans (< ${MIN_INBOUND_LINKS} inbound links): ${orphans.length}`);
+  console.log(`[orphan-audit] ${scopedPages.length} scoped published pages. Orphans (< ${MIN_INBOUND_LINKS} inbound links): ${orphans.length}`);
 
   if (orphans.length === 0) {
     console.log('[orphan-audit] No orphan pages found.');
     return;
   }
 
-  // Identify pillar pages as the primary donors
-  const pillars = all.filter((p) => p.template === 'pillars');
-  const nonPillars = all.filter((p) => p.template !== 'pillars');
+  const pillars = scopedPages.filter((p) => p.template === 'pillars');
+  const nonPillars = scopedPages.filter((p) => p.template !== 'pillars');
 
   let fixed = 0;
   let skipped = 0;
 
   for (const orphan of orphans) {
-    // Find best pillar to link from (same pillar_id, or highest keyword overlap)
     const bestPillar = pillars
       .filter((p) => p.id !== orphan.id)
       .sort((a, b) => {
@@ -110,7 +125,6 @@ async function run() {
         return scoreB - scoreA;
       })[0];
 
-    // Find 2 best non-pillar donor pages by keyword overlap
     const bestSiblings = nonPillars
       .filter((p) => p.id !== orphan.id && p.slug !== orphan.slug)
       .map((p) => ({
@@ -128,35 +142,32 @@ async function run() {
     const donors = [...(bestPillar ? [bestPillar] : []), ...bestSiblings];
 
     if (donors.length === 0) {
-      console.log(`  ⚠ ${orphan.slug} — no suitable donor pages found`);
+      console.log(`  ! ${orphan.slug} - no suitable donor pages found`);
       skipped++;
       continue;
     }
 
     const newLink = {
       slug: orphan.slug,
-      anchor: buildAnchorText(donors[0]?.primary_keyword ?? null, orphan.primary_keyword),
+      anchor: buildAnchorText(orphan.primary_keyword),
       template: orphan.template,
     };
 
-    console.log(`  → Linking to "${orphan.slug}" from: ${donors.map((d) => d.slug).join(', ')}`);
+    console.log(`  -> Linking to "${orphan.slug}" from: ${donors.map((d) => d.slug).join(', ')}`);
 
     if (!isDryRun) {
-      // Update each donor page to include a link to the orphan
       for (const donor of donors) {
         const existingLinks = donor.internal_links ?? [];
-        // Don't add duplicate link
         if (existingLinks.some((l) => l.slug === orphan.slug)) continue;
 
         const updatedLinks = [...existingLinks, newLink];
-
         const { error: updateErr } = await supabase
           .from('pages')
           .update({ internal_links: updatedLinks })
           .eq('id', donor.id);
 
         if (updateErr) {
-          console.warn(`  ✗ Failed to update ${donor.slug}: ${updateErr.message}`);
+          console.warn(`  x Failed to update ${donor.slug}: ${updateErr.message}`);
         }
       }
     }

@@ -15,6 +15,8 @@ type AssetRow = {
   page_slug: string;
   channel: string;
   status: string;
+  asset_type?: string | null;
+  payload?: Record<string, unknown> | null;
 };
 
 type ConversionAggRow = {
@@ -27,7 +29,7 @@ async function run() {
   const [assetsResult, conversionsResult] = await Promise.all([
     supabase
       .from('distribution_assets')
-      .select('id,page_slug,channel,status')
+      .select('id,page_slug,channel,status,asset_type,payload')
       .limit(2000),
     supabase
       .from('page_conversion_aggregates')
@@ -77,6 +79,11 @@ async function run() {
       metadata: {
         rollup_source: 'page_conversion_aggregates',
         asset_channel: asset.channel,
+        asset_type: asset.asset_type ?? null,
+        angle_type: asset.payload?.angle_type ?? null,
+        persona: asset.payload?.persona ?? null,
+        claim_type: asset.payload?.claim_type ?? null,
+        evidence_type: asset.payload?.evidence_type ?? null,
       },
     }, {
       onConflict: 'asset_id,metric_date',

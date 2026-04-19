@@ -25,7 +25,7 @@ function collectText(page: any) {
 async function run() {
   const { data: pages, error } = await supabase
     .from('pages')
-    .select('id,slug,title,intro,body_json,internal_links,metadata')
+    .select('id,slug,title,intro,body_json,internal_links')
     .eq('status', 'published')
     .limit(300);
 
@@ -66,13 +66,16 @@ async function run() {
       },
     });
 
-    const metadata = {
-      ...(page.metadata ?? {}),
-      seo_quality_score: score.total,
-      seo_quality_scored_at: new Date().toISOString(),
-    };
-
-    await supabase.from('pages').update({ metadata }).eq('id', page.id);
+    // Write quality_score column (added by migration 0037).
+    // metadata column added by migration 0023 — try both, fall back gracefully.
+    const { error: updateErr } = await supabase
+      .from('pages')
+      .update({ quality_score: score.total })
+      .eq('id', page.id);
+    if (updateErr) {
+      // Neither column exists yet — score is recorded in page_quality_scores table only
+      console.warn(`[page-quality-scorer] could not write score to pages for '${page.slug}': ${updateErr.message}`);
+    }
 
     if (score.total < 60) {
       await supabase.from('page_refresh_signals').upsert({

@@ -8,6 +8,9 @@ const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env
 const isDryRun = process.argv.includes('--dry-run') || process.env.DRY_RUN === '1';
 const isVerifyMode = process.argv.includes('--verify') || process.env.VERIFY_LINKS === '1';
 
+// Templates whose pages are "money pages" — highest-priority link targets
+const MONEY_PAGE_TEMPLATES = ['pillars'] as const;
+
 type PageRow = {
   id: string;
   slug: string;
@@ -16,7 +19,7 @@ type PageRow = {
   secondary_keywords: string[] | null;
   query_targets?: string[] | null;
   pillar_id: string | null;
-  internal_links: Array<{ slug?: string; template?: string; anchor?: string }> | null;
+  internal_links: Array<{ slug?: string; template?: string; anchor?: string; is_money_page?: boolean }> | null;
   published_at: string | null;
   updated_at: string | null;
 };
@@ -127,10 +130,15 @@ async function run() {
           ...(p.query_targets ?? []),
         ].map((k) => k.toLowerCase());
         const overlap = newsKeywords.filter((k) => pageKeywords.some((pk) => pk.includes(k) || k.includes(pk))).length;
-        return { ...p, overlap };
+        const isMoneyPage = (MONEY_PAGE_TEMPLATES as readonly string[]).includes(p.template);
+        return { ...p, overlap, isMoneyPage };
       })
       .filter((p) => p.overlap > 0)
-      .sort((a, b) => b.overlap - a.overlap)
+      // Money pages sort first so the first link always points to a pillar when one matches
+      .sort((a, b) => {
+        if (a.isMoneyPage !== b.isMoneyPage) return a.isMoneyPage ? -1 : 1;
+        return b.overlap - a.overlap;
+      })
       .slice(0, 3);
 
     if (candidates.length === 0) {
@@ -142,6 +150,7 @@ async function run() {
       slug: c.slug,
       template: c.template,
       anchor: c.primary_keyword ?? c.slug,
+      ...(c.isMoneyPage ? { is_money_page: true } : {}),
     })).filter((l) => validSlugs.has(l.slug));
 
     assertNoGenericAnchors(page.slug, internal_links);
