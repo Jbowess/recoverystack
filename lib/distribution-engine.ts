@@ -3,6 +3,7 @@ import { assessTrendRelevance } from '@/lib/trend-relevance';
 import { isSmartRingKeyword } from '@/lib/market-focus';
 
 export type DistributionChannel =
+  | 'bluesky'
   | 'x'
   | 'linkedin'
   | 'instagram'
@@ -117,6 +118,7 @@ type RepurposingSeries =
   | 'signal_explained';
 
 const CHANNEL_HASHTAGS: Record<DistributionChannel, string[]> = {
+  bluesky: ['RecoveryTech', 'SmartRing', 'WearableTech'],
   x: ['RecoveryTech', 'SmartRing', 'WearableTech'],
   linkedin: ['WearableTech', 'RecoveryTech', 'FitnessTechnology'],
   instagram: ['SmartRing', 'RecoveryTech', 'SleepTracking'],

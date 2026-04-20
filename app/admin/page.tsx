@@ -150,6 +150,7 @@ async function getDashboardData() {
     { count: refreshQueueCount },
     migrationReadiness,
     componentLibraryRows,
+    originalityPageRows,
     performanceFingerprintRows,
     keywordQueueRows,
     clusterMetricsRows,
@@ -169,14 +170,23 @@ async function getDashboardData() {
     leadMagnetRows,
     creatorRelationshipRows,
     serpSnapshotRows,
+    brandMemoryRows,
+    narrativeRows,
+    shareOfVoiceRows,
+    influenceNodeRows,
+    campaignRows,
+    executiveAttributionRows,
+    moatRows,
+    riskRows,
+    cockpitRows,
     newsroomFeedRows,
     newsroomEventRows,
     newsroomEntityRows,
     newsroomStorylineRows,
   ] = await Promise.all([
     supabaseAdmin.from('trends').select('*').eq('status', 'new').order('created_at', { ascending: false }).limit(100),
-    supabaseAdmin.from('pages').select('id,slug,title,template,status,updated_at').in('status', ['draft', 'approved']).order('updated_at', { ascending: false }).limit(100),
-    supabaseAdmin.from('pages').select('id,slug,title,template,published_at').eq('status', 'published').order('published_at', { ascending: false }).limit(100),
+    supabaseAdmin.from('pages').select('id,slug,title,template,status,updated_at,originality_score,originality_status').in('status', ['draft', 'approved']).order('updated_at', { ascending: false }).limit(100),
+    supabaseAdmin.from('pages').select('id,slug,title,template,published_at,originality_score,originality_status').eq('status', 'published').order('published_at', { ascending: false }).limit(100),
     supabaseAdmin.from('pages').select('template').neq('template', ''),
     supabaseAdmin.from('deploy_events').select('created_at,status,detail').order('created_at', { ascending: false }).limit(1),
     supabaseAdmin.from('pipeline_runs').select('id,pipeline_name,status,started_at,finished_at,duration_ms,error_message').order('started_at', { ascending: false }).limit(1),
@@ -199,6 +209,7 @@ async function getDashboardData() {
     supabaseAdmin.from('content_refresh_queue').select('id', { count: 'exact', head: true }).eq('status', 'queued'),
     getMigrationReadinessReport(),
     safeSelect('component_library', 'cluster,name,weight,active'),
+    safeSelect('pages', 'originality_status,originality_score,status', 400),
     safeSelect('performance_fingerprints', 'template,top_performer_count,avg_word_count,avg_faq_count,best_ctr_word_range,computed_at'),
     safeSelect('keyword_queue', 'status,source'),
     safeSelect('cluster_metrics', '*', 300),
@@ -218,6 +229,15 @@ async function getDashboardData() {
     safeSelect('lead_magnet_offers', 'slug,status,target_segment'),
     safeSelect('creator_relationships', 'relationship_stage,primary_platform'),
     safeSelect('serp_snapshot_history', 'source'),
+    safeSelect('brand_memory_entries', 'memory_type,priority'),
+    safeSelect('narrative_control_centers', 'narrative_type,status'),
+    safeSelect('share_of_voice_snapshots', 'channel,visibility_score,engagement_score,conversion_score,authority_score'),
+    safeSelect('influence_graph_nodes', 'node_type,influence_score,relationship_score'),
+    safeSelect('campaign_portfolios', 'status,expected_reach,actual_reach,actual_conversions'),
+    safeSelect('executive_attribution_rollups', 'channel,content_influence_score,creator_influence_score,first_touch_revenue_usd,assisted_revenue_usd'),
+    safeSelect('brand_moat_snapshots', 'moat_score'),
+    safeSelect('brand_risk_alerts', 'risk_type,severity,status'),
+    safeSelect('executive_cockpit_snapshots', 'brand_score,narrative_alignment_score,share_of_voice_score,influence_score,attribution_score,moat_score,risk_score'),
     safeSelect('news_source_feeds', 'beat,active'),
     safeSelect('news_source_events', 'status,event_type,beat'),
     safeSelect('topic_entities', 'entity_type,beat,authority_score'),
@@ -239,6 +259,13 @@ async function getDashboardData() {
     : { data: [] as any[] };
 
   const componentByCluster = countBy(componentLibraryRows.data, 'cluster');
+  const originalityByStatus = countBy(originalityPageRows.data, 'originality_status');
+  const originalityValues = originalityPageRows.data
+    .map((row: any) => Number(row.originality_score))
+    .filter((value: number) => Number.isFinite(value));
+  const originalityAverage = originalityValues.length
+    ? Number((originalityValues.reduce((sum: number, value: number) => sum + value, 0) / originalityValues.length).toFixed(1))
+    : null;
   const componentTopWeights = topWeightedByCluster(componentLibraryRows.data);
   const keywordByStatus = countBy(keywordQueueRows.data, 'status');
   const keywordBySource = countBy(keywordQueueRows.data, 'source');
@@ -268,6 +295,17 @@ async function getDashboardData() {
   const leadMagnetByStatus = countBy(leadMagnetRows.data, 'status');
   const creatorByStage = countBy(creatorRelationshipRows.data, 'relationship_stage');
   const serpSnapshotsBySource = countBy(serpSnapshotRows.data, 'source');
+  const brandMemoryByType = countBy(brandMemoryRows.data, 'memory_type');
+  const narrativeByType = countBy(narrativeRows.data, 'narrative_type');
+  const shareOfVoiceSummary = numericSummary(shareOfVoiceRows.data);
+  const influenceByType = countBy(influenceNodeRows.data, 'node_type');
+  const campaignByStatus = countBy(campaignRows.data, 'status');
+  const campaignSummary = numericSummary(campaignRows.data);
+  const executiveAttributionSummary = numericSummary(executiveAttributionRows.data);
+  const moatSummary = numericSummary(moatRows.data);
+  const riskByType = countBy(riskRows.data, 'risk_type');
+  const riskBySeverity = countBy(riskRows.data, 'severity');
+  const cockpitSummary = numericSummary(cockpitRows.data);
   const newsroomFeedsByBeat = countBy(newsroomFeedRows.data, 'beat');
   const newsroomEventsByStatus = countBy(newsroomEventRows.data, 'status');
   const newsroomEventsByType = countBy(newsroomEventRows.data, 'event_type');
@@ -296,6 +334,12 @@ async function getDashboardData() {
       topWeights: componentTopWeights,
       total: componentLibraryRows.data.length,
       error: componentLibraryRows.error,
+    },
+    originality: {
+      byStatus: originalityByStatus,
+      average: originalityAverage,
+      total: originalityValues.length,
+      error: originalityPageRows.error,
     },
     feedbackLoop: {
       fingerprints: performanceFingerprintRows.data,
@@ -366,6 +410,34 @@ async function getDashboardData() {
         leadMagnetRows.error ||
         creatorRelationshipRows.error ||
         serpSnapshotRows.error,
+    },
+    brandOperatingSystem: {
+      brandMemoryByType,
+      brandMemoryTotal: brandMemoryRows.data.length,
+      narrativeByType,
+      narrativeTotal: narrativeRows.data.length,
+      shareOfVoiceSummary,
+      influenceByType,
+      influenceTotal: influenceNodeRows.data.length,
+      campaignByStatus,
+      campaignSummary,
+      campaignTotal: campaignRows.data.length,
+      executiveAttributionSummary,
+      moatSummary,
+      riskByType,
+      riskBySeverity,
+      riskTotal: riskRows.data.length,
+      cockpitSummary,
+      error:
+        brandMemoryRows.error ||
+        narrativeRows.error ||
+        shareOfVoiceRows.error ||
+        influenceNodeRows.error ||
+        campaignRows.error ||
+        executiveAttributionRows.error ||
+        moatRows.error ||
+        riskRows.error ||
+        cockpitRows.error,
     },
     newsroom: {
       feedsByBeat: newsroomFeedsByBeat,
@@ -845,8 +917,52 @@ export default async function AdminDashboard({
         )}
       </section>
 
+      <section style={{ marginTop: 24, border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
+        <h2 style={{ marginTop: 0 }}>Brand OS</h2>
+        {data.brandOperatingSystem.error ? (
+          <p style={{ color: '#b91c1c' }}>Brand OS data unavailable: {data.brandOperatingSystem.error}</p>
+        ) : (
+          <>
+            <p style={{ color: '#4b5563', marginTop: 0 }}>
+              Memory entries: {data.brandOperatingSystem.brandMemoryTotal} Â· narratives: {data.brandOperatingSystem.narrativeTotal} Â·
+              influence nodes: {data.brandOperatingSystem.influenceTotal} Â· campaigns: {data.brandOperatingSystem.campaignTotal} Â·
+              open risks: {data.brandOperatingSystem.riskTotal}
+            </p>
+            <ul>
+              {Object.entries(data.brandOperatingSystem.brandMemoryByType).map(([label, count]) => (
+                <li key={`memory-${label}`}>memory {label}: {count}</li>
+              ))}
+              {Object.entries(data.brandOperatingSystem.narrativeByType).map(([label, count]) => (
+                <li key={`narrative-${label}`}>narrative {label}: {count}</li>
+              ))}
+              {Object.entries(data.brandOperatingSystem.influenceByType).map(([label, count]) => (
+                <li key={`influence-${label}`}>influence {label}: {count}</li>
+              ))}
+              {Object.entries(data.brandOperatingSystem.campaignByStatus).map(([label, count]) => (
+                <li key={`campaign-${label}`}>campaign {label}: {count}</li>
+              ))}
+              {Object.entries(data.brandOperatingSystem.riskBySeverity).map(([label, count]) => (
+                <li key={`risk-sev-${label}`}>risk severity {label}: {count}</li>
+              ))}
+            </ul>
+            <p style={{ color: '#4b5563' }}>
+              Share of voice rows: {data.brandOperatingSystem.shareOfVoiceSummary.rowCount} Â·
+              executive attribution rows: {data.brandOperatingSystem.executiveAttributionSummary.rowCount} Â·
+              cockpit snapshots: {data.brandOperatingSystem.cockpitSummary.rowCount}
+            </p>
+          </>
+        )}
+      </section>
+
       <section style={{ marginTop: 24 }}>
         <h2>Trend queue (status=new)</h2>
+        <p style={{ color: '#4b5563' }}>
+          Originality coverage: {data.originality.total} page(s)
+          {typeof data.originality.average === 'number' ? ` Â· avg score ${data.originality.average}` : ''}
+          {Object.keys(data.originality.byStatus).length
+            ? ` Â· ${Object.entries(data.originality.byStatus).map(([key, value]) => `${key}:${value}`).join(' | ')}`
+            : ''}
+        </p>
         <ul>
           {data.newTrends.map((trend: any) => (
             <li key={trend.id}>
@@ -895,6 +1011,11 @@ export default async function AdminDashboard({
           {data.drafts.map((d: any) => (
             <li key={d.id}>
               <strong>{d.title}</strong> <span style={{ color: '#4b5563' }}>({d.status})</span>
+              {typeof d.originality_score === 'number' ? (
+                <span style={{ color: '#4b5563', marginLeft: 8 }}>
+                  originality {d.originality_score} ({d.originality_status ?? 'n/a'})
+                </span>
+              ) : null}
               <form method="post" action={`/api/admin/drafts/${d.id}`} style={{ display: 'inline-block', marginLeft: 8 }}>
                 <input type="hidden" name="action" value="publish" />
                 <button type="submit">Publish</button>
@@ -914,6 +1035,11 @@ export default async function AdminDashboard({
           {data.published.slice(0, 30).map((p: any) => (
             <li key={p.id}>
               <Link href={`/${p.template}/${p.slug}` as any}>{p.title}</Link>
+              {typeof p.originality_score === 'number' ? (
+                <span style={{ color: '#4b5563', marginLeft: 8 }}>
+                  originality {p.originality_score} ({p.originality_status ?? 'n/a'})
+                </span>
+              ) : null}
               <form method="post" action={`/api/admin/pages/${p.id}/regenerate`} style={{ display: 'inline-block', marginLeft: 8 }}>
                 <input type="hidden" name="action" value="regenerate" />
                 <button type="submit">Regenerate</button>

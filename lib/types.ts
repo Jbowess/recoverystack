@@ -79,6 +79,18 @@ export type ReviewMethodology = {
   use_cases?: string[];
 };
 
+export type RepurposingSourcePack = {
+  primary_thesis: string;
+  contrarian_line: string;
+  quoted_stat: string;
+  strongest_objection: string;
+  best_for_split: string;
+  avoid_if_split: string;
+  emotional_tension: string;
+  decision_trigger: string;
+  visual_hook: string;
+};
+
 export type InfoGainFeeds = {
   scientific_alpha?: {
     source: 'pubmed';
@@ -123,6 +135,7 @@ export type PageRecord = {
     key_takeaways?: string[];
     references?: PageReference[];
     review_methodology?: ReviewMethodology;
+    repurposing_source_pack?: RepurposingSourcePack;
     info_gain_feeds?: InfoGainFeeds;
     newsroom_context?: {
       story_summary?: string;

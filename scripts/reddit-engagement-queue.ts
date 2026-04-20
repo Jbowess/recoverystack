@@ -3,20 +3,6 @@
  *
  * Surfaces real Reddit questions from community_qa that match published pages
  * and generates concise, genuine comment drafts ready for manual review and posting.
- *
- * Difference from distribution-asset-generator's reddit discussion_draft:
- *   - That generates proactive posts/threads you start yourself
- *   - This generates *replies* to questions people are already asking,
- *     with the reddit_url and subreddit attached so you know exactly where to go
- *
- * Output: distribution_assets rows with channel='reddit', asset_type='comment_reply'.
- * Each row includes the source Reddit URL, subreddit, upvote count, and a
- * comment draft under 500 chars (Reddit comment sweet spot for engagement).
- *
- * Usage:
- *   npx tsx scripts/reddit-engagement-queue.ts
- *   npx tsx scripts/reddit-engagement-queue.ts --dry-run
- *   npx tsx scripts/reddit-engagement-queue.ts --min-upvotes=10
  */
 
 import { config } from 'dotenv';
@@ -70,24 +56,26 @@ function buildPageUrl(page: PageRow): string {
   return `${MAIN_SITE_URL}/${page.template}/${page.slug}`;
 }
 
-function buildCommentDraft(question: string, page: PageRow, qa: CommunityQaRow): string {
+function buildCommentDraft(page: PageRow, qa: CommunityQaRow): string {
   const keyword = page.primary_keyword ?? page.title;
   const pageUrl = buildTrackedUrl(buildPageUrl(page), 'reddit', 'comment_reply', page.slug);
-
-  // Use existing best_answer if available, otherwise build from page signals
   const answerSeed = qa.user_language ?? qa.best_answer ?? page.meta_description ?? '';
   const answerCore = answerSeed.length > 20
     ? answerSeed.slice(0, 200).trim()
-    : `${keyword} is worth checking — the main tradeoff is accuracy vs cost.`;
-
-  // Keep under 500 chars: answer directly, then offer the resource naturally
+    : `${keyword} is worth checking; the main tradeoff is accuracy vs cost.`;
   const draft = `${answerCore.charAt(0).toUpperCase() + answerCore.slice(1).replace(/\.$/, '')}. I put together a full breakdown comparing the options here if it helps: ${pageUrl}`;
+  return draft.length > 500 ? `${draft.slice(0, 490).trim()}...` : draft;
+}
 
+function buildFollowupDraft(page: PageRow, qa: CommunityQaRow): string {
+  const keyword = page.primary_keyword ?? page.title;
+  const pageUrl = buildTrackedUrl(buildPageUrl(page), 'reddit', 'comment_followup', page.slug);
+  const challenge = qa.best_answer ?? page.meta_description ?? 'the real tradeoff is not obvious at first glance';
+  const draft = `One more useful angle on ${keyword}: ${challenge}. If you want the full buyer breakdown, it's here: ${pageUrl}`;
   return draft.length > 500 ? `${draft.slice(0, 490).trim()}...` : draft;
 }
 
 async function run(): Promise<void> {
-  // Load Reddit questions with matched pages
   const { data: qaRows, error: qaError } = await supabase
     .from('community_qa')
     .select('id,keyword,page_slug,source,source_url,question,best_answer,upvotes,reply_count,sentiment,user_language,relevance_score')
@@ -100,7 +88,7 @@ async function run(): Promise<void> {
 
   if (qaError) {
     if (qaError.message.includes('community_qa')) {
-      console.log('[reddit-engagement-queue] community_qa table not yet populated — run `npm run community:mine` first');
+      console.log('[reddit-engagement-queue] community_qa table not yet populated - run `npm run community:mine` first');
       return;
     }
     throw qaError;
@@ -111,7 +99,6 @@ async function run(): Promise<void> {
     return;
   }
 
-  // Load corresponding published pages
   const pageSlugs = [...new Set(qaRows.map((r) => r.page_slug).filter(Boolean))] as string[];
   const { data: pages, error: pageError } = await supabase
     .from('pages')
@@ -122,8 +109,6 @@ async function run(): Promise<void> {
   if (pageError) throw pageError;
 
   const pageMap = new Map((pages ?? []).map((p) => [p.slug, p as PageRow]));
-
-  // Deduplicate: one opportunity per source_url (don't generate multiple drafts for the same thread)
   const seenUrls = new Set<string>();
   const opportunities: Array<{ qa: CommunityQaRow; page: PageRow }> = [];
 
@@ -143,38 +128,68 @@ async function run(): Promise<void> {
 
   for (const { qa, page } of opportunities) {
     const subreddit = extractSubreddit(qa.source_url);
-    const commentDraft = buildCommentDraft(qa.question, page, qa);
     const trackedUrl = buildTrackedUrl(buildPageUrl(page), 'reddit', 'comment_reply', page.slug);
 
-    console.log(`[reddit-engagement-queue] ${subreddit ?? 'unknown'} | upvotes=${qa.upvotes} | "${qa.question.slice(0, 60)}..."`);
-
     if (!DRY_RUN) {
-      const { error } = await supabase.from('distribution_assets').upsert({
-        page_id: page.id,
-        page_slug: page.slug,
-        page_template: page.template,
-        channel: 'reddit',
-        asset_type: 'comment_reply',
-        status: 'draft',
-        title: `Reply opportunity: ${qa.question.slice(0, 80)}`,
-        hook: qa.question,
-        summary: `${subreddit ?? 'Reddit'} — ${qa.upvotes ?? 0} upvotes, ${qa.reply_count ?? 0} replies`,
-        body: commentDraft,
-        cta_label: 'Post this reply',
-        cta_url: qa.source_url!,
-        hashtags: [],
-        source_url: qa.source_url!,
-        payload: {
-          reddit_url: qa.source_url,
-          subreddit,
-          upvotes: qa.upvotes,
-          reply_count: qa.reply_count,
-          sentiment: qa.sentiment,
-          original_question: qa.question,
-          page_url: trackedUrl,
-          asset_family: 'reddit_reply',
+      const rows = [
+        {
+          page_id: page.id,
+          page_slug: page.slug,
+          page_template: page.template,
+          channel: 'reddit',
+          asset_type: 'comment_reply',
+          status: 'draft',
+          title: `Reply opportunity: ${qa.question.slice(0, 80)}`,
+          hook: qa.question,
+          summary: `${subreddit ?? 'Reddit'} - ${qa.upvotes ?? 0} upvotes, ${qa.reply_count ?? 0} replies`,
+          body: buildCommentDraft(page, qa),
+          cta_label: 'Post this reply',
+          cta_url: qa.source_url!,
+          hashtags: [],
+          source_url: qa.source_url!,
+          payload: {
+            reddit_url: qa.source_url,
+            subreddit,
+            upvotes: qa.upvotes,
+            reply_count: qa.reply_count,
+            sentiment: qa.sentiment,
+            original_question: qa.question,
+            page_url: trackedUrl,
+            asset_family: 'reddit_reply',
+            opportunity_score: Number(qa.upvotes ?? 0) + Number(qa.reply_count ?? 0) * 2 + Number(qa.relevance_score ?? 0),
+          },
         },
-      }, { onConflict: 'page_id,channel,asset_type' });
+        {
+          page_id: page.id,
+          page_slug: page.slug,
+          page_template: page.template,
+          channel: 'reddit',
+          asset_type: 'comment_followup',
+          status: 'draft',
+          title: `Follow-up angle: ${qa.question.slice(0, 80)}`,
+          hook: `Follow-up for ${qa.question}`,
+          summary: `${subreddit ?? 'Reddit'} follow-up comment draft`,
+          body: buildFollowupDraft(page, qa),
+          cta_label: 'Post follow-up',
+          cta_url: qa.source_url!,
+          hashtags: [],
+          source_url: qa.source_url!,
+          payload: {
+            reddit_url: qa.source_url,
+            subreddit,
+            upvotes: qa.upvotes,
+            reply_count: qa.reply_count,
+            sentiment: qa.sentiment,
+            original_question: qa.question,
+            page_url: trackedUrl,
+            asset_family: 'reddit_reply_followup',
+          },
+        },
+      ];
+
+      const { error } = await supabase.from('distribution_assets').upsert(rows, {
+        onConflict: 'page_id,channel,asset_type',
+      });
 
       if (error) console.warn(`[reddit-engagement-queue] ${page.slug}: ${error.message}`);
       else queued++;

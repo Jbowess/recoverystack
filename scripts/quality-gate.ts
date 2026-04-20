@@ -1,26 +1,17 @@
 import { config } from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import { runPublishGuards } from '@/lib/publish-guards';
-import { checkContentUniqueness, storeContentFingerprint, computeSimhash } from '@/lib/content-uniqueness';
+import { checkContentUniqueness, storeContentFingerprint } from '@/lib/content-uniqueness';
+import { assessOriginality, buildOriginalityPeer, collectPageText, persistOriginalityAssessment } from '@/lib/originality-system';
 
 config({ path: '.env.local' });
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
-function collectAllText(page: any): string {
-  const parts: string[] = [page.title ?? '', page.intro ?? ''];
-  const sections = page.body_json?.sections ?? [];
-  for (const s of sections) {
-    parts.push(s.heading ?? '');
-    parts.push(typeof s.content === 'string' ? s.content : JSON.stringify(s.content ?? ''));
-  }
-  return parts.join(' ');
-}
-
 async function run() {
   const { data: pages, error } = await supabase
     .from('pages')
-    .select('id,slug,status,template,title,meta_description,intro,body_json,schema_org,internal_links,primary_keyword')
+    .select('id,slug,status,template,title,h1,meta_description,intro,body_json,schema_org,internal_links,primary_keyword,secondary_keywords,metadata')
     .in('status', ['published', 'approved']);
 
   if (error) {
@@ -29,12 +20,13 @@ async function run() {
 
   const failures: Array<{ id: string; slug: string; template: string | null; errors: string[] }> = [];
   let passed = 0;
+  const peers = (pages ?? []).map((page) => buildOriginalityPeer(page as any));
 
   for (const page of pages ?? []) {
     const errors = runPublishGuards(page);
+    const allText = collectPageText(page as any);
+    const originality = assessOriginality(page as any, peers);
 
-    // Content uniqueness check
-    const allText = collectAllText(page);
     const uniqueness = await checkContentUniqueness(
       page.slug,
       allText,
@@ -44,6 +36,22 @@ async function run() {
     if (uniqueness.isDuplicate) {
       errors.push(
         `near-duplicate content: ${Math.round((uniqueness.similarity ?? 0) * 100)}% similar to "${uniqueness.closestSlug}"`,
+      );
+    }
+
+    if (originality.status === 'fail') {
+      errors.push(
+        `originality gate failed: score=${originality.totalScore}; ${originality.failReasons.join('; ')}`,
+      );
+    }
+
+    try {
+      await persistOriginalityAssessment(supabase as any, page as any, originality);
+    } catch (persistError) {
+      console.warn(
+        `[quality-gate] originality persistence failed for ${page.slug}: ${
+          persistError instanceof Error ? persistError.message : String(persistError)
+        }`,
       );
     }
 

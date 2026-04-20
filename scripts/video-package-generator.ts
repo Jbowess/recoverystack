@@ -28,6 +28,7 @@ async function run() {
   for (const row of (data ?? []) as any[]) {
     const base = row.title ?? row.page_slug;
     const proof = Array.isArray(row.payload?.source_signals) ? String(row.payload.source_signals[0] ?? row.summary ?? '') : String(row.summary ?? '');
+    const objection = String(row.payload?.strongest_objection ?? row.summary ?? 'The decision changes when cost, comfort, or signal quality breaks.');
     const rows = [
       {
         page_id: row.page_id,
@@ -64,6 +65,66 @@ async function run() {
         summary: 'YouTube title/description pack.',
         body: [`Title: ${base}`, `Description: ${row.summary ?? ''}`, `CTA: Link to full article.`].join('\n\n'),
         payload: { derived_from_asset_id: row.id, package_type: 'youtube_seo_pack' },
+      },
+      {
+        page_id: row.page_id,
+        page_slug: row.page_slug,
+        page_template: 'video_package',
+        channel: 'short_video',
+        asset_type: 'shot_list',
+        status: 'approved',
+        title: `${base} shot list`,
+        summary: 'Shot list for short-form production.',
+        body: ['Shot 1: face-to-camera hook', 'Shot 2: product or article screenshot', `Shot 3: proof overlay - ${proof}`, `Shot 4: objection line - ${objection}`, 'Shot 5: CTA to the full page'].join('\n'),
+        payload: { derived_from_asset_id: row.id, package_type: 'shot_list' },
+      },
+      {
+        page_id: row.page_id,
+        page_slug: row.page_slug,
+        page_template: 'video_package',
+        channel: 'short_video',
+        asset_type: 'caption_pack',
+        status: 'approved',
+        title: `${base} caption pack`,
+        summary: 'Caption variants for short-form posting.',
+        body: [`Caption A: ${row.hook}`, `Caption B: ${proof}`, `Caption C: ${objection}`].join('\n\n'),
+        payload: { derived_from_asset_id: row.id, package_type: 'captions' },
+      },
+      {
+        page_id: row.page_id,
+        page_slug: row.page_slug,
+        page_template: 'video_package',
+        channel: 'short_video',
+        asset_type: 'onscreen_text_pack',
+        status: 'approved',
+        title: `${base} on-screen text`,
+        summary: 'On-screen text and hook overlays.',
+        body: [`Overlay 1: ${row.hook}`, `Overlay 2: ${proof}`, `Overlay 3: ${objection}`].join('\n\n'),
+        payload: { derived_from_asset_id: row.id, package_type: 'on_screen_text' },
+      },
+      {
+        page_id: row.page_id,
+        page_slug: row.page_slug,
+        page_template: 'video_package',
+        channel: 'short_video',
+        asset_type: 'broll_suggestions',
+        status: 'approved',
+        title: `${base} b-roll suggestions`,
+        summary: 'B-roll and cutaway suggestions.',
+        body: ['Phone app close-up', 'Ring macro shot', 'Scorecard graphic', 'Comparison table crop', 'CTA end-frame'].join('\n'),
+        payload: { derived_from_asset_id: row.id, package_type: 'broll_suggestions' },
+      },
+      {
+        page_id: row.page_id,
+        page_slug: row.page_slug,
+        page_template: 'video_package',
+        channel: 'short_video',
+        asset_type: 'thumbnail_text_pack',
+        status: 'approved',
+        title: `${base} thumbnail text`,
+        summary: 'Thumbnail text for video variants.',
+        body: [`Thumb 1: ${base}`, 'Thumb 2: What buyers miss', 'Thumb 3: Avoid this if...'].join('\n'),
+        payload: { derived_from_asset_id: row.id, package_type: 'thumbnail_text' },
       },
     ];
 

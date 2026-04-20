@@ -6,10 +6,12 @@ import ExitIntentModal from '@/components/ExitIntentModal';
 import NewsletterForm from '@/components/NewsletterForm';
 import PillarLink from '@/components/PillarLink';
 import ReadingProgressBar from '@/components/ReadingProgressBar';
+import RecoveryStackScorecard from '@/components/RecoveryStackScorecard';
 import ShareBar from '@/components/ShareBar';
 import TableOfContents from '@/components/TableOfContents';
 import { MAIN_SITE_URL, NEWSLETTER_URL, PRODUCT_NAME } from '@/lib/brand';
 import { getEditorialMetadata } from '@/lib/editorial';
+import { getRecoveryStackScorecard } from '@/lib/recoverystack-score';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import type { InfoGainFeeds, InternalLink, PageBodySection, PageRecord } from '@/lib/types';
 
@@ -311,6 +313,44 @@ function renderReferences(page: PageRecord) {
   );
 }
 
+function renderBrandLandingLoop(page: PageRecord) {
+  const landingLoop = page.metadata?.brand_landing_loop as {
+    title?: string;
+    thesis?: string;
+    proof_points?: string[];
+    next_steps?: Array<{ slug?: string; template?: string; title?: string }>;
+    newsletter_pitch?: string;
+  } | undefined;
+
+  if (!landingLoop) return null;
+
+  return (
+    <section className="rs-article rs-card" aria-labelledby="brand-loop-heading">
+      <h2 id="brand-loop-heading">{landingLoop.title ?? 'Why RecoveryStack is useful here'}</h2>
+      {landingLoop.thesis ? <p>{landingLoop.thesis}</p> : null}
+      {landingLoop.proof_points?.length ? (
+        <ul>
+          {landingLoop.proof_points.map((point, index) => <li key={`brand-proof-${index}`}>{point}</li>)}
+        </ul>
+      ) : null}
+      {landingLoop.next_steps?.length ? (
+        <>
+          <h3>Keep going</h3>
+          <div className="rs-grid">
+            {landingLoop.next_steps.map((step, index) => (
+              <article className="rs-card" key={`brand-step-${index}`}>
+                <h4 style={{ marginTop: 0 }}>{step.title ?? step.slug}</h4>
+                {step.slug && step.template ? <a href={`/${step.template}/${step.slug}`}>Open next page</a> : null}
+              </article>
+            ))}
+          </div>
+        </>
+      ) : null}
+      {landingLoop.newsletter_pitch ? <p style={{ marginTop: '1rem' }}>{landingLoop.newsletter_pitch}</p> : null}
+    </section>
+  );
+}
+
 function buildTocItems(page: PageRecord): Array<{ id: string; text: string }> {
   const sections = page.body_json?.sections ?? [];
   const items = sections.map((s) => ({ id: `section-${s.id}`, text: s.heading }));
@@ -320,6 +360,7 @@ function buildTocItems(page: PageRecord): Array<{ id: string; text: string }> {
   if (page.body_json?.review_methodology) {
     items.push({ id: 'methodology-heading', text: 'How we evaluated this topic' });
   }
+  items.push({ id: 'scorecard-heading', text: 'RecoveryStack Score' });
   items.push({ id: 'visual-insights-heading', text: 'Visual insights' });
   if ((page.body_json?.verdict ?? []).length > 0) {
     items.push({ id: 'verdict-heading', text: 'RecoveryStack Verdict' });
@@ -352,6 +393,7 @@ export default async function TemplatePage({ page, pillarLink, siblingLinks, sch
   const backTo = `/${page.template}`;
   const tocItems = buildTocItems(page);
   const editorial = getEditorialMetadata(page);
+  const scorecard = getRecoveryStackScorecard(page);
   const referenceCount = page.body_json?.references?.length ?? 0;
   const supportingVisuals = await loadSupportingVisuals(page.id);
 
@@ -428,6 +470,10 @@ export default async function TemplatePage({ page, pillarLink, siblingLinks, sch
 
               <ShareBar title={page.title} />
             </div>
+
+            <aside className="rs-hero-aside">
+              <RecoveryStackScorecard scorecard={scorecard} />
+            </aside>
           </div>
         </div>
       </section>
@@ -503,6 +549,8 @@ export default async function TemplatePage({ page, pillarLink, siblingLinks, sch
               <h2 id="compatibility-heading">Compatibility checker</h2>
               <CompatibilityCheckerWidget pageSlug={page.slug} pageTemplate={page.template} />
             </section>
+
+            {renderBrandLandingLoop(page)}
 
             <section className="rs-article rs-card" aria-labelledby="conversion-heading">
               <h2 id="conversion-heading">Next step</h2>

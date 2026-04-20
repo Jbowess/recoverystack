@@ -187,6 +187,17 @@ const BodySchema = z.object({
       use_cases: z.array(z.string()).optional(),
     })
     .optional(),
+  repurposing_source_pack: z.object({
+    primary_thesis: z.string().min(12),
+    contrarian_line: z.string().min(12),
+    quoted_stat: z.string().min(8),
+    strongest_objection: z.string().min(12),
+    best_for_split: z.string().min(8),
+    avoid_if_split: z.string().min(8),
+    emotional_tension: z.string().min(12),
+    decision_trigger: z.string().min(12),
+    visual_hook: z.string().min(12),
+  }),
   info_gain_feeds: z.record(z.string(), z.unknown()).optional(),
   newsroom_context: z.record(z.string(), z.unknown()).optional(),
   news_format: z.string().optional(),
@@ -415,6 +426,21 @@ function normalizeGeneratedPayload(input: unknown): unknown {
       .filter(Boolean);
   }
 
+  if (body.repurposing_source_pack && typeof body.repurposing_source_pack === 'object' && !Array.isArray(body.repurposing_source_pack)) {
+    const pack = body.repurposing_source_pack as Record<string, unknown>;
+    body.repurposing_source_pack = {
+      primary_thesis: String(pack.primary_thesis ?? pack.thesis ?? '').trim(),
+      contrarian_line: String(pack.contrarian_line ?? pack.counterpoint ?? '').trim(),
+      quoted_stat: String(pack.quoted_stat ?? pack.stat ?? '').trim(),
+      strongest_objection: String(pack.strongest_objection ?? pack.objection ?? '').trim(),
+      best_for_split: String(pack.best_for_split ?? pack.best_for ?? '').trim(),
+      avoid_if_split: String(pack.avoid_if_split ?? pack.avoid_if ?? '').trim(),
+      emotional_tension: String(pack.emotional_tension ?? pack.tension ?? '').trim(),
+      decision_trigger: String(pack.decision_trigger ?? pack.payoff ?? '').trim(),
+      visual_hook: String(pack.visual_hook ?? pack.visual_idea ?? '').trim(),
+    };
+  }
+
   root.body_json = body;
   return root;
 }
@@ -520,6 +546,23 @@ function deterministicChecks(template: string, content: z.infer<typeof Generated
 
   if ((template === 'reviews' || template === 'alternatives') && !content.body_json.review_methodology) {
     errors.push(`review_methodology is required for template '${template}'`);
+  }
+
+  const sourcePack = content.body_json.repurposing_source_pack;
+  for (const [key, value] of Object.entries(sourcePack ?? {})) {
+    if (typeof value !== 'string' || value.trim().length < 8) {
+      errors.push(`repurposing_source_pack.${key} must be a useful sentence or phrase`);
+    }
+  }
+  if (!sourcePack) {
+    errors.push('repurposing_source_pack is required');
+  } else {
+    if (sourcePack.primary_thesis.toLowerCase() === sourcePack.contrarian_line.toLowerCase()) {
+      errors.push('repurposing_source_pack.primary_thesis and contrarian_line must be different');
+    }
+    if (sourcePack.best_for_split.toLowerCase() === sourcePack.avoid_if_split.toLowerCase()) {
+      errors.push('repurposing_source_pack.best_for_split and avoid_if_split must be different');
+    }
   }
 
   if (template === 'news') {
@@ -790,11 +833,12 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
         `Primary keyword: ${page.primary_keyword ?? ''}`,
         `## Content Angle (MANDATORY — uniquely differentiates this page from similar pages on the site)\nAngle: ${contentAngle.label}\nDirective: ${contentAngle.instruction}\nApply this angle consistently from the intro through the verdict. This is what makes this page's perspective distinct from other pages covering the same keyword.`,
         'Return ONLY valid JSON. Do not include markdown fences.',
-        'Output schema must be exactly: {"intro":"string <=60 words","body_json":{"comparison_table?":{},"verdict":["Best for: ...","Avoid if: ...","Bottom line: ..."],"key_takeaways?":["..."],"sections":[],"faqs?":[],"references?":[{"title":"...","url":"https://...","source":"...","year":"..."}],"review_methodology?":{"summary":"...","tested":["..."],"scoring":["..."],"use_cases":["..."}],"news_format?":"string"},"metadata?":{"news_format?":"string","published_date?":"YYYY-MM-DD"}}',
+        'Output schema must be exactly: {"intro":"string <=60 words","body_json":{"comparison_table?":{},"verdict":["Best for: ...","Avoid if: ...","Bottom line: ..."],"key_takeaways?":["..."],"sections":[],"faqs?":[],"references?":[{"title":"...","url":"https://...","source":"...","year":"..."}],"review_methodology?":{"summary":"...","tested":["..."],"scoring":["..."],"use_cases":["..."}],"repurposing_source_pack":{"primary_thesis":"...","contrarian_line":"...","quoted_stat":"...","strongest_objection":"...","best_for_split":"...","avoid_if_split":"...","emotional_tension":"...","decision_trigger":"...","visual_hook":"..."},"news_format?":"string"},"metadata?":{"news_format?":"string","published_date?":"YYYY-MM-DD"}}',
         'Verdict is mandatory with exactly 3 bullets in this order: Best for, Avoid if, Bottom line.',
         'Include 3-4 concise key_takeaways.',
         'Whenever evidence is referenced, include source URLs in body_json.references.',
         `For ${effectiveTemplate} pages, include a substantive review_methodology object when the topic is evaluative or comparative.`,
+        'repurposing_source_pack is mandatory. Make it high-signal and repurposing-ready: primary_thesis should be the one-line argument people remember, contrarian_line should challenge the default framing, quoted_stat should be the most quotable number or measurable claim, strongest_objection should sound like a real buyer hesitation, best_for_split and avoid_if_split must separate audiences clearly, emotional_tension should describe the human cost of getting the decision wrong, decision_trigger should name the moment that should force a choice, and visual_hook should describe one chart/card/carousel worth making.',
         'Use the supplied product truth cards and trust profiles as hard guardrails for claims, objections, differentiators, and reviewer methodology.',
         `If FAQs are included for this template, minimum FAQ count is ${rule.minFaqs ?? 0}.`,
         `Comparison slots required for this template: ${rule.requiresComparisonSlots ? 'yes' : 'no'}.`,
@@ -1073,6 +1117,26 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
 
         if (fingerprintError) {
           throw fingerprintError;
+        }
+
+        try {
+          const { buildAndPersistRepurposingPacket } = await import('@/lib/repurposing-intelligence');
+          await buildAndPersistRepurposingPacket(supabase as any, {
+            id: page.id,
+            slug: page.slug,
+            template: effectiveTemplate,
+            title: page.title,
+            meta_description: page.meta_description,
+            intro: enriched.intro,
+            primary_keyword: page.primary_keyword ?? null,
+            body_json: enriched.body_json as any,
+            metadata: mergedMetadata,
+          });
+        } catch (repurposeErr) {
+          console.warn(
+            `[content-generator] Repurposing packet generation failed for ${page.slug}:`,
+            repurposeErr instanceof Error ? repurposeErr.message : String(repurposeErr),
+          );
         }
 
         valid = true;

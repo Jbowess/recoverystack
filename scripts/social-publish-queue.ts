@@ -1,6 +1,7 @@
 import { config } from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import { buildPublicationQueueRecord, type DistributionAssetRow } from '@/lib/growth-engine';
+import { getFreeApiChannels } from '@/lib/free-distribution-policy';
 
 config({ path: '.env.local' });
 
@@ -11,13 +12,14 @@ const supabase = createClient(
 
 const DRY_RUN = process.argv.includes('--dry-run') || process.env.DRY_RUN === '1';
 const LIMIT = Number(process.env.SOCIAL_PUBLISH_QUEUE_LIMIT ?? 80);
+const ALLOWED_CHANNELS = getFreeApiChannels();
 
 async function run() {
   const { data, error } = await supabase
     .from('distribution_assets')
     .select('id,page_id,page_slug,channel,asset_type,title,hook,summary,body,cta_url,payload,status')
     .in('status', ['draft', 'approved'])
-    .in('channel', ['x', 'linkedin', 'instagram', 'facebook', 'reddit', 'short_video', 'newsletter'])
+    .in('channel', ALLOWED_CHANNELS)
     .order('created_at', { ascending: false })
     .limit(LIMIT);
 
@@ -47,7 +49,7 @@ async function run() {
     }
   }
 
-  console.log(`[social-publish-queue] assets=${assets.length} queued=${queued} dryRun=${DRY_RUN}`);
+  console.log(`[social-publish-queue] assets=${assets.length} queued=${queued} dryRun=${DRY_RUN} channels=${ALLOWED_CHANNELS.join(',')}`);
 }
 
 run().catch((error) => {

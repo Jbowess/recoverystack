@@ -1,5 +1,6 @@
 import { config } from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
+import { CORE_REACH_THESES } from '@/lib/reach-theses';
 
 config({ path: '.env.local' });
 
@@ -41,9 +42,22 @@ const FRAMEWORKS = [
   },
 ];
 
+const THESIS_FRAMEWORKS = CORE_REACH_THESES.map((thesis, index) => ({
+  slug: `reach-thesis-${thesis.slug}`,
+  title: thesis.title,
+  description: thesis.thesis,
+  use_cases: ['rapid response', 'social distribution', 'newsletter', 'landing loops'],
+  example_lines: thesis.supportingFrames,
+  metadata: {
+    seeded_from: 'core_reach_theses',
+    priority: 100 - index,
+    thesis_slug: thesis.slug,
+  },
+}));
+
 async function run() {
   let written = 0;
-  for (const framework of FRAMEWORKS) {
+  for (const framework of [...FRAMEWORKS, ...THESIS_FRAMEWORKS]) {
     written += 1;
     if (DRY_RUN) {
       console.log(`[brand-framework-seeder] ${framework.slug}`);
@@ -53,7 +67,7 @@ async function run() {
     const { error } = await supabase.from('brand_frameworks').upsert({
       ...framework,
       status: 'active',
-      metadata: { seeded: true },
+      metadata: { seeded: true, ...(framework as any).metadata },
       updated_at: new Date().toISOString(),
     }, { onConflict: 'slug' });
 

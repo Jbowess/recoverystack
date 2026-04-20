@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 export async function GET() {
   const { data, error } = await supabaseAdmin
     .from('pages')
-    .select('id,slug,template,title,status,primary_keyword,published_at,updated_at')
+    .select('id,slug,template,title,status,primary_keyword,published_at,updated_at,originality_score,originality_status')
     .order('updated_at', { ascending: false })
     .limit(100);
 

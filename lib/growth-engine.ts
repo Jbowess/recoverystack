@@ -1,4 +1,5 @@
 import { PRODUCT_DESTINATION_URL, PRODUCT_NAME } from '@/lib/brand';
+import { getReachGoalForChannel } from '@/lib/free-distribution-policy';
 
 export type PartnerContactSeed = {
   slug: string;
@@ -404,6 +405,11 @@ export function buildPublicationQueueRecord(asset: DistributionAssetRow) {
       ? (asset.payload?.subreddit_candidates as string[])
       : [];
     targetCommunity = subreddits[0] ? `r/${subreddits[0].replace(/^r\//, '')}` : 'r/Biohackers';
+  } else if (channel === 'bluesky') {
+    schedule.setHours(17, 45, 0, 0);
+    publishPriority = 84;
+    approvalRequired = false;
+    targetAccount = '@recoverystack.bsky.social';
   } else if (channel === 'short_video') {
     schedule.setHours(20, 0, 0, 0);
     publishPriority = 72;
@@ -425,6 +431,18 @@ export function buildPublicationQueueRecord(asset: DistributionAssetRow) {
   if (repurposingScore !== null) {
     publishPriority = Math.min(99, publishPriority + Math.round((repurposingScore - 50) / 8));
   }
+  const reachScore = typeof asset.payload?.reach_score === 'number'
+    ? Number(asset.payload.reach_score)
+    : null;
+  if (reachScore !== null) {
+    publishPriority = Math.min(99, publishPriority + Math.round((reachScore - 55) / 6));
+  }
+  const originalityScore = typeof asset.payload?.originality_score === 'number'
+    ? Number(asset.payload.originality_score)
+    : null;
+  if (originalityScore !== null) {
+    publishPriority = Math.min(99, publishPriority + Math.round((originalityScore - 60) / 10));
+  }
   if (asset.payload?.recurring_series) {
     publishPriority = Math.min(99, publishPriority + 4);
   }
@@ -434,8 +452,12 @@ export function buildPublicationQueueRecord(asset: DistributionAssetRow) {
     summary: asset.summary,
     asset_type: asset.asset_type,
     publish_window_local: schedule.toISOString(),
-    recommended_goal: ['newsletter', 'affiliate_outreach'].includes(channel) ? 'conversion' : 'reach',
+    recommended_goal: ['affiliate_outreach'].includes(channel)
+      ? 'conversion'
+      : getReachGoalForChannel(channel),
     repurposing_score: repurposingScore,
+    reach_score: reachScore,
+    originality_score: originalityScore,
     angle_type: asset.payload?.angle_type ?? null,
     recurring_series: asset.payload?.recurring_series ?? null,
   };
