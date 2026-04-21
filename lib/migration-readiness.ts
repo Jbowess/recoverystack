@@ -87,6 +87,15 @@ const REQUIRED_TABLES: RequiredTable[] = [
   { table: 'serp_winner_patterns', migration: '0032_editorial_intelligence_ops.sql' },
   { table: 'persona_distribution_queue', migration: '0032_editorial_intelligence_ops.sql' },
   { table: 'editorial_review_queue', migration: '0032_editorial_intelligence_ops.sql' },
+  { table: 'page_entities', migration: '0046_llm_discovery_layer.sql' },
+  { table: 'page_llm_scores', migration: '0046_llm_discovery_layer.sql' },
+  { table: 'page_llm_observations', migration: '0046_llm_discovery_layer.sql' },
+  { table: 'llm_query_simulations', migration: '0046_llm_discovery_layer.sql' },
+  { table: 'llm_referral_events', migration: '0046_llm_discovery_layer.sql' },
+  { table: 'crawler_activity_logs', migration: '0047_ai_discovery_expansion.sql' },
+  { table: 'llm_prompt_corpus', migration: '0047_ai_discovery_expansion.sql' },
+  { table: 'llm_recommendation_share_snapshots', migration: '0047_ai_discovery_expansion.sql' },
+  { table: 'commercial_page_audits', migration: '0047_ai_discovery_expansion.sql' },
 ];
 
 const MIGRATIONS_DIR = path.join(process.cwd(), 'supabase', 'migrations');

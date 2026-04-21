@@ -33,6 +33,9 @@ This directory is the repo's operational command surface. It is intentionally fl
 - `linker.ts`, `orphan-link-audit.ts`, `cannibalization-check.ts`
 - `quality-gate.ts`, `page-quality-scorer.ts`, `editorial-trust-upgrade.ts`, `claim-verifier.ts`
 - `ctr-optimizer.ts`, `snippet-optimizer.ts`, `discover-optimizer.ts`, `geo-optimizer.ts`
+- `llm-readiness-rollup.ts`, `llm-discovery-optimizer.ts`, `llm-query-simulator.ts`
+- `llm-prompt-corpus-sync.ts`, `llm-share-of-recommendation-rollup.ts`
+- `commercial-page-auditor.ts`, `brand-entity-sync.ts`
 - `schema-validator.ts`, `schema-backfill.ts`
 - `authority-rollup.ts`, `cluster-metrics-rollup.ts`, `cluster-completeness-checker.ts`
 - `serp-feature-detector.ts`, `serp-winner-analyzer.ts`, `ranking-opportunity-audit.ts`

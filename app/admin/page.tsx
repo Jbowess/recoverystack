@@ -183,10 +183,22 @@ async function getDashboardData() {
     newsroomEventRows,
     newsroomEntityRows,
     newsroomStorylineRows,
+    llmScoreRows,
+    llmObservationRows,
+    llmEntityRows,
+    llmQueryRows,
+    llmReferralRows,
+    conversionEventRows,
+    crawlerLogRows,
+    promptCorpusRows,
+    shareSnapshotRows,
+    commercialAuditRows,
+    researchDatasetRows,
+    toolUsageRows,
   ] = await Promise.all([
     supabaseAdmin.from('trends').select('*').eq('status', 'new').order('created_at', { ascending: false }).limit(100),
     supabaseAdmin.from('pages').select('id,slug,title,template,status,updated_at,originality_score,originality_status').in('status', ['draft', 'approved']).order('updated_at', { ascending: false }).limit(100),
-    supabaseAdmin.from('pages').select('id,slug,title,template,published_at,originality_score,originality_status').eq('status', 'published').order('published_at', { ascending: false }).limit(100),
+    supabaseAdmin.from('pages').select('id,slug,title,template,published_at,originality_score,originality_status,llm_readiness_score,llm_readiness_status,commercial_readiness_score,commercial_readiness_status').eq('status', 'published').order('published_at', { ascending: false }).limit(100),
     supabaseAdmin.from('pages').select('template').neq('template', ''),
     supabaseAdmin.from('deploy_events').select('created_at,status,detail').order('created_at', { ascending: false }).limit(1),
     supabaseAdmin.from('pipeline_runs').select('id,pipeline_name,status,started_at,finished_at,duration_ms,error_message').order('started_at', { ascending: false }).limit(1),
@@ -242,6 +254,18 @@ async function getDashboardData() {
     safeSelect('news_source_events', 'status,event_type,beat'),
     safeSelect('topic_entities', 'entity_type,beat,authority_score'),
     safeSelect('storylines', 'status,beat,freshness_score,authority_score'),
+    safeSelect('page_llm_scores', 'page_slug,total_score,readiness_status'),
+    safeSelect('page_llm_observations', 'observation_type,severity,status'),
+    safeSelect('page_entities', 'entity_type,is_primary'),
+    safeSelect('llm_query_simulations', 'channel,confidence_score,result_status'),
+    safeSelect('llm_referral_events', 'source,slug'),
+    safeSelect('conversion_events', 'discovery_source'),
+    safeSelect('crawler_activity_logs', 'bot_family,request_path'),
+    safeSelect('llm_prompt_corpus', 'channel,intent,status,priority'),
+    safeSelect('llm_recommendation_share_snapshots', 'channel,entity_key,recommendation_count,citation_count,avg_confidence'),
+    safeSelect('commercial_page_audits', 'page_slug,readiness_status,completeness_score'),
+    safeSelect('comparison_dataset_snapshots', 'dataset_key,row_count,snapshot_date'),
+    safeSelect('tool_usage_events', 'tool_slug,event_type'),
   ]);
 
   const byTemplate = (counts ?? []).reduce((acc: Record<string, number>, row: any) => {
@@ -311,6 +335,28 @@ async function getDashboardData() {
   const newsroomEventsByType = countBy(newsroomEventRows.data, 'event_type');
   const newsroomEntitiesByType = countBy(newsroomEntityRows.data, 'entity_type');
   const newsroomStorylinesByStatus = countBy(newsroomStorylineRows.data, 'status');
+  const llmScoresByStatus = countBy(llmScoreRows.data, 'readiness_status');
+  const llmScoreSummary = numericSummary(llmScoreRows.data);
+  const llmObservationsByType = countBy(llmObservationRows.data, 'observation_type');
+  const llmObservationsByStatus = countBy(llmObservationRows.data, 'status');
+  const llmEntitiesByType = countBy(llmEntityRows.data, 'entity_type');
+  const llmQueryByChannel = countBy(llmQueryRows.data, 'channel');
+  const llmQueryByStatus = countBy(llmQueryRows.data, 'result_status');
+  const llmQuerySummary = numericSummary(llmQueryRows.data);
+  const llmReferralBySource = countBy(llmReferralRows.data, 'source');
+  const conversionByDiscoverySource = countBy(conversionEventRows.data, 'discovery_source');
+  const crawlerByFamily = countBy(crawlerLogRows.data, 'bot_family');
+  const crawlerByPath = countBy(crawlerLogRows.data, 'request_path');
+  const promptByChannel = countBy(promptCorpusRows.data, 'channel');
+  const promptByIntent = countBy(promptCorpusRows.data, 'intent');
+  const promptByStatus = countBy(promptCorpusRows.data, 'status');
+  const shareByChannel = countBy(shareSnapshotRows.data, 'channel');
+  const shareSummary = numericSummary(shareSnapshotRows.data);
+  const commercialByStatus = countBy(commercialAuditRows.data, 'readiness_status');
+  const commercialSummary = numericSummary(commercialAuditRows.data);
+  const toolUsageBySlug = countBy(toolUsageRows.data, 'tool_slug');
+  const toolUsageByEvent = countBy(toolUsageRows.data, 'event_type');
+  const researchSummary = numericSummary(researchDatasetRows.data);
 
   return {
     newTrends: newTrends ?? [],
@@ -450,6 +496,58 @@ async function getDashboardData() {
       entityTotal: newsroomEntityRows.data.length,
       storylineTotal: newsroomStorylineRows.data.length,
       error: newsroomFeedRows.error || newsroomEventRows.error || newsroomEntityRows.error || newsroomStorylineRows.error,
+    },
+    llmDiscovery: {
+      scoresByStatus: llmScoresByStatus,
+      scoreSummary: llmScoreSummary,
+      scoreTotal: llmScoreRows.data.length,
+      observationsByType: llmObservationsByType,
+      observationsByStatus: llmObservationsByStatus,
+      observationTotal: llmObservationRows.data.length,
+      entitiesByType: llmEntitiesByType,
+      entityTotal: llmEntityRows.data.length,
+      queryByChannel: llmQueryByChannel,
+      queryByStatus: llmQueryByStatus,
+      querySummary: llmQuerySummary,
+      queryTotal: llmQueryRows.data.length,
+      referralBySource: llmReferralBySource,
+      referralTotal: llmReferralRows.data.length,
+      conversionByDiscoverySource,
+      conversionTotal: conversionEventRows.data.length,
+      error:
+        llmScoreRows.error ||
+        llmObservationRows.error ||
+        llmEntityRows.error ||
+        llmQueryRows.error ||
+        llmReferralRows.error ||
+        conversionEventRows.error,
+    },
+    aiReach: {
+      crawlerByFamily,
+      crawlerByPath,
+      crawlerTotal: crawlerLogRows.data.length,
+      promptByChannel,
+      promptByIntent,
+      promptByStatus,
+      promptTotal: promptCorpusRows.data.length,
+      shareByChannel,
+      shareSummary,
+      shareTotal: shareSnapshotRows.data.length,
+      commercialByStatus,
+      commercialSummary,
+      commercialTotal: commercialAuditRows.data.length,
+      researchSummary,
+      researchTotal: researchDatasetRows.data.length,
+      toolUsageBySlug,
+      toolUsageByEvent,
+      toolUsageTotal: toolUsageRows.data.length,
+      error:
+        crawlerLogRows.error ||
+        promptCorpusRows.error ||
+        shareSnapshotRows.error ||
+        commercialAuditRows.error ||
+        researchDatasetRows.error ||
+        toolUsageRows.error,
     },
   };
 }
@@ -918,6 +1016,134 @@ export default async function AdminDashboard({
       </section>
 
       <section style={{ marginTop: 24, border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
+        <h2 style={{ marginTop: 0 }}>LLM Discovery</h2>
+        {data.llmDiscovery.error ? (
+          <p style={{ color: '#b91c1c' }}>LLM discovery data unavailable: {data.llmDiscovery.error}</p>
+        ) : (
+          <>
+            <p style={{ color: '#4b5563', marginTop: 0 }}>
+              scored pages: {data.llmDiscovery.scoreTotal}
+              {typeof data.llmDiscovery.scoreSummary.numericFields.total_score?.avg === 'number'
+                ? ` · avg score ${data.llmDiscovery.scoreSummary.numericFields.total_score.avg}`
+                : ''}
+              {' '}· observations: {data.llmDiscovery.observationTotal}
+              {' '}· simulations: {data.llmDiscovery.queryTotal}
+              {' '}· referrals: {data.llmDiscovery.referralTotal}
+              {' '}· attributed conversions: {data.llmDiscovery.conversionTotal}
+            </p>
+            <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+              <div>
+                <strong>Readiness status</strong>
+                <ul>
+                  {Object.entries(data.llmDiscovery.scoresByStatus).sort(([a], [b]) => a.localeCompare(b)).map(([label, count]) => (
+                    <li key={`llm-score-${label}`}>{label}: {count}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <strong>Open issues</strong>
+                <ul>
+                  {Object.entries(data.llmDiscovery.observationsByType).sort(([a], [b]) => a.localeCompare(b)).map(([label, count]) => (
+                    <li key={`llm-obs-${label}`}>{label}: {count}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <strong>Simulation outcomes</strong>
+                <ul>
+                  {Object.entries(data.llmDiscovery.queryByStatus).sort(([a], [b]) => a.localeCompare(b)).map(([label, count]) => (
+                    <li key={`llm-query-${label}`}>{label}: {count}</li>
+                  ))}
+                  {Object.entries(data.llmDiscovery.queryByChannel).sort(([a], [b]) => a.localeCompare(b)).map(([label, count]) => (
+                    <li key={`llm-channel-${label}`}>channel {label}: {count}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <strong>Discovery sources</strong>
+                <ul>
+                  {Object.entries(data.llmDiscovery.referralBySource).sort(([a], [b]) => a.localeCompare(b)).map(([label, count]) => (
+                    <li key={`llm-ref-${label}`}>landing {label}: {count}</li>
+                  ))}
+                  {Object.entries(data.llmDiscovery.conversionByDiscoverySource).sort(([a], [b]) => a.localeCompare(b)).map(([label, count]) => (
+                    <li key={`llm-conv-${label}`}>conversion {label}: {count}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </>
+        )}
+      </section>
+
+      <section style={{ marginTop: 24, border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
+        <h2 style={{ marginTop: 0 }}>AI Reach</h2>
+        {data.aiReach.error ? (
+          <p style={{ color: '#b91c1c' }}>AI reach data unavailable: {data.aiReach.error}</p>
+        ) : (
+          <>
+            <p style={{ color: '#4b5563', marginTop: 0 }}>
+              crawler logs: {data.aiReach.crawlerTotal}
+              {' '}· prompts: {data.aiReach.promptTotal}
+              {' '}· share rows: {data.aiReach.shareTotal}
+              {' '}· commercial audits: {data.aiReach.commercialTotal}
+              {' '}· datasets: {data.aiReach.researchTotal}
+              {' '}· tool events: {data.aiReach.toolUsageTotal}
+            </p>
+            <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+              <div>
+                <strong>Crawler families</strong>
+                <ul>
+                  {Object.entries(data.aiReach.crawlerByFamily).sort(([a], [b]) => a.localeCompare(b)).map(([label, count]) => (
+                    <li key={`crawler-${label}`}>{label}: {count}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <strong>Prompt corpus</strong>
+                <ul>
+                  {Object.entries(data.aiReach.promptByChannel).sort(([a], [b]) => a.localeCompare(b)).map(([label, count]) => (
+                    <li key={`prompt-channel-${label}`}>channel {label}: {count}</li>
+                  ))}
+                  {Object.entries(data.aiReach.promptByIntent).sort(([a], [b]) => a.localeCompare(b)).map(([label, count]) => (
+                    <li key={`prompt-intent-${label}`}>intent {label}: {count}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <strong>Share / commercial</strong>
+                <ul>
+                  {Object.entries(data.aiReach.shareByChannel).sort(([a], [b]) => a.localeCompare(b)).map(([label, count]) => (
+                    <li key={`share-${label}`}>share {label}: {count}</li>
+                  ))}
+                  {Object.entries(data.aiReach.commercialByStatus).sort(([a], [b]) => a.localeCompare(b)).map(([label, count]) => (
+                    <li key={`commercial-${label}`}>commercial {label}: {count}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <strong>Research / tools</strong>
+                <ul>
+                  {Object.entries(data.aiReach.toolUsageBySlug).sort(([a], [b]) => a.localeCompare(b)).map(([label, count]) => (
+                    <li key={`tool-${label}`}>{label}: {count}</li>
+                  ))}
+                  <li>dataset rows sampled: {data.aiReach.researchSummary.rowCount}</li>
+                </ul>
+              </div>
+            </div>
+            <p style={{ color: '#4b5563', marginBottom: 6 }}>Top crawler paths</p>
+            <ul>
+              {Object.entries(data.aiReach.crawlerByPath)
+                .sort(([, a], [, b]) => Number(b) - Number(a))
+                .slice(0, 6)
+                .map(([label, count]) => (
+                  <li key={`crawler-path-${label}`}>{label}: {count}</li>
+                ))}
+            </ul>
+          </>
+        )}
+      </section>
+
+      <section style={{ marginTop: 24, border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
         <h2 style={{ marginTop: 0 }}>Brand OS</h2>
         {data.brandOperatingSystem.error ? (
           <p style={{ color: '#b91c1c' }}>Brand OS data unavailable: {data.brandOperatingSystem.error}</p>
@@ -1035,6 +1261,16 @@ export default async function AdminDashboard({
           {data.published.slice(0, 30).map((p: any) => (
             <li key={p.id}>
               <Link href={`/${p.template}/${p.slug}` as any}>{p.title}</Link>
+              {typeof p.llm_readiness_score === 'number' ? (
+                <span style={{ color: '#4b5563', marginLeft: 8 }}>
+                  llm {p.llm_readiness_score} ({p.llm_readiness_status ?? 'n/a'})
+                </span>
+              ) : null}
+              {typeof p.commercial_readiness_score === 'number' ? (
+                <span style={{ color: '#4b5563', marginLeft: 8 }}>
+                  commercial {p.commercial_readiness_score} ({p.commercial_readiness_status ?? 'n/a'})
+                </span>
+              ) : null}
               {typeof p.originality_score === 'number' ? (
                 <span style={{ color: '#4b5563', marginLeft: 8 }}>
                   originality {p.originality_score} ({p.originality_status ?? 'n/a'})

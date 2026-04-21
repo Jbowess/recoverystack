@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import type { NextFetchEvent, NextRequest } from 'next/server';
+import { detectCrawlerFamily } from '@/lib/ai-reach';
 import { getSupabasePublicKey, getSupabaseUrl } from '@/lib/supabase-env';
 
 // ── Redirect cache ──────────────────────────────────────────────────────────
@@ -101,8 +102,57 @@ async function validateAdminCookie(cookieValue: string | undefined): Promise<boo
   }
 }
 
-export async function middleware(req: NextRequest) {
+async function sha256(input: string): Promise<string> {
+  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(hash))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+async function logCrawlerRequest(req: NextRequest, botFamily: string) {
+  const supabaseUrl = getSupabaseUrl();
+  const supabasePublicKey = getSupabasePublicKey();
+  if (!supabaseUrl || !supabasePublicKey) return;
+
+  const forwardedFor = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '';
+  const ipHash = forwardedFor ? await sha256(forwardedFor) : null;
+  const userAgent = req.headers.get('user-agent') ?? '';
+
+  try {
+    await fetch(`${supabaseUrl}/rest/v1/crawler_activity_logs`, {
+      method: 'POST',
+      headers: {
+        apikey: supabasePublicKey,
+        Authorization: `Bearer ${supabasePublicKey}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({
+        bot_family: botFamily,
+        user_agent: userAgent.slice(0, 512),
+        request_path: req.nextUrl.pathname,
+        request_method: req.method,
+        referrer: req.headers.get('referer'),
+        ip_hash: ipHash,
+        source_host: req.nextUrl.host,
+        metadata: {
+          search: req.nextUrl.search || null,
+        },
+      }),
+      signal: AbortSignal.timeout(3000),
+    });
+  } catch {
+    // Best-effort bot logging only.
+  }
+}
+
+export async function middleware(req: NextRequest, event: NextFetchEvent) {
   const { pathname } = req.nextUrl;
+  const crawlerFamily = detectCrawlerFamily(req.headers.get('user-agent'));
+
+  if (crawlerFamily && !pathname.startsWith('/admin') && !pathname.startsWith('/api/admin')) {
+    event.waitUntil(logCrawlerRequest(req, crawlerFamily));
+  }
 
   // ── Redirect lookup (runs before admin guard) ──
   const redirects = await getRedirects();

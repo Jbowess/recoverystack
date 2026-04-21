@@ -1,6 +1,7 @@
 import { config } from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import { submitUrlToGoogle } from '@/lib/indexing-api';
+import { submitUrlToIndexNow } from '@/lib/indexnow';
 import { postToTwitter, postToLinkedIn } from '@/lib/social-distribution';
 
 config({ path: '.env.local' });
@@ -124,10 +125,12 @@ async function run() {
     }
 
     // Submit each published URL to Google Indexing API for immediate crawling
-    // For first-time publishes (published_at within last 2 hours), also post to social
+    // and IndexNow for faster Bing / AI-adjacent freshness discovery.
+    // For first-time publishes (published_at within last 2 hours), also post to social.
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
     for (const row of rows) {
       await submitUrlToGoogle(row.url);
+      await submitUrlToIndexNow(row.url);
 
       const isNew = row.published_at && row.published_at >= twoHoursAgo;
       if (isNew) {

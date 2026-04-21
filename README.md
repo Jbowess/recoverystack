@@ -150,6 +150,33 @@ Status codes:
 - `200` when env validation and DB probe are healthy
 - `503` when env validation fails or DB probe/latest-run lookup fails
 
+## LLM discovery layer
+RecoveryStack now includes a first-class LLM discovery subsystem for AI search and standard web search:
+
+- `llms.txt` at `/llms.txt`
+- merchant product feed at `/api/merchant/product-feed`
+- assistant-ready API surface at `/api/assistant/catalog`, `/api/assistant/recommend`, and `/api/assistant/compare`
+- public evidence hub at `/evidence`
+- public research hub at `/research`
+- public tools hub at `/tools`
+- public entity hub at `/entities`
+- crawler policy for `OAI-SearchBot`, `ChatGPT-User`, and configurable `GPTBot`
+- crawler observability, prompt-corpus seeding, share-of-recommendation rollups, and commercial page audits
+- LLM readiness scoring, query simulation, and answer-block optimization scripts
+- referral attribution for ChatGPT, Perplexity, Copilot, Gemini, Claude, Google, and Bing landings
+
+Key commands:
+
+```bash
+npm run llm:score
+npm run llm:optimize
+npm run llm:simulate
+npm run llm:prompts
+npm run llm:share
+npm run commercial:audit
+npm run brand:entities
+```
+
 ### Run individual steps
 ```bash
 npm run trend:scrape

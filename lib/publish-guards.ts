@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { parseLlmAnswerContent } from '@/lib/llm-discovery';
 
 type QualityPageInput = {
   body_json: unknown;
@@ -41,7 +42,7 @@ const BodySchema = z.object({
     z.object({
       id: z.string(),
       heading: z.string(),
-      kind: z.enum(['paragraphs', 'faq', 'steps', 'list', 'table', 'definition_box']),
+      kind: z.enum(['paragraphs', 'faq', 'steps', 'list', 'table', 'definition_box', 'llm_answer']),
       content: z.unknown(),
     }),
   ),
@@ -152,6 +153,46 @@ export function validatePublishSchemas(page: Pick<QualityPageInput, 'body_json' 
   return errors;
 }
 
+export function validateLlmAnswerSections(page: Pick<QualityPageInput, 'body_json'>): string[] {
+  const errors: string[] = [];
+  const sections = ((page.body_json ?? {}) as { sections?: Array<{ kind?: string; content?: unknown }> }).sections ?? [];
+
+  for (const section of sections) {
+    if (section.kind !== 'llm_answer') continue;
+
+    const parsed = parseLlmAnswerContent(section.content);
+    if (!parsed) {
+      errors.push('llm_answer section must include a non-empty direct_answer');
+      continue;
+    }
+
+    const answerWords = parsed.direct_answer.split(/\s+/).filter(Boolean).length;
+    if (answerWords < 20 || answerWords > 110) {
+      errors.push(`llm_answer direct_answer should be 20-110 words (found ${answerWords})`);
+    }
+
+    const factCount = parsed.key_facts?.length ?? 0;
+    if (factCount > 0 && (factCount < 2 || factCount > 6)) {
+      errors.push(`llm_answer key_facts should contain 2-6 items when present (found ${factCount})`);
+    }
+
+    const invalidEvidence = (parsed.evidence ?? []).filter((item) => {
+      try {
+        new URL(item.url);
+        return !item.label.trim();
+      } catch {
+        return true;
+      }
+    });
+
+    if (invalidEvidence.length > 0) {
+      errors.push('llm_answer evidence items must include a label and absolute URL');
+    }
+  }
+
+  return errors;
+}
+
 export function validateRequiredCtas(page: QualityPageInput): string[] {
   const errors: string[] = [];
   const counts = countRequiredCtaMentions(page);
@@ -223,6 +264,7 @@ export function validateInternalLinks(page: QualityPageInput): string[] {
 export function runPublishGuards(page: QualityPageInput): string[] {
   const errors = [
     ...validatePublishSchemas(page),
+    ...validateLlmAnswerSections(page),
     ...validateRequiredCtas(page),
     ...validateInternalLinks(page),
     ...validateContentDepth(page),

@@ -152,8 +152,8 @@ export const speakableSchema = (url: string) => ({
   url,
   speakable: {
     '@type': 'SpeakableSpecification',
-    // Target the intro paragraph and verdict section as speakable content
-    cssSelector: ['.rs-excerpt', '#verdict-heading', '.rs-article h2:first-of-type + p'],
+    // Target the direct-answer block and the top article summary content.
+    cssSelector: ['[data-llm-answer]', '.rs-excerpt', '#verdict-heading', '.rs-article h2:first-of-type + p'],
   },
 });
 

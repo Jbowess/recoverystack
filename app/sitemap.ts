@@ -1,4 +1,7 @@
 import { MetadataRoute } from 'next';
+import { latestSnapshotMap } from '@/lib/ai-reach';
+import { BRAND_ENTITY_SEEDS } from '@/lib/brand-entities';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getAllPublishedSlugs } from '@/lib/supabase';
 
 const SITE_URL = process.env.SITE_URL ?? 'https://recoverystack.io';
@@ -57,14 +60,50 @@ export default async function sitemap({
 
   // Static pages sitemap
   if (sitemapId === 'static') {
-    return [
-      {
-        url: `${SITE_URL}/`,
-        lastModified: new Date().toISOString().split('T')[0],
-        changeFrequency: 'daily' as const,
-        priority: 1,
-      },
+    const today = new Date().toISOString().split('T')[0];
+    const staticEntries: MetadataRoute.Sitemap = [
+      { url: `${SITE_URL}/`, lastModified: today, changeFrequency: 'daily', priority: 1 },
+      { url: `${SITE_URL}/evidence`, lastModified: today, changeFrequency: 'weekly', priority: 0.85 },
+      { url: `${SITE_URL}/research`, lastModified: today, changeFrequency: 'weekly', priority: 0.85 },
+      { url: `${SITE_URL}/tools`, lastModified: today, changeFrequency: 'weekly', priority: 0.8 },
+      { url: `${SITE_URL}/tools/smart-ring-fit`, lastModified: today, changeFrequency: 'weekly', priority: 0.75 },
+      { url: `${SITE_URL}/tools/subscription-cost-calculator`, lastModified: today, changeFrequency: 'weekly', priority: 0.75 },
+      { url: `${SITE_URL}/tools/platform-compatibility`, lastModified: today, changeFrequency: 'weekly', priority: 0.75 },
+      { url: `${SITE_URL}/entities`, lastModified: today, changeFrequency: 'weekly', priority: 0.75 },
+      ...BRAND_ENTITY_SEEDS.map((seed) => ({
+        url: `${SITE_URL}/entities/${seed.slug}`,
+        lastModified: today,
+        changeFrequency: 'weekly' as const,
+        priority: 0.7,
+      })),
     ];
+
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('comparison_dataset_snapshots')
+        .select('dataset_key,snapshot_date')
+        .order('snapshot_date', { ascending: false })
+        .limit(40);
+
+      if (!error) {
+        const latestDatasets = [...latestSnapshotMap((data ?? []) as Array<{
+          dataset_key: string;
+          snapshot_date: string;
+        }>).values()];
+        staticEntries.push(
+          ...latestDatasets.map((dataset) => ({
+            url: `${SITE_URL}/research/${dataset.dataset_key}`,
+            lastModified: dataset.snapshot_date,
+            changeFrequency: 'weekly' as const,
+            priority: 0.72,
+          })),
+        );
+      }
+    } catch {
+      // Keep sitemap generation resilient when research tables are unavailable.
+    }
+
+    return staticEntries;
   }
 
   // Parse template name and optional chunk index from id (e.g. "guides" or "guides-2")

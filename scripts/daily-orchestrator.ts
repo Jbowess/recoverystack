@@ -141,7 +141,7 @@ const phases: Phase[] = [
       { id: 'story-followup', name: 'Story follow-up scheduler', script: 'scripts/story-followup.ts' },
       { id: 'staleness-scorer', name: 'Content staleness scorer', script: 'scripts/staleness-scorer.ts' },
       { id: 'snippet-optimizer', name: 'Featured snippet optimizer', script: 'scripts/snippet-optimizer.ts' },
-      { id: 'geo-optimizer', name: 'GEO optimizer', script: 'scripts/geo-optimizer.ts' },
+      { id: 'llm-discovery-optimizer', name: 'LLM discovery optimizer', script: 'scripts/llm-discovery-optimizer.ts' },
       { id: 'cwv-auto-fix', name: 'CWV auto-fix', script: 'scripts/cwv-auto-fix.ts' },
       { id: 'ab-test-manager', name: 'A/B test manager', script: 'scripts/ab-test-manager.ts' },
       { id: 'distribution-performance-rollup', name: 'Distribution performance rollup', script: 'scripts/distribution-performance-rollup.ts' },
@@ -191,8 +191,19 @@ const phases: Phase[] = [
       { id: 'executive-cockpit-rollup', name: 'Executive cockpit rollup', script: 'scripts/executive-cockpit-rollup.ts' },
       // Quality, discovery, and internationalisation rollups
       { id: 'schema-validator', name: 'Schema validator', script: 'scripts/schema-validator.ts' },
+      { id: 'llm-readiness-rollup', name: 'LLM readiness rollup', script: 'scripts/llm-readiness-rollup.ts' },
+      { id: 'llm-query-simulator', name: 'LLM query simulator', script: 'scripts/llm-query-simulator.ts' },
       { id: 'link-prospect-miner', name: 'Link prospect miner', script: 'scripts/link-prospect-miner.ts' },
       { id: 'locale-generator', name: 'Locale generator', script: 'scripts/locale-generator.ts' },
+    ],
+  },
+  {
+    label: 'AI Reach',
+    steps: [
+      { id: 'brand-entity-sync', name: 'Brand entity sync', script: 'scripts/brand-entity-sync.ts' },
+      { id: 'llm-prompt-corpus-sync', name: 'LLM prompt corpus sync', script: 'scripts/llm-prompt-corpus-sync.ts' },
+      { id: 'commercial-page-auditor', name: 'Commercial page auditor', script: 'scripts/commercial-page-auditor.ts' },
+      { id: 'llm-share-of-recommendation-rollup', name: 'LLM share of recommendation rollup', script: 'scripts/llm-share-of-recommendation-rollup.ts' },
     ],
   },
 ];

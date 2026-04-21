@@ -26,6 +26,12 @@ const steps: Step[] = [
   { id: 'indexing-status', command: 'npm', args: ['run', 'indexing:status'] },
   { id: 'embedding-sync', command: 'npm', args: ['run', 'embeddings:sync'] },
   { id: 'discover-optimizer', command: 'npm', args: ['run', 'discover:optimize'] },
+  { id: 'llm-readiness', command: 'npm', args: ['run', 'llm:score'] },
+  { id: 'llm-simulate', command: 'npm', args: ['run', 'llm:simulate'] },
+  { id: 'llm-prompts', command: 'npm', args: ['run', 'llm:prompts'] },
+  { id: 'brand-entities', command: 'npm', args: ['run', 'brand:entities'] },
+  { id: 'commercial-audit', command: 'npm', args: ['run', 'commercial:audit'] },
+  { id: 'llm-share', command: 'npm', args: ['run', 'llm:share'] },
 ];
 
 function logEvent(level: 'info' | 'error', event: string, data: Record<string, unknown> = {}) {

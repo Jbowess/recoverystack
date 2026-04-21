@@ -6,6 +6,7 @@ import {
   resolveConversionVariant,
   type ConversionVariant,
 } from '@/lib/conversion-box';
+import { detectDiscoverySource } from '@/lib/llm-discovery';
 
 const VISITOR_ID_KEY = 'rs_visitor_id';
 
@@ -36,11 +37,22 @@ function trackConversionClick(
   cta: string,
   pageTemplate?: string | null,
 ) {
+  const params = new URLSearchParams(window.location.search);
   const payload = {
     variant,
     cta,
     slug: window.location.pathname,
     pageTemplate: pageTemplate ?? null,
+    discoverySource: detectDiscoverySource({
+      utmSource: params.get('utm_source'),
+      referrer: document.referrer,
+    }),
+    referrerUrl: document.referrer || null,
+    landingUrl: window.location.href,
+    utmSource: params.get('utm_source'),
+    utmMedium: params.get('utm_medium'),
+    utmCampaign: params.get('utm_campaign'),
+    sessionId: getVisitorId(),
   };
 
   const endpoint = '/api/conversion-events';

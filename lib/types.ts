@@ -13,10 +13,33 @@ export type TemplateType =
 
 export type InternalLink = { slug: string; anchor: string; template?: TemplateType };
 
+export type LlmAnswerEvidence = {
+  label: string;
+  url: string;
+  source?: string | null;
+};
+
+export type LlmAnswerContent = {
+  direct_answer: string;
+  best_for?: string | null;
+  key_facts?: string[];
+  evidence?: LlmAnswerEvidence[];
+  last_verified_at?: string | null;
+};
+
+export type LlmReadinessBreakdown = {
+  crawlability: number;
+  answer_quality: number;
+  citations: number;
+  entity_clarity: number;
+  freshness: number;
+  product_data: number;
+};
+
 export type PageBodySection = {
   id: string;
   heading: string;
-  kind: 'paragraphs' | 'faq' | 'steps' | 'list' | 'table' | 'definition_box';
+  kind: 'paragraphs' | 'faq' | 'steps' | 'list' | 'table' | 'definition_box' | 'llm_answer';
   content: unknown;
 };
 

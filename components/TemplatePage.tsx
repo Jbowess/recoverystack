@@ -2,6 +2,7 @@ import React from 'react';
 import CompatibilityCheckerWidget from '@/components/CompatibilityCheckerWidget';
 import ComparisonTable from '@/components/ComparisonTable';
 import ConversionBox from '@/components/ConversionBox';
+import DiscoveryAttributionTracker from '@/components/DiscoveryAttributionTracker';
 import ExitIntentModal from '@/components/ExitIntentModal';
 import NewsletterForm from '@/components/NewsletterForm';
 import PillarLink from '@/components/PillarLink';
@@ -11,6 +12,7 @@ import ShareBar from '@/components/ShareBar';
 import TableOfContents from '@/components/TableOfContents';
 import { MAIN_SITE_URL, NEWSLETTER_URL, PRODUCT_NAME } from '@/lib/brand';
 import { getEditorialMetadata } from '@/lib/editorial';
+import { parseLlmAnswerContent } from '@/lib/llm-discovery';
 import { getRecoveryStackScorecard } from '@/lib/recoverystack-score';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import type { InfoGainFeeds, InternalLink, PageBodySection, PageRecord } from '@/lib/types';
@@ -112,6 +114,52 @@ function toSentenceArray(content: unknown): string[] {
 
 function renderSectionContent(section: PageBodySection, page?: PageRecord) {
   const content = section.content as Record<string, unknown> | unknown;
+
+  if (section.kind === 'llm_answer') {
+    const answer = parseLlmAnswerContent(content);
+    if (!answer) return null;
+
+    return (
+      <div
+        data-llm-answer
+        style={{
+          border: '1px solid rgba(0, 194, 168, 0.35)',
+          background: 'linear-gradient(180deg, rgba(0, 194, 168, 0.08), rgba(15, 23, 42, 0.92))',
+          borderRadius: '0.85rem',
+          padding: '1rem 1.1rem',
+          marginBottom: '1.5rem',
+        }}
+      >
+        <p style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600 }}>{answer.direct_answer}</p>
+        {answer.best_for ? (
+          <p style={{ margin: '0.75rem 0 0', color: 'var(--rs-muted, #94a3b8)' }}>{answer.best_for}</p>
+        ) : null}
+        {answer.key_facts?.length ? (
+          <ul style={{ marginTop: '0.85rem', marginBottom: 0 }}>
+            {answer.key_facts.map((fact, idx) => <li key={`${section.id}-fact-${idx}`}>{fact}</li>)}
+          </ul>
+        ) : null}
+        {answer.evidence?.length ? (
+          <div style={{ marginTop: '0.85rem' }}>
+            <strong style={{ display: 'block', marginBottom: '0.35rem' }}>Evidence</strong>
+            <ul style={{ margin: 0, paddingLeft: '1.1rem' }}>
+              {answer.evidence.map((item, idx) => (
+                <li key={`${section.id}-evidence-${idx}`}>
+                  <a href={item.url} target="_blank" rel="noopener noreferrer">{item.label}</a>
+                  {item.source ? <span style={{ color: 'var(--rs-muted, #94a3b8)' }}> ({item.source})</span> : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {answer.last_verified_at ? (
+          <p style={{ margin: '0.85rem 0 0', color: 'var(--rs-muted, #94a3b8)' }}>
+            Last verified {formatDate(answer.last_verified_at)}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
 
   if (section.kind === 'definition_box') {
     const text = typeof content === 'string' ? content : toSentenceArray(content).join(' ');
@@ -399,6 +447,7 @@ export default async function TemplatePage({ page, pillarLink, siblingLinks, sch
 
   return (
     <div className="rs-shell">
+      <DiscoveryAttributionTracker slug={page.slug} pageTemplate={page.template} />
       <ReadingProgressBar />
 
       <header className="rs-navbar" role="banner">
@@ -411,6 +460,9 @@ export default async function TemplatePage({ page, pillarLink, siblingLinks, sch
             <a href="/news">News</a>
             <a href="/guides">Guides</a>
             <a href="/alternatives">Alternatives</a>
+            <a href="/evidence">Evidence</a>
+            <a href="/research">Research</a>
+            <a href="/tools">Tools</a>
             <a href="/protocols">Protocols</a>
             <a href="/metrics">Metrics</a>
             <a href="/costs">Costs</a>
@@ -608,6 +660,7 @@ export default async function TemplatePage({ page, pillarLink, siblingLinks, sch
                 <li><a href="/guides">Guides</a></li>
                 <li><a href="/compatibility">Compatibility</a></li>
                 <li><a href="/metrics">Metrics</a></li>
+                <li><a href="/research">Research</a></li>
               </ul>
             </div>
             <div>
@@ -616,6 +669,7 @@ export default async function TemplatePage({ page, pillarLink, siblingLinks, sch
                 <li><a href={MAIN_SITE_URL} target="_blank" rel="noopener noreferrer">Main site</a></li>
                 <li><a href={NEWSLETTER_URL} target="_blank" rel="noopener noreferrer">RecoveryStack News</a></li>
                 <li><a href={MAIN_SITE_URL} target="_blank" rel="noopener noreferrer">About RecoveryStack</a></li>
+                <li><a href="/evidence">Evidence hub</a></li>
               </ul>
             </div>
             <div>
@@ -624,6 +678,7 @@ export default async function TemplatePage({ page, pillarLink, siblingLinks, sch
                 <li><a href={NEWSLETTER_URL} target="_blank" rel="noopener noreferrer">Newsletter signup</a></li>
                 <li><a href="/protocols">Protocols</a></li>
                 <li><a href={MAIN_SITE_URL} target="_blank" rel="noopener noreferrer">{PRODUCT_NAME}</a></li>
+                <li><a href="/tools">Tools</a></li>
               </ul>
             </div>
             <div>
