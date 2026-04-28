@@ -161,7 +161,7 @@ function buildVideoObjectSchema(
 async function run(): Promise<void> {
   // Find pages with video carousel SERP features
   const { data: serpData } = await supabase
-    .from('serp_features')
+    .from('seo_serp_features')
     .select('keyword, page_slug, paa_questions, has_video_carousel')
     .eq('has_video_carousel', true)
     .not('page_slug', 'is', null)
@@ -176,7 +176,7 @@ async function run(): Promise<void> {
 
   for (const row of serpData as Array<{ keyword: string; page_slug: string; paa_questions: Array<{ question: string }> }>) {
     const { data: page } = await supabase
-      .from('pages')
+      .from('seo_pages')
       .select('slug, template, title, metadata, schema_org, body_json')
       .eq('slug', row.page_slug)
       .single();
@@ -239,14 +239,14 @@ async function run(): Promise<void> {
     const currentSchema = Array.isArray((page as any).schema_org) ? (page as any).schema_org : [(page as any).schema_org].filter(Boolean);
     const updatedSchema = [...currentSchema, videoSchema];
 
-    await supabase.from('pages').update({
+    await supabase.from('seo_pages').update({
       body_json: updatedBodyJson,
       schema_org: updatedSchema,
       needs_revalidation: true,
     }).eq('slug', row.page_slug);
 
     // Store in video_scripts table for YouTube publishing workflow
-    await supabase.from('video_scripts').upsert({
+    await supabase.from('seo_video_scripts').upsert({
       page_slug: row.page_slug,
       keyword: row.keyword,
       hook: script.hook,

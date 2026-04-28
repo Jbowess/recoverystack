@@ -91,7 +91,7 @@ function buildGoogleNewsUrl(query: string) {
 }
 
 async function ensureWatchlists() {
-  const { data: entities } = await supabase.from('topic_entities').select('id,slug').eq('active', true);
+  const { data: entities } = await supabase.from('seo_topic_entities').select('id,slug').eq('active', true);
   const entityBySlug = new Map((entities ?? []).map((row: any) => [String(row.slug), String(row.id)]));
 
   const rows = DEFAULT_WATCHLIST_SEEDS.map((seed) => ({
@@ -108,7 +108,7 @@ async function ensureWatchlists() {
     metadata: seed.metadata ?? {},
   }));
 
-  const { error } = await supabase.from('source_watchlists').upsert(rows, { onConflict: 'slug' });
+  const { error } = await supabase.from('seo_source_watchlists').upsert(rows, { onConflict: 'slug' });
   if (error) throw error;
 }
 
@@ -204,7 +204,7 @@ async function ingestWatchlist(watchlist: WatchlistRow) {
     }
 
     const { data: eventRow, error } = await supabase
-      .from('news_source_events')
+      .from('seo_news_source_events')
       .upsert(
         {
           feed_id: null,
@@ -244,7 +244,7 @@ async function ingestWatchlist(watchlist: WatchlistRow) {
 
     if (error) continue;
 
-    await supabase.from('source_watchlist_hits').upsert(
+    await supabase.from('seo_source_watchlist_hits').upsert(
       {
         watchlist_id: watchlist.id,
         event_id: eventRow?.id ?? null,
@@ -260,7 +260,7 @@ async function ingestWatchlist(watchlist: WatchlistRow) {
     );
 
     await supabase
-      .from('source_watchlists')
+      .from('seo_source_watchlists')
       .update({
         last_checked_at: new Date().toISOString(),
         last_hit_at: new Date().toISOString(),
@@ -277,7 +277,7 @@ async function run() {
   await ensureWatchlists();
 
   const { data, error } = await supabase
-    .from('source_watchlists')
+    .from('seo_source_watchlists')
     .select('id,entity_id,slug,label,watch_type,beat,source_url,query,cadence,priority,active,metadata')
     .eq('active', true)
     .order('priority', { ascending: false });

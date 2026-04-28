@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 async function getPopularPages() {
   try {
     const { data } = await supabaseAdmin
-      .from('pages')
+      .from('seo_pages')
       .select('slug,template,title,meta_description')
       .eq('status', 'published')
       .order('published_at', { ascending: false })

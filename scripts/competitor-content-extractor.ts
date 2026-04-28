@@ -290,7 +290,7 @@ async function processKeyword(gap: ContentGapRow): Promise<void> {
   // Check staleness — skip URLs recently analysed
   const cutoff = new Date(Date.now() - REFRESH_AFTER_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const { data: existing } = await supabase
-    .from('competitor_page_analyses')
+    .from('seo_competitor_page_analyses')
     .select('competitor_url, fetched_at')
     .eq('keyword', gap.keyword)
     .gte('fetched_at', cutoff);
@@ -351,7 +351,7 @@ async function processKeyword(gap: ContentGapRow): Promise<void> {
       continue;
     }
 
-    const { error } = await supabase.from('competitor_page_analyses').upsert(enrichedAnalysis, {
+    const { error } = await supabase.from('seo_competitor_page_analyses').upsert(enrichedAnalysis, {
       onConflict: 'keyword,competitor_url',
     });
 
@@ -366,7 +366,7 @@ async function processKeyword(gap: ContentGapRow): Promise<void> {
   // Also update the content_gap row's serp_snapshot with TF-IDF enrichment
   if (!isDryRun && gap.id) {
     await supabase
-      .from('content_gaps')
+      .from('seo_content_gaps')
       .update({
         missing_entities: tfidf.requiredEntities,
         serp_snapshot: {
@@ -385,7 +385,7 @@ async function run(): Promise<void> {
 
   // Load content_gaps that have SERP data but need competitor analysis
   const { data: gaps, error } = await supabase
-    .from('content_gaps')
+    .from('seo_content_gaps')
     .select('id, page_slug, keyword, serp_snapshot')
     .not('serp_snapshot', 'is', null)
     .order('created_at', { ascending: false })

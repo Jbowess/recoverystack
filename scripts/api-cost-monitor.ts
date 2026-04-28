@@ -72,7 +72,7 @@ async function getTodayCosts(): Promise<DailySummary[]> {
   const today = new Date().toISOString().split('T')[0];
 
   const { data } = await supabase
-    .from('api_cost_log')
+    .from('seo_api_cost_log')
     .select('service, units, estimated_cost_usd')
     .gte('recorded_at', today);
 
@@ -102,7 +102,7 @@ async function getMonthCosts(): Promise<number> {
   monthStart.setHours(0, 0, 0, 0);
 
   const { data } = await supabase
-    .from('api_cost_log')
+    .from('seo_api_cost_log')
     .select('estimated_cost_usd')
     .gte('recorded_at', monthStart.toISOString());
 
@@ -112,7 +112,7 @@ async function getMonthCosts(): Promise<number> {
 // ── Check circuit breaker state ───────────────────────────────────────────────
 async function isCircuitBreakerActive(): Promise<boolean> {
   const { data } = await supabase
-    .from('system_flags')
+    .from('seo_system_flags')
     .select('value')
     .eq('key', 'api_circuit_breaker_active')
     .single();
@@ -120,7 +120,7 @@ async function isCircuitBreakerActive(): Promise<boolean> {
 }
 
 async function setCircuitBreaker(active: boolean, reason: string): Promise<void> {
-  await supabase.from('system_flags').upsert({
+  await supabase.from('seo_system_flags').upsert({
     key: 'api_circuit_breaker_active',
     value: String(active),
     metadata: { reason, set_at: new Date().toISOString() },
@@ -132,7 +132,7 @@ async function computeRoi(todayCostUsd: number): Promise<number | null> {
   const today = new Date().toISOString().split('T')[0];
 
   const { data } = await supabase
-    .from('page_conversions')
+    .from('seo_page_conversions')
     .select('revenue_usd, attribution_weight')
     .gte('converted_at', today);
 
@@ -192,7 +192,7 @@ async function run(): Promise<void> {
   }
 
   // Write daily snapshot
-  await supabase.from('api_cost_snapshots').upsert({
+  await supabase.from('seo_api_cost_snapshots').upsert({
     snapshot_date: new Date().toISOString().split('T')[0],
     total_cost_usd: Math.round(totalTodayUsd * 10000) / 10000,
     monthly_cost_usd: Math.round(totalMonthUsd * 100) / 100,

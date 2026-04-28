@@ -12,13 +12,13 @@ const supabase = createClient(
 const DRY_RUN = process.argv.includes('--dry-run') || process.env.DRY_RUN === '1';
 
 async function run() {
-  const metadataProbe = await supabase.from('pages').select('metadata').limit(1);
+  const metadataProbe = await supabase.from('seo_pages').select('metadata').limit(1);
   const supportsPageMetadata = !metadataProbe.error;
   let seedWrites = 0;
   for (const seed of AUDIENCE_SEGMENT_SEEDS) {
     seedWrites += 1;
     if (!DRY_RUN) {
-      const { error } = await supabase.from('audience_segments').upsert({
+      const { error } = await supabase.from('seo_audience_segments').upsert({
         slug: seed.slug,
         label: seed.label,
         description: seed.description,
@@ -35,9 +35,9 @@ async function run() {
     }
   }
 
-  const pages = await supabase.from('pages').select('id,slug,title,primary_keyword,metadata').in('status', ['draft', 'published']).limit(200);
+  const pages = await supabase.from('seo_pages').select('id,slug,title,primary_keyword,metadata').in('status', ['draft', 'published']).limit(200);
   if (pages.error?.message?.includes('metadata')) {
-    const legacyPages = await supabase.from('pages').select('id,slug,title,primary_keyword').in('status', ['draft', 'published']).limit(200);
+    const legacyPages = await supabase.from('seo_pages').select('id,slug,title,primary_keyword').in('status', ['draft', 'published']).limit(200);
     if (legacyPages.error) throw legacyPages.error;
 
     let pageUpdates = 0;
@@ -56,7 +56,7 @@ async function run() {
     pageUpdates += 1;
     if (DRY_RUN) continue;
     if (!supportsPageMetadata) continue;
-    const { error } = await supabase.from('pages').update({
+    const { error } = await supabase.from('seo_pages').update({
       metadata: {
         ...(page.metadata ?? {}),
         audience_segment: segment,

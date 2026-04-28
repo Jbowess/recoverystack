@@ -246,14 +246,14 @@ async function processPage(
   );
   const updatedSchema = [...filteredSchema, speakable, itemList];
 
-  await supabase.from('pages').update({
+  await supabase.from('seo_pages').update({
     body_json: updatedBodyJson,
     schema_org: updatedSchema,
     needs_revalidation: true,
   }).eq('slug', page.slug);
 
   // Record optimisation
-  await supabase.from('geo_optimizations').upsert({
+  await supabase.from('seo_geo_optimizations').upsert({
     page_slug: page.slug,
     keyword,
     direct_answer: answer.direct_answer,
@@ -268,7 +268,7 @@ async function processPage(
 async function run(): Promise<void> {
   // Primary: pages ranking top 15 for keywords with AI overviews detected
   const { data: aiOverviewKeywords } = await supabase
-    .from('serp_features')
+    .from('seo_serp_features')
     .select('keyword, page_slug, paa_questions, has_ai_overview')
     .eq('has_ai_overview', true)
     .not('page_slug', 'is', null)
@@ -277,7 +277,7 @@ async function run(): Promise<void> {
   // Secondary: top-ranking high-quality pages (AI overview detection fallback)
   // quality_score column added by migration 0037; fall back to metadata.seo_quality_score until applied
   const { data: topPagesRaw } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('slug, template, title, meta_description, primary_keyword, body_json, schema_org, metadata')
     .eq('status', 'published')
     .lte('metadata->>current_position', String(MAX_POSITION))
@@ -308,7 +308,7 @@ async function run(): Promise<void> {
     slugsProcessed.add(row.page_slug);
 
     const { data: pageRaw } = await supabase
-      .from('pages')
+      .from('seo_pages')
       .select('slug, template, title, meta_description, primary_keyword, body_json, schema_org, metadata')
       .eq('slug', row.page_slug)
       .eq('status', 'published')
@@ -334,7 +334,7 @@ async function run(): Promise<void> {
     slugsProcessed.add(page.slug);
 
     const { data: serpRow } = await supabase
-      .from('serp_features')
+      .from('seo_serp_features')
       .select('paa_questions')
       .eq('page_slug', page.slug)
       .single();

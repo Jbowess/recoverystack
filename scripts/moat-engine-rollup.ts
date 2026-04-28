@@ -16,11 +16,11 @@ async function run() {
     packetsResult,
     decisionAssetsResult,
   ] = await Promise.all([
-    supabase.from('comparison_dataset_snapshots').select('id', { count: 'exact', head: true }),
-    supabase.from('brand_frameworks').select('id', { count: 'exact', head: true }),
-    supabase.from('creator_relationships').select('id', { count: 'exact', head: true }),
-    supabase.from('repurposing_packets').select('id', { count: 'exact', head: true }),
-    supabase.from('distribution_assets').select('id', { count: 'exact', head: true }).in('asset_type', ['decision_cards', 'carousel_outline', 'infographic_brief', 'email_brief']),
+    supabase.from('seo_comparison_dataset_snapshots').select('id', { count: 'exact', head: true }),
+    supabase.from('seo_brand_frameworks').select('id', { count: 'exact', head: true }),
+    supabase.from('seo_creator_relationships').select('id', { count: 'exact', head: true }),
+    supabase.from('seo_repurposing_packets').select('id', { count: 'exact', head: true }),
+    supabase.from('seo_distribution_assets').select('id', { count: 'exact', head: true }).in('asset_type', ['decision_cards', 'carousel_outline', 'infographic_brief', 'email_brief']),
   ]);
 
   const payload = {
@@ -47,7 +47,7 @@ async function run() {
     return;
   }
 
-  const { error } = await supabase.from('brand_moat_snapshots').upsert(payload, { onConflict: 'snapshot_date' });
+  const { error } = await supabase.from('seo_brand_moat_snapshots').upsert(payload, { onConflict: 'snapshot_date' });
   if (error?.message?.includes('brand_moat_snapshots')) {
     console.log('[moat-engine-rollup] brand_moat_snapshots missing - skipping persistence.');
     return;

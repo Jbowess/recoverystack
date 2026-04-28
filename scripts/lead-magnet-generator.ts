@@ -13,7 +13,7 @@ const DRY_RUN = process.argv.includes('--dry-run') || process.env.DRY_RUN === '1
 
 async function run() {
   const pagesResult = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,title,template,primary_keyword,meta_description')
     .eq('status', 'published')
     .limit(120);
@@ -27,7 +27,7 @@ async function run() {
   for (const offer of LEAD_MAGNET_SEEDS) {
     offersWritten += 1;
     if (!DRY_RUN) {
-      const { error } = await supabase.from('lead_magnet_offers').upsert({
+      const { error } = await supabase.from('seo_lead_magnet_offers').upsert({
         slug: offer.slug,
         title: offer.title,
         format: offer.format,
@@ -52,7 +52,7 @@ async function run() {
 
     if (DRY_RUN) continue;
 
-    const { error } = await supabase.from('distribution_assets').upsert({
+    const { error } = await supabase.from('seo_distribution_assets').upsert({
       page_id: page.id,
       page_slug: page.slug,
       page_template: page.template,

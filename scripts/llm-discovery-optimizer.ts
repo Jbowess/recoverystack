@@ -139,7 +139,7 @@ Return JSON only with this shape:
 
 async function run() {
   const pagesResult = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,template,title,meta_description,primary_keyword,body_json,metadata,updated_at,llm_last_optimized_at')
     .eq('status', 'published')
     .order('llm_readiness_score', { ascending: true, nullsFirst: true })
@@ -158,12 +158,12 @@ async function run() {
 
   const [queriesResult, refsResult] = await Promise.all([
     supabase
-      .from('page_query_targets')
+      .from('seo_page_query_targets')
       .select('page_id,query,priority')
       .in('page_id', pageIds)
       .order('priority', { ascending: false }),
     supabase
-      .from('page_source_references')
+      .from('seo_page_source_references')
       .select('page_id,title,url,source_domain,authority_score')
       .in('page_id', pageIds)
       .order('authority_score', { ascending: false }),
@@ -231,7 +231,7 @@ async function run() {
       continue;
     }
 
-    const { error } = await supabase.from('pages').update({
+    const { error } = await supabase.from('seo_pages').update({
       body_json: nextBody,
       needs_revalidation: true,
       llm_last_optimized_at: new Date().toISOString(),

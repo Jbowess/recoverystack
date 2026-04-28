@@ -24,7 +24,7 @@ function collectText(page: any) {
 
 async function run() {
   const { data: pages, error } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,title,intro,body_json,internal_links')
     .eq('status', 'published')
     .limit(300);
@@ -39,9 +39,9 @@ async function run() {
 
   for (const page of pages) {
     const [{ count: queryCount }, { count: referenceCount }, { count: visualCount }] = await Promise.all([
-      supabase.from('page_query_targets').select('id', { count: 'exact', head: true }).eq('page_id', page.id),
-      supabase.from('page_source_references').select('id', { count: 'exact', head: true }).eq('page_id', page.id),
-      supabase.from('page_visual_assets').select('id', { count: 'exact', head: true }).eq('page_id', page.id),
+      supabase.from('seo_page_query_targets').select('id', { count: 'exact', head: true }).eq('page_id', page.id),
+      supabase.from('seo_page_source_references').select('id', { count: 'exact', head: true }).eq('page_id', page.id),
+      supabase.from('seo_page_visual_assets').select('id', { count: 'exact', head: true }).eq('page_id', page.id),
     ]);
 
     const wordCount = countWords(collectText(page));
@@ -54,7 +54,7 @@ async function run() {
       internalLinkCount,
     });
 
-    await supabase.from('page_quality_scores').insert({
+    await supabase.from('seo_page_quality_scores').insert({
       page_id: page.id,
       page_slug: page.slug,
       score_type: 'seo_quality',
@@ -69,7 +69,7 @@ async function run() {
     // Write quality_score column (added by migration 0037).
     // metadata column added by migration 0023 — try both, fall back gracefully.
     const { error: updateErr } = await supabase
-      .from('pages')
+      .from('seo_pages')
       .update({ quality_score: score.total })
       .eq('id', page.id);
     if (updateErr) {
@@ -78,7 +78,7 @@ async function run() {
     }
 
     if (score.total < 60) {
-      await supabase.from('page_refresh_signals').upsert({
+      await supabase.from('seo_page_refresh_signals').upsert({
         page_id: page.id,
         page_slug: page.slug,
         signal_type: 'low_seo_quality',

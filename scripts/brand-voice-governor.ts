@@ -16,7 +16,7 @@ async function run() {
   for (const seed of BRAND_VOICE_SEEDS) {
     seeded += 1;
     if (DRY_RUN) continue;
-    const { error } = await supabase.from('brand_voice_profiles').upsert({
+    const { error } = await supabase.from('seo_brand_voice_profiles').upsert({
       ...seed,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'slug' });
@@ -26,7 +26,7 @@ async function run() {
     }
   }
 
-  const { data, error } = await supabase.from('pages').select('slug,title,body_json').eq('status', 'published').limit(200);
+  const { data, error } = await supabase.from('seo_pages').select('slug,title,body_json').eq('status', 'published').limit(200);
   if (error) throw error;
   const banned = new Set(BRAND_VOICE_SEEDS.flatMap((seed) => seed.banned_phrases.map((p) => p.toLowerCase())));
   let flagged = 0;

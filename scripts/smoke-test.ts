@@ -62,7 +62,7 @@ async function checkDbConnection(
   supabase: any, // eslint-disable-line @typescript-eslint/no-explicit-any
 ) {
   try {
-    const { error } = await supabase.from('pages').select('id', { count: 'exact', head: true });
+    const { error } = await supabase.from('seo_pages').select('id', { count: 'exact', head: true });
     if (error) throw error;
     pass('db-connection');
     return true;
@@ -110,7 +110,7 @@ async function checkComponentLibrary(
 ) {
   try {
     const { count, error } = await supabase
-      .from('component_library')
+      .from('seo_component_library')
       .select('id', { count: 'exact', head: true })
       .eq('active', true);
 
@@ -131,7 +131,7 @@ async function checkKeywordQueue(
 ) {
   try {
     const { count, error } = await supabase
-      .from('keyword_queue')
+      .from('seo_keyword_queue')
       .select('id', { count: 'exact', head: true })
       .in('status', ['new', 'queued']);
 

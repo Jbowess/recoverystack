@@ -21,7 +21,7 @@ function inferIdea(page: any) {
 
 async function run() {
   const { data, error } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('slug,title,primary_keyword,meta_description')
     .eq('status', 'published')
     .limit(200);
@@ -34,7 +34,7 @@ async function run() {
     written += 1;
     if (DRY_RUN) continue;
 
-    const { error: upsertError } = await supabase.from('tool_idea_queue').upsert({
+    const { error: upsertError } = await supabase.from('seo_tool_idea_queue').upsert({
       page_slug: page.slug,
       idea_type: idea.ideaType,
       title: idea.title,

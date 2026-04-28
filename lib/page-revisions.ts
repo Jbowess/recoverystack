@@ -16,7 +16,7 @@ export async function saveRevision(
 ): Promise<void> {
   try {
     // Insert the revision
-    const { error: insertError } = await supabaseAdmin.from('page_revisions').insert({
+    const { error: insertError } = await supabaseAdmin.from('seo_page_revisions').insert({
       page_id: pageId,
       page_slug: pageSlug,
       intro,
@@ -31,7 +31,7 @@ export async function saveRevision(
 
     // Trim to last MAX_REVISIONS_PER_PAGE — delete oldest beyond cap
     const { data: revisions, error: fetchError } = await supabaseAdmin
-      .from('page_revisions')
+      .from('seo_page_revisions')
       .select('id,revised_at')
       .eq('page_id', pageId)
       .order('revised_at', { ascending: false });
@@ -40,7 +40,7 @@ export async function saveRevision(
 
     if (revisions.length > MAX_REVISIONS_PER_PAGE) {
       const toDelete = revisions.slice(MAX_REVISIONS_PER_PAGE).map((r: any) => r.id);
-      await supabaseAdmin.from('page_revisions').delete().in('id', toDelete);
+      await supabaseAdmin.from('seo_page_revisions').delete().in('id', toDelete);
     }
   } catch (err) {
     console.warn(`[page-revisions] unexpected error: ${err instanceof Error ? err.message : String(err)}`);

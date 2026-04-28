@@ -23,7 +23,7 @@ const WEBHOOKS: Record<string, string | undefined> = {
 
 async function run() {
   const { data, error } = await supabase
-    .from('channel_publication_queue')
+    .from('seo_channel_publication_queue')
     .select('id,page_slug,channel,body,asset_title,link_url,platform_payload,publish_status')
     .in('publish_status', ['approved', 'scheduled'])
     .order('publish_priority', { ascending: false })
@@ -63,7 +63,7 @@ async function run() {
       });
 
       if (!res.ok) {
-        await supabase.from('channel_publication_queue').update({
+        await supabase.from('seo_channel_publication_queue').update({
           publish_status: 'failed',
           last_error: `Webhook ${res.status}`,
           updated_at: new Date().toISOString(),
@@ -72,14 +72,14 @@ async function run() {
       }
 
       const payload = await res.json().catch(() => ({}));
-      await supabase.from('channel_publication_queue').update({
+      await supabase.from('seo_channel_publication_queue').update({
         publish_status: 'posted',
         published_at: new Date().toISOString(),
         external_post_id: typeof payload.post_id === 'string' ? payload.post_id : null,
         updated_at: new Date().toISOString(),
       }).eq('id', row.id);
     } catch (error) {
-      await supabase.from('channel_publication_queue').update({
+      await supabase.from('seo_channel_publication_queue').update({
         publish_status: 'failed',
         last_error: error instanceof Error ? error.message : String(error),
         updated_at: new Date().toISOString(),

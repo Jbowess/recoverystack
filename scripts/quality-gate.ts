@@ -10,7 +10,7 @@ const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env
 
 async function run() {
   const { data: pages, error } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,status,template,title,h1,meta_description,intro,body_json,schema_org,internal_links,primary_keyword,secondary_keywords,metadata')
     .in('status', ['published', 'approved']);
 

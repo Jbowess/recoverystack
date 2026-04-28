@@ -15,9 +15,9 @@ function severityFor(score: number) {
 
 async function run() {
   const [pagesResult, originalityResult, communityResult] = await Promise.all([
-    supabase.from('pages').select('slug,originality_score,last_verified_at,metadata').eq('status', 'published').limit(300),
-    supabase.from('page_originality_scores').select('page_slug,total_score,status,breakdown').order('created_at', { ascending: false }).limit(300),
-    supabase.from('community_topic_mentions').select('topic_slug,sentiment,mention_count,title').limit(300),
+    supabase.from('seo_pages').select('slug,originality_score,last_verified_at,metadata').eq('status', 'published').limit(300),
+    supabase.from('seo_page_originality_scores').select('page_slug,total_score,status,breakdown').order('created_at', { ascending: false }).limit(300),
+    supabase.from('seo_community_topic_mentions').select('topic_slug,sentiment,mention_count,title').limit(300),
   ]);
 
   const pages = pagesResult.error ? [] : (pagesResult.data ?? []);
@@ -88,7 +88,7 @@ async function run() {
     return;
   }
 
-  const { error } = await supabase.from('brand_risk_alerts').upsert(alerts, { onConflict: 'alert_key' });
+  const { error } = await supabase.from('seo_brand_risk_alerts').upsert(alerts, { onConflict: 'alert_key' });
   if (error?.message?.includes('brand_risk_alerts')) {
     console.log('[brand-risk-monitor] brand_risk_alerts missing - skipping persistence.');
     return;

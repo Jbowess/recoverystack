@@ -162,7 +162,7 @@ Return ONLY a JSON array with exactly 3 strings: ["title1", "title2", "title3"]`
 
 async function run() {
   const { data: pages, error } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id, slug, title, template, primary_keyword, metadata')
     .eq('status', 'published')
     .order('published_at', { ascending: false })
@@ -210,8 +210,8 @@ async function run() {
         };
 
         await Promise.all([
-          supabase.from('pages').update({ metadata: updatedMeta }).eq('id', page.id),
-          supabase.from('page_title_experiments').upsert(
+          supabase.from('seo_pages').update({ metadata: updatedMeta }).eq('id', page.id),
+          supabase.from('seo_page_title_experiments').upsert(
             variants.map((title, index) => ({
               page_id: page.id,
               page_slug: page.slug,

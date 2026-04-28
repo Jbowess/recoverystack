@@ -13,7 +13,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const { data: page } = await supabaseAdmin
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,status,template,title,meta_description,h1,intro,body_json,pillar_id,primary_keyword,secondary_keywords,internal_links,schema_org,metadata,published_at,updated_at')
     .eq('id', id)
     .single();
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   await supabaseAdmin
-    .from('pages')
+    .from('seo_pages')
     .update({ ...buildPublishUpdate(page as any), schema_org: schemaOrg })
     .eq('id', id);
 

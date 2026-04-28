@@ -10,9 +10,9 @@ const DRY_RUN = process.argv.includes('--dry-run') || process.env.DRY_RUN === '1
 async function run() {
   const today = new Date().toISOString().slice(0, 10);
   const [conversionsResult, socialResult, brandReachResult] = await Promise.all([
-    supabase.from('page_conversions').select('utm_source,attribution_model,attribution_weight,revenue_usd').limit(3000),
-    supabase.from('social_channel_metrics').select('channel,conversions,engagements,clicks').limit(3000),
-    supabase.from('brand_reach_snapshots').select('snapshot_date,creator_mentions,press_mentions').order('snapshot_date', { ascending: false }).limit(30),
+    supabase.from('seo_page_conversions').select('utm_source,attribution_model,attribution_weight,revenue_usd').limit(3000),
+    supabase.from('seo_social_channel_metrics').select('channel,conversions,engagements,clicks').limit(3000),
+    supabase.from('seo_brand_reach_snapshots').select('snapshot_date,creator_mentions,press_mentions').order('snapshot_date', { ascending: false }).limit(30),
   ]);
 
   if (conversionsResult.error?.message?.includes('page_conversions')) {
@@ -64,7 +64,7 @@ async function run() {
     return;
   }
 
-  const { error } = await supabase.from('executive_attribution_rollups').upsert(rows, {
+  const { error } = await supabase.from('seo_executive_attribution_rollups').upsert(rows, {
     onConflict: 'snapshot_date,market_slug,channel',
   } as never);
   if (error?.message?.includes('executive_attribution_rollups')) {

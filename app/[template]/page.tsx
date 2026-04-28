@@ -85,7 +85,7 @@ function isTemplate(value: string): value is TemplateType {
 
 async function getPages(template: TemplateType) {
   const { data } = await supabaseAdmin
-    .from('pages')
+    .from('seo_pages')
     .select('slug,title,meta_description,published_at')
     .eq('status', 'published')
     .eq('template', template)

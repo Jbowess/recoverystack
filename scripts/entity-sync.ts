@@ -22,7 +22,7 @@ type EventRow = {
 async function seedEntities() {
   for (const entity of ENTITY_SEEDS) {
     const { data, error } = await supabase
-      .from('topic_entities')
+      .from('seo_topic_entities')
       .upsert(
         {
           slug: entity.slug,
@@ -48,7 +48,7 @@ async function seedEntities() {
       confidence_score: 90,
     }));
 
-    await supabase.from('topic_entity_aliases').upsert(aliasRows, {
+    await supabase.from('seo_topic_entity_aliases').upsert(aliasRows, {
       onConflict: 'entity_id,normalized_alias',
     });
   }
@@ -59,11 +59,11 @@ async function run() {
 
   const [{ data: entities }, { data: events }] = await Promise.all([
     supabase
-      .from('topic_entities')
+      .from('seo_topic_entities')
       .select('id,slug,canonical_name,entity_type,beat,authority_score,confidence_score,metadata')
       .eq('active', true),
     supabase
-      .from('news_source_events')
+      .from('seo_news_source_events')
       .select('id,title,summary,beat,source_domain,extraction')
       .in('status', ['new', 'ready'])
       .order('published_at', { ascending: false })
@@ -98,7 +98,7 @@ async function run() {
       confidence_score: Math.max(60, match.confidence_score),
     }));
 
-    const { error } = await supabase.from('news_event_entities').upsert(rows, {
+    const { error } = await supabase.from('seo_news_event_entities').upsert(rows, {
       onConflict: 'event_id,entity_id,relationship_type',
     });
 

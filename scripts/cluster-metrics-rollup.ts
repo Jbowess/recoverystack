@@ -70,7 +70,7 @@ function readMetricFromObjects(objs: Array<Record<string, unknown> | null | unde
 
 async function loadQueueRows(limit = 2000): Promise<QueueMetricRow[]> {
   const { data, error } = await supabase
-    .from('keyword_queue')
+    .from('seo_keyword_queue')
     .select('id,cluster_name,status,metadata,primary_keyword')
     .in('status', ['generated', 'published'])
     .order('updated_at', { ascending: false })
@@ -89,7 +89,7 @@ async function loadPagesBySlug(slugs: string[]): Promise<Map<string, PageMetricR
   for (let i = 0; i < slugs.length; i += chunkSize) {
     const chunk = slugs.slice(i, i + chunkSize);
     const { data, error } = await supabase
-      .from('pages')
+      .from('seo_pages')
       .select('slug,status,body_json,schema_org,search_volume')
       .in('slug', chunk);
 
@@ -170,7 +170,7 @@ async function run() {
     };
   });
 
-  const { error } = await supabase.from('cluster_metrics').upsert(upserts, { onConflict: 'cluster_name' });
+  const { error } = await supabase.from('seo_cluster_metrics').upsert(upserts, { onConflict: 'cluster_name' });
   if (error) throw error;
 
   console.log(`[cluster-metrics-rollup] upserted ${upserts.length} cluster metric row(s).`);

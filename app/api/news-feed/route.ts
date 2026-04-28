@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
   });
 
   let query = supabase
-    .from('pages')
+    .from('seo_pages')
     .select('title, slug, template, published_at, meta_description', { count: 'exact' })
     .eq('status', 'published')
     .not('published_at', 'is', null)

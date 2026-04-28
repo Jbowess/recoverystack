@@ -12,8 +12,8 @@ const DRY_RUN = process.argv.includes('--dry-run') || process.env.DRY_RUN === '1
 
 async function run() {
   const [snapshotsResult, pagesResult] = await Promise.all([
-    supabase.from('comparison_dataset_snapshots').select('dataset_key,title,snapshot_date,row_count,metadata').order('snapshot_date', { ascending: false }).limit(20),
-    supabase.from('pages').select('id,slug,title,template').eq('status', 'published').limit(80),
+    supabase.from('seo_comparison_dataset_snapshots').select('dataset_key,title,snapshot_date,row_count,metadata').order('snapshot_date', { ascending: false }).limit(20),
+    supabase.from('seo_pages').select('id,slug,title,template').eq('status', 'published').limit(80),
   ]);
 
   if (snapshotsResult.error?.message?.includes('comparison_dataset_snapshots')) {
@@ -31,7 +31,7 @@ async function run() {
     written += 1;
     if (DRY_RUN) continue;
 
-    const { error } = await supabase.from('distribution_assets').upsert({
+    const { error } = await supabase.from('seo_distribution_assets').upsert({
       page_id: relatedPage.id,
       page_slug: relatedPage.slug,
       page_template: relatedPage.template,

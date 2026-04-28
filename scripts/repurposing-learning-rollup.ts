@@ -40,16 +40,16 @@ async function run() {
 
   const [assetsResult, metricsResult, socialResult] = await Promise.all([
     supabase
-      .from('distribution_assets')
+      .from('seo_distribution_assets')
       .select('id,channel,asset_type,payload')
       .limit(2000),
     supabase
-      .from('distribution_asset_metrics')
+      .from('seo_distribution_asset_metrics')
       .select('asset_id,impressions,clicks,engagements,conversions')
       .gte('metric_date', since)
       .limit(4000),
     supabase
-      .from('social_channel_metrics')
+      .from('seo_social_channel_metrics')
       .select('publication_queue_id,channel,impressions,clicks,engagements,conversions')
       .gte('metric_date', since)
       .limit(4000),
@@ -176,7 +176,7 @@ async function run() {
     return;
   }
 
-  const { error } = await supabase.from('asset_performance_learning').upsert(rows, {
+  const { error } = await supabase.from('seo_asset_performance_learning').upsert(rows, {
     onConflict: 'learned_on,channel,asset_type,hook_pattern,persona,angle_type,evidence_type',
   } as never);
 

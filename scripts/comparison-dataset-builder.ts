@@ -41,7 +41,7 @@ async function storeDataset(datasetKey: string, title: string, beat: string, row
     return;
   }
 
-  await supabase.from('comparison_dataset_snapshots').upsert(
+  await supabase.from('seo_comparison_dataset_snapshots').upsert(
     {
       dataset_key: datasetKey,
       title,
@@ -57,7 +57,7 @@ async function storeDataset(datasetKey: string, title: string, beat: string, row
 
 async function run() {
   const { data, error } = await supabase
-    .from('product_specs')
+    .from('seo_product_specs')
     .select('slug,brand,model,product_type,price_usd,subscription_usd,battery_days,firmware_version,last_firmware_date,validated_metrics,metrics_tracked,compatible_platforms,status')
     .eq('status', 'active');
 

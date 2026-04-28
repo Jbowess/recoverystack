@@ -276,12 +276,12 @@ async function run(): Promise<void> {
   // Load all keywords from keyword_queue + draft pages that need volume data
   const [queueResult, pagesResult] = await Promise.all([
     supabase
-      .from('keyword_queue')
+      .from('seo_keyword_queue')
       .select('keyword, normalized_keyword')
       .in('status', ['new', 'in_progress', 'pending'])
       .limit(LIMIT),
     supabase
-      .from('pages')
+      .from('seo_pages')
       .select('primary_keyword')
       .eq('status', 'draft')
       .not('primary_keyword', 'is', null)
@@ -296,7 +296,7 @@ async function run(): Promise<void> {
 
   // Filter: skip recently refreshed
   const { data: recentData } = await supabase
-    .from('keyword_volume_data')
+    .from('seo_keyword_volume_data')
     .select('normalized_keyword')
     .gte('refreshed_at', cutoff);
 
@@ -353,7 +353,7 @@ async function run(): Promise<void> {
       continue;
     }
 
-    const { error } = await supabase.from('keyword_volume_data').upsert(merged, {
+    const { error } = await supabase.from('seo_keyword_volume_data').upsert(merged, {
       onConflict: 'normalized_keyword',
     });
 
@@ -365,7 +365,7 @@ async function run(): Promise<void> {
     // Update keyword_queue with authoritative data
     const volume = merged.search_volume_monthly as number | null;
     await supabase
-      .from('keyword_queue')
+      .from('seo_keyword_queue')
       .update({
         real_search_volume: volume,
         keyword_difficulty: merged.keyword_difficulty ?? null,

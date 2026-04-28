@@ -42,7 +42,7 @@ type ExistingStoryline = {
 
 async function loadCandidates(): Promise<StorylineCandidate[]> {
   const { data, error } = await supabase
-    .from('news_source_events')
+    .from('seo_news_source_events')
     .select(`
       id,
       title,
@@ -104,7 +104,7 @@ async function loadCandidates(): Promise<StorylineCandidate[]> {
 
 async function loadExistingStorylines(): Promise<ExistingStoryline[]> {
   const { data, error } = await supabase
-    .from('storylines')
+    .from('seo_storylines')
     .select('id,slug,title,beat,storyline_type,status,canonical_entity_id,lead_event_id,latest_event_at,authority_score,freshness_score,update_count,summary,metadata,clustering_key')
     .order('latest_event_at', { ascending: false })
     .limit(300);
@@ -194,7 +194,7 @@ async function upsertStoryline(candidate: StorylineCandidate, storylines: Existi
   const latestEventAt = candidate.published_at ?? new Date().toISOString();
 
   const { data, error } = await supabase
-    .from('storylines')
+    .from('seo_storylines')
     .upsert(
       {
         ...(existing ? { id: existing.id } : {}),
@@ -222,7 +222,7 @@ async function upsertStoryline(candidate: StorylineCandidate, storylines: Existi
   if (error || !data) throw error;
 
   const eventOrder = Math.max(0, updateCount - 1);
-  await supabase.from('storyline_events').upsert(
+  await supabase.from('seo_storyline_events').upsert(
     {
       storyline_id: data.id,
       event_id: candidate.id,
@@ -234,7 +234,7 @@ async function upsertStoryline(candidate: StorylineCandidate, storylines: Existi
   );
 
   await supabase
-    .from('news_source_events')
+    .from('seo_news_source_events')
     .update({
       status: 'clustered',
       clustering_key: candidateKey,

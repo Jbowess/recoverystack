@@ -110,7 +110,7 @@ async function run() {
   };
 
   const { error } = await supabase
-    .from('core_web_vitals')
+    .from('seo_core_web_vitals')
     .upsert(row, { onConflict: 'recorded_at' });
 
   if (error) {

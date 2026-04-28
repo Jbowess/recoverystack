@@ -11,7 +11,7 @@ const supabase = createClient(
 
 async function run() {
   const { data: pages, error } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,status,template,title,h1,intro,body_json,primary_keyword,secondary_keywords,metadata')
     .in('status', ['published', 'approved'])
     .limit(400);

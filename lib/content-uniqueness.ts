@@ -111,7 +111,7 @@ export async function checkContentUniqueness(
 
   // First check keyword signature overlap (fast path)
   const { data: kwMatches } = await supabase
-    .from('content_fingerprints')
+    .from('seo_content_fingerprints')
     .select('slug, simhash, keyword_signature')
     .neq('slug', pageSlug)
     .eq('keyword_signature', kwSig)
@@ -131,7 +131,7 @@ export async function checkContentUniqueness(
 
   // Also do a broader simhash check (sample recent pages)
   const { data: recentPages } = await supabase
-    .from('content_fingerprints')
+    .from('seo_content_fingerprints')
     .select('slug, simhash')
     .neq('slug', pageSlug)
     .order('created_at', { ascending: false })
@@ -167,7 +167,7 @@ export async function storeContentFingerprint(
   const kwSig = extractKeywordSignature(title, primaryKeyword);
 
   const { error } = await supabase
-    .from('content_fingerprints')
+    .from('seo_content_fingerprints')
     .upsert(
       { page_id: pageId, slug, template, simhash, keyword_signature: kwSig },
       { onConflict: 'slug' },

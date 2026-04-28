@@ -62,13 +62,13 @@ function buildFallbackPrompts(page: PageRow) {
 async function run() {
   const [pagesResult, queryTargetsResult] = await Promise.all([
     supabase
-      .from('pages')
+      .from('seo_pages')
       .select('id,slug,template,title,primary_keyword,meta_description')
       .eq('status', 'published')
       .order('updated_at', { ascending: false })
       .limit(LIMIT),
     supabase
-      .from('page_query_targets')
+      .from('seo_page_query_targets')
       .select('page_id,page_slug,query,normalized_query,intent,priority')
       .order('priority', { ascending: false })
       .limit(LIMIT * 8),
@@ -134,7 +134,7 @@ async function run() {
     return;
   }
 
-  const { error } = await supabase.from('llm_prompt_corpus').upsert(rows, {
+  const { error } = await supabase.from('seo_llm_prompt_corpus').upsert(rows, {
     onConflict: 'prompt_key',
   });
 

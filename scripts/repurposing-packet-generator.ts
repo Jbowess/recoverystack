@@ -17,7 +17,7 @@ const targetSlug = targetSlugArg ? targetSlugArg.split('=').slice(1).join('=').t
 
 async function loadPages() {
   let query = supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,template,title,meta_description,intro,primary_keyword,body_json,metadata,published_at')
     .in('status', ['published', 'approved'])
     .order('published_at', { ascending: false })

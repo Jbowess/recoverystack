@@ -122,7 +122,7 @@ export function buildLayoutFingerprint(input: { template: string; componentIds: 
 
 export async function fetchRecentFingerprints(supabase: SupabaseClient, limit = 5): Promise<string[]> {
   const { data, error } = await supabase
-    .from('generated_page_fingerprints')
+    .from('seo_generated_page_fingerprints')
     .select('fingerprint')
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -140,7 +140,7 @@ export async function selectRandomComponents(params: {
 }): Promise<SelectedComponents> {
   const { supabase, template, primaryKeyword, recentFingerprints, maxAttempts = 12 } = params;
 
-  const { data, error } = await supabase.from('component_library').select('*');
+  const { data, error } = await supabase.from('seo_component_library').select('*');
 
   if (error) throw error;
 

@@ -687,7 +687,7 @@ async function ensureGenerationProviderAvailable() {
 }
 
 async function loadPagesForGeneration() {
-  let query = supabase.from('pages').select('*');
+  let query = supabase.from('seo_pages').select('*');
 
   if (targetPageId) {
     query = query.eq('id', targetPageId).in('status', ['draft', 'approved', 'published']);
@@ -710,13 +710,13 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
     const promptTemplate = readFileSync(promptPathForTemplate(effectiveTemplate), 'utf8');
     const [gapResult, briefResult, queryTargetsResult, sourceReferencesResult, visualAssetsResult, truthCardsResult, trustProfilesResult, storylineResult, storyEventsResult, storyEntitiesResult] = await Promise.all([
       supabase
-        .from('content_gaps')
+        .from('seo_content_gaps')
         .select('*')
         .eq('page_slug', page.slug)
         .order('created_at', { ascending: false })
         .limit(1),
       supabase
-        .from('briefs')
+        .from('seo_briefs')
         .select('*')
         .eq('page_slug', page.slug)
         .single<{
@@ -728,45 +728,45 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
           keyword_difficulty: number | null;
         }>(),
       supabase
-        .from('page_query_targets')
+        .from('seo_page_query_targets')
         .select('query,intent,priority,search_volume,keyword_difficulty,is_primary,source')
         .eq('page_id', page.id)
         .order('priority', { ascending: false })
         .limit(20),
       supabase
-        .from('page_source_references')
+        .from('seo_page_source_references')
         .select('title,url,source_domain,source_type,authority_score,evidence_level,published_at')
         .eq('page_id', page.id)
         .order('authority_score', { ascending: false })
         .limit(12),
       supabase
-        .from('page_visual_assets')
+        .from('seo_page_visual_assets')
         .select('asset_kind,purpose,sort_order,alt_text,metadata')
         .eq('page_id', page.id)
         .order('sort_order', { ascending: true })
         .limit(10),
       supabase
-        .from('product_truth_cards')
+        .from('seo_product_truth_cards')
         .select('product_slug,card_type,title,body,priority,metadata')
         .eq('product_slug', 'volo-ring')
         .eq('status', 'active')
         .order('priority', { ascending: false })
         .limit(12),
       supabase
-        .from('editorial_trust_profiles')
+        .from('seo_editorial_trust_profiles')
         .select('slug,label,profile_type,evidence_requirements,review_steps,trust_signals')
         .eq('status', 'active')
         .limit(12),
       effectiveTemplate === 'news' && page.storyline_id
         ? supabase
-            .from('storylines')
+            .from('seo_storylines')
             .select('id,slug,title,beat,storyline_type,status,authority_score,freshness_score,update_count,summary,latest_event_at,metadata')
             .eq('id', page.storyline_id)
             .single()
         : Promise.resolve({ data: null, error: null } as any),
       effectiveTemplate === 'news' && page.storyline_id
         ? supabase
-            .from('storyline_events')
+            .from('seo_storyline_events')
             .select(`
               significance_score,
               news_source_events (
@@ -779,7 +779,7 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
         : Promise.resolve({ data: [], error: null } as any),
       effectiveTemplate === 'news' && page.storyline_id
         ? supabase
-            .from('storylines')
+            .from('seo_storylines')
             .select(`
               canonical_entity_id,
               topic_entities!storylines_canonical_entity_id_fkey (
@@ -1013,7 +1013,7 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
         }
 
         const { error: pageUpdateError } = await supabase
-          .from('pages')
+          .from('seo_pages')
           .update({ ...pageUpdate, metadata: mergedMetadata, ...extraColumns })
           .eq('id', page.id);
 
@@ -1037,13 +1037,13 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
           );
 
         if (generatedReferences.length > 0) {
-          await supabase.from('page_source_references').upsert(generatedReferences, {
+          await supabase.from('seo_page_source_references').upsert(generatedReferences, {
             onConflict: 'page_id,url',
           });
         }
 
         if (effectiveTemplate === 'news' && page.storyline_id) {
-          await supabase.from('page_storylines').upsert(
+          await supabase.from('seo_page_storylines').upsert(
             {
               page_id: page.id,
               storyline_id: page.storyline_id,
@@ -1052,7 +1052,7 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
             { onConflict: 'page_id,storyline_id,relationship_type' },
           );
 
-          await supabase.from('page_update_log').insert({
+          await supabase.from('seo_page_update_log').insert({
             page_id: page.id,
             page_slug: page.slug,
             update_type: page.published_at ? 'story_refresh' : 'initial_story_publication',
@@ -1069,7 +1069,7 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
           const heroUrl = await generatePageHeroImage(page.title, effectiveTemplate, page.primary_keyword ?? page.title);
           if (heroUrl) {
             await supabase
-              .from('pages')
+              .from('seo_pages')
               .update({
                 metadata: {
                   ...mergedMetadata,
@@ -1080,7 +1080,7 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
               .eq('id', page.id);
 
             await supabase
-              .from('page_visual_assets')
+              .from('seo_page_visual_assets')
               .upsert({
                 page_id: page.id,
                 page_slug: page.slug,
@@ -1101,7 +1101,7 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
           console.warn(`[content-generator] Hero image generation failed for ${page.slug}:`, imgErr instanceof Error ? imgErr.message : String(imgErr));
         }
 
-        const { error: fingerprintError } = await supabase.from('generated_page_fingerprints').insert({
+        const { error: fingerprintError } = await supabase.from('seo_generated_page_fingerprints').insert({
           page_id: page.id,
           page_slug: page.slug,
           template: effectiveTemplate,
@@ -1155,7 +1155,7 @@ async function processPage(page: Awaited<ReturnType<typeof loadPagesForGeneratio
 async function run() {
   await ensureGenerationProviderAvailable();
   const pages = await loadPagesForGeneration();
-  const { data: products } = await supabase.from('products').select('*');
+  const { data: products } = await supabase.from('seo_products').select('*');
 
   console.log(`[content-generator] Starting generation: ${pages.length} page(s), concurrency=${CONCURRENCY}`);
 

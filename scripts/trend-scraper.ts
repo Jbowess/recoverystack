@@ -472,7 +472,7 @@ async function upsertTrends(rows: TrendSeed[]): Promise<number> {
 
   const normalizedTerms = Array.from(deduped.keys());
   const { data: existingRows, error: existingError } = await supabase
-    .from('trends')
+    .from('seo_trends')
     .select('id,normalized_term,status,source_count,sighting_count,first_seen_at,last_seen_at')
     .in('normalized_term', normalizedTerms);
 
@@ -504,7 +504,7 @@ async function upsertTrends(rows: TrendSeed[]): Promise<number> {
     };
   });
 
-  const { error } = await supabase.from('trends').upsert(payload, {
+  const { error } = await supabase.from('seo_trends').upsert(payload, {
     onConflict: 'normalized_term',
     ignoreDuplicates: false,
   });
@@ -514,7 +514,7 @@ async function upsertTrends(rows: TrendSeed[]): Promise<number> {
   }
 
   const { data: trendRows, error: trendFetchError } = await supabase
-    .from('trends')
+    .from('seo_trends')
     .select('id,normalized_term')
     .in('normalized_term', normalizedTerms);
 
@@ -539,7 +539,7 @@ async function upsertTrends(rows: TrendSeed[]): Promise<number> {
     payload: row.payload,
   }));
 
-  const { error: observationError } = await supabase.from('trend_observations').insert(observationPayload);
+  const { error: observationError } = await supabase.from('seo_trend_observations').insert(observationPayload);
   if (observationError) {
     throw new Error(`Supabase trend observation insert failed: ${observationError.message}`);
   }

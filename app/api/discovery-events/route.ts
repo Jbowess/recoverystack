@@ -27,7 +27,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true }, { status: 202 });
     }
 
-    const { error } = await supabaseAdmin.from('llm_referral_events').insert({
+    const { error } = await supabaseAdmin.from('seo_llm_referral_events').insert({
       source,
       session_id: parsed.sessionId ?? null,
       slug: parsed.slug ?? null,

@@ -27,12 +27,12 @@ function inferIntent(keyword: string | null | undefined) {
 async function run() {
   const [pagesResult, qualityResult] = await Promise.all([
     supabase
-      .from('pages')
+      .from('seo_pages')
       .select('id,slug,template,beat,primary_keyword,body_json')
       .eq('status', 'published')
       .limit(1000),
     supabase
-      .from('page_quality_scores')
+      .from('seo_page_quality_scores')
       .select('page_id,total_score')
       .eq('score_type', 'seo_quality')
       .limit(2000),
@@ -90,7 +90,7 @@ async function run() {
   }));
 
   if (rows.length) {
-    const { error } = await supabase.from('serp_winner_patterns').upsert(rows, {
+    const { error } = await supabase.from('seo_serp_winner_patterns').upsert(rows, {
       onConflict: 'template,query_intent,beat',
     });
     if (error) throw error;

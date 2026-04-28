@@ -20,7 +20,7 @@ type PageRow = {
 
 async function run() {
   const { data, error } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,template,title,metadata,storyline_id,status')
     .in('status', ['approved', 'published'])
     .order('updated_at', { ascending: false })
@@ -61,7 +61,7 @@ async function run() {
 
     if (!reviewType) continue;
 
-    const { error: upsertError } = await supabase.from('editorial_review_queue').upsert(
+    const { error: upsertError } = await supabase.from('seo_editorial_review_queue').upsert(
       {
         page_id: page.id,
         page_slug: page.slug,

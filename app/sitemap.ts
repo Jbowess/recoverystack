@@ -80,7 +80,7 @@ export default async function sitemap({
 
     try {
       const { data, error } = await supabaseAdmin
-        .from('comparison_dataset_snapshots')
+        .from('seo_comparison_dataset_snapshots')
         .select('dataset_key,snapshot_date')
         .order('snapshot_date', { ascending: false })
         .limit(40);

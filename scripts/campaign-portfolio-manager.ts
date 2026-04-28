@@ -9,8 +9,8 @@ const DRY_RUN = process.argv.includes('--dry-run') || process.env.DRY_RUN === '1
 
 async function run() {
   const [assetsResult, queueResult] = await Promise.all([
-    supabase.from('distribution_assets').select('id,page_slug,channel,asset_type,payload').limit(2000),
-    supabase.from('channel_publication_queue').select('distribution_asset_id,page_slug,channel,publish_priority,performance_snapshot').limit(2000),
+    supabase.from('seo_distribution_assets').select('id,page_slug,channel,asset_type,payload').limit(2000),
+    supabase.from('seo_channel_publication_queue').select('distribution_asset_id,page_slug,channel,publish_priority,performance_snapshot').limit(2000),
   ]);
 
   if (assetsResult.error?.message?.includes('distribution_assets')) {
@@ -77,14 +77,14 @@ async function run() {
     return;
   }
 
-  const campaignWrite = await supabase.from('campaign_portfolios').upsert(campaigns, { onConflict: 'campaign_key' });
+  const campaignWrite = await supabase.from('seo_campaign_portfolios').upsert(campaigns, { onConflict: 'campaign_key' });
   if (campaignWrite.error?.message?.includes('campaign_portfolios')) {
     console.log('[campaign-portfolio-manager] campaign_portfolios missing - skipping persistence.');
     return;
   }
   if (campaignWrite.error) throw campaignWrite.error;
 
-  const mapWrite = await supabase.from('campaign_asset_map').upsert(campaignMapRows, {
+  const mapWrite = await supabase.from('seo_campaign_asset_map').upsert(campaignMapRows, {
     onConflict: 'campaign_key,asset_id,page_slug,asset_channel,asset_type',
   } as never);
   if (mapWrite.error?.message?.includes('campaign_asset_map')) {

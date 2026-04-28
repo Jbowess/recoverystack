@@ -8,22 +8,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const action = String(form.get('action') ?? '');
   const { id } = await params;
 
-  const { data: trend } = await supabaseAdmin.from('trends').select('*').eq('id', id).single();
+  const { data: trend } = await supabaseAdmin.from('seo_trends').select('*').eq('id', id).single();
   if (!trend) return NextResponse.redirect(new URL('/admin?error=trend_not_found', req.url), { status: 302 });
 
   if (action === 'reject') {
-    await supabaseAdmin.from('trends').update({ status: 'rejected' }).eq('id', id);
+    await supabaseAdmin.from('seo_trends').update({ status: 'rejected' }).eq('id', id);
     await logAdminAction({ action: 'reject_trend', target_type: 'trend', target_id: id, metadata: { term: trend.term } });
     return NextResponse.redirect(new URL('/admin', req.url), { status: 302 });
   }
 
   if (action === 'approve') {
-    await supabaseAdmin.from('trends').update({ status: 'queued' }).eq('id', id);
+    await supabaseAdmin.from('seo_trends').update({ status: 'queued' }).eq('id', id);
 
     const slug = slugify(`what-is-${trend.term}`);
     const title = `What is ${trend.term}? Evidence, use-cases, and limits`;
 
-    await supabaseAdmin.from('pages').upsert(
+    await supabaseAdmin.from('seo_pages').upsert(
       {
         slug,
         template: 'trends',

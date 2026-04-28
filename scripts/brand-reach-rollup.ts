@@ -15,11 +15,11 @@ async function run() {
   const since = new Date(Date.now() - 28 * 86_400_000).toISOString().slice(0, 10);
   const brandTerms = (process.env.BRANDED_SEARCH_TERMS ?? 'recoverystack,volo ring').split(',').map((term) => term.trim().toLowerCase()).filter(Boolean);
   const [assetsResult, metricsResult, outreachResult, creatorResult, conversionsResult, gscResult] = await Promise.all([
-    supabase.from('distribution_assets').select('channel,asset_type,payload').limit(2000),
-    supabase.from('social_channel_metrics').select('followers_gained,shares,comments,clicks,conversions').gte('metric_date', today).limit(2000),
-    supabase.from('outreach_reply_log').select('target_slug,reply_status').limit(500),
-    supabase.from('creator_relationships').select('relationship_stage').limit(200),
-    supabase.from('page_conversion_aggregates').select('conversion_count').limit(500),
+    supabase.from('seo_distribution_assets').select('channel,asset_type,payload').limit(2000),
+    supabase.from('seo_social_channel_metrics').select('followers_gained,shares,comments,clicks,conversions').gte('metric_date', today).limit(2000),
+    supabase.from('seo_outreach_reply_log').select('target_slug,reply_status').limit(500),
+    supabase.from('seo_creator_relationships').select('relationship_stage').limit(200),
+    supabase.from('seo_page_conversion_aggregates').select('conversion_count').limit(500),
     supabase.from('gsc_query_rows').select('query,impressions,clicks').gte('date', since).limit(5000),
   ]);
 
@@ -74,7 +74,7 @@ async function run() {
     return;
   }
 
-  const { error } = await supabase.from('brand_reach_snapshots').upsert(payload, { onConflict: 'snapshot_date' });
+  const { error } = await supabase.from('seo_brand_reach_snapshots').upsert(payload, { onConflict: 'snapshot_date' });
   if (error?.message?.includes('brand_reach_snapshots')) {
     console.log('[brand-reach-rollup] brand_reach_snapshots missing - skipping persistence.');
     return;

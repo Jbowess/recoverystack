@@ -21,9 +21,9 @@ function clampScore(value: number) {
 
 async function run() {
   const [eventsResult, referencesResult, pagesResult] = await Promise.all([
-    supabase.from('news_source_events').select('id,source_domain,beat,status').limit(5000),
-    supabase.from('page_source_references').select('source_domain').limit(5000),
-    supabase.from('pages').select('source_event_id').not('source_event_id', 'is', null).limit(3000),
+    supabase.from('seo_news_source_events').select('id,source_domain,beat,status').limit(5000),
+    supabase.from('seo_page_source_references').select('source_domain').limit(5000),
+    supabase.from('seo_pages').select('source_event_id').not('source_event_id', 'is', null).limit(3000),
   ]);
 
   if (eventsResult.error) throw eventsResult.error;
@@ -77,7 +77,7 @@ async function run() {
   });
 
   if (rows.length) {
-    const { error } = await supabase.from('source_quality_scores').upsert(rows, { onConflict: 'source_key' });
+    const { error } = await supabase.from('seo_source_quality_scores').upsert(rows, { onConflict: 'source_key' });
     if (error) throw error;
   }
 

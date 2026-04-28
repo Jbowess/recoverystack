@@ -7,7 +7,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
 
   const { data, error } = await supabaseAdmin
-    .from('pages')
+    .from('seo_pages')
     .select('*')
     .eq('id', id)
     .single();
@@ -21,7 +21,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
 
-  const { data: existing, error: existingError } = await supabaseAdmin.from('pages').select('*').eq('id', id).single();
+  const { data: existing, error: existingError } = await supabaseAdmin.from('seo_pages').select('*').eq('id', id).single();
   if (existingError || !existing) return NextResponse.json({ error: 'Page not found' }, { status: 404 });
 
   // Allow updating specific fields only
@@ -56,7 +56,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const { data, error } = await supabaseAdmin
-    .from('pages')
+    .from('seo_pages')
     .update(update)
     .eq('id', id)
     .select('id,slug,template,title,status,updated_at')
@@ -77,14 +77,14 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params;
 
   const { data: page } = await supabaseAdmin
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,template')
     .eq('id', id)
     .single();
 
   if (!page) return NextResponse.json({ error: 'Page not found' }, { status: 404 });
 
-  const { error } = await supabaseAdmin.from('pages').delete().eq('id', id);
+  const { error } = await supabaseAdmin.from('seo_pages').delete().eq('id', id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({ deleted: true, slug: page.slug });

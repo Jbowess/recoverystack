@@ -167,7 +167,7 @@ async function fetchPricePerformanceScaffold(): Promise<InfoGainFeeds['price_per
       const { createClient } = await import('@supabase/supabase-js');
       const supabase = createClient(supabaseUrl, supabaseKey);
       const { data } = await supabase
-        .from('price_snapshots')
+        .from('seo_price_snapshots')
         .select('retailer,price,currency,in_stock,url,captured_at')
         .order('captured_at', { ascending: false })
         .limit(10);

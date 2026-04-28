@@ -18,7 +18,7 @@ async function run() {
 
   if (!DRY_RUN) {
     for (const seed of PARTNER_CONTACT_SEEDS) {
-      const { error } = await supabase.from('partner_contacts').upsert({
+      const { error } = await supabase.from('seo_partner_contacts').upsert({
         slug: seed.slug,
         name: seed.name,
         target_type: seed.targetType,
@@ -48,7 +48,7 @@ async function run() {
   }
 
   const pagesResult = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,title,template,primary_keyword,meta_description')
     .eq('status', 'published')
     .order('published_at', { ascending: false })
@@ -97,7 +97,7 @@ async function run() {
         continue;
       }
 
-      const { error } = await supabase.from('outreach_queue').upsert(row, {
+      const { error } = await supabase.from('seo_outreach_queue').upsert(row, {
         onConflict: 'page_slug,channel,target_name',
       });
 

@@ -126,7 +126,7 @@ function buildStrategy(snippetType: string, keyword: string, currentSnippetText:
 async function detectDisplacements(): Promise<string[]> {
   // Find keywords where we previously owned the snippet but no longer do
   const { data: history } = await supabase
-    .from('rank_history')
+    .from('seo_rank_history')
     .select('keyword, featured_snippet_owned, checked_at')
     .eq('featured_snippet_owned', true)
     .order('checked_at', { ascending: false })
@@ -137,7 +137,7 @@ async function detectDisplacements(): Promise<string[]> {
   const prevOwnedKeywords = new Set((history as Array<{ keyword: string }>).map((r) => r.keyword));
 
   const { data: current } = await supabase
-    .from('serp_features')
+    .from('seo_serp_features')
     .select('keyword, has_featured_snippet, featured_snippet_domain')
     .in('keyword', [...prevOwnedKeywords]);
 
@@ -156,7 +156,7 @@ async function detectDisplacements(): Promise<string[]> {
 async function run(): Promise<void> {
   // Find pages in positions 1–5 without featured snippet ownership
   const { data: rankData } = await supabase
-    .from('rank_history')
+    .from('seo_rank_history')
     .select('keyword, page_slug, position, featured_snippet_owned, checked_at')
     .eq('is_our_page', true)
     .lte('position', SNIPPET_POSITION_THRESHOLD)
@@ -179,7 +179,7 @@ async function run(): Promise<void> {
     if (SMART_RING_ONLY && !isSmartRingKeyword(rank.keyword, rank.page_slug)) continue;
 
     const { data: serpFeature } = await supabase
-      .from('serp_features')
+      .from('seo_serp_features')
       .select('has_featured_snippet, featured_snippet_type, featured_snippet_domain, featured_snippet_text')
       .eq('keyword', rank.keyword)
       .single();
@@ -224,7 +224,7 @@ async function run(): Promise<void> {
     if (DRY_RUN) continue;
 
     // Write experiment
-    await supabase.from('snippet_experiments').upsert({
+    await supabase.from('seo_snippet_experiments').upsert({
       keyword: opp.keyword,
       page_slug: opp.page_slug,
       current_position: opp.current_position,
@@ -238,7 +238,7 @@ async function run(): Promise<void> {
     }, { onConflict: 'keyword' });
 
     // Update brief with snippet strategy
-    await supabase.from('briefs').update({
+    await supabase.from('seo_briefs').update({
       snippet_strategy: {
         snippet_type: opp.snippet_type,
         strategy: opp.strategy,
@@ -250,7 +250,7 @@ async function run(): Promise<void> {
 
     // Enqueue page for content refresh with snippet instructions
     if (opp.priority_score >= 50) {
-      await supabase.from('content_refresh_queue').upsert({
+      await supabase.from('seo_content_refresh_queue').upsert({
         page_slug: opp.page_slug,
         reason: `snippet_opportunity:${opp.snippet_type}:pos${opp.current_position}`,
         priority: opp.priority_score >= 70 ? 'high' : 'medium',

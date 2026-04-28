@@ -22,7 +22,7 @@ export async function GET() {
   );
 
   const { data } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('slug,template,title,meta_description,published_at,updated_at')
     .eq('status', 'published')
     .order('published_at', { ascending: false })

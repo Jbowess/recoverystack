@@ -25,9 +25,9 @@ function scorePage(page: any, assets: any[], conversions: any) {
 
 async function run() {
   const [pagesResult, assetsResult, conversionsResult] = await Promise.all([
-    supabase.from('pages').select('slug,template,primary_keyword,metadata').in('status', ['approved', 'published']).limit(500),
-    supabase.from('distribution_assets').select('page_slug,asset_type,payload').limit(2000),
-    supabase.from('page_conversion_aggregates').select('page_slug,conversion_count,cta_click_count').limit(500),
+    supabase.from('seo_pages').select('slug,template,primary_keyword,metadata').in('status', ['approved', 'published']).limit(500),
+    supabase.from('seo_distribution_assets').select('page_slug,asset_type,payload').limit(2000),
+    supabase.from('seo_page_conversion_aggregates').select('page_slug,conversion_count,cta_click_count').limit(500),
   ]);
 
   if (pagesResult.error) throw pagesResult.error;
@@ -60,7 +60,7 @@ async function run() {
     written += 1;
     if (DRY_RUN) continue;
 
-    const { error } = await supabase.from('repurposing_priority_scores').upsert({
+    const { error } = await supabase.from('seo_repurposing_priority_scores').upsert({
       page_slug: page.slug,
       priority_score: priorityScore,
       score_breakdown: scoreBreakdown,

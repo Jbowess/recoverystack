@@ -159,13 +159,13 @@ async function promoteWinner(experiment: ExperimentRow): Promise<void> {
   if (DRY_RUN) return;
 
   // Mark the experiment as promoted
-  await supabase.from('ab_experiments').update({
+  await supabase.from('seo_ab_experiments').update({
     status: 'promoted',
     resolved_at: new Date().toISOString(),
   }).eq('id', experiment.id);
 
   // Flag page for content refresh with winner applied
-  await supabase.from('content_refresh_queue').upsert({
+  await supabase.from('seo_content_refresh_queue').upsert({
     page_slug: experiment.page_slug,
     reason: `ab_test_winner:${experiment.experiment_type}`,
     priority: 'medium',
@@ -178,7 +178,7 @@ async function promoteWinner(experiment: ExperimentRow): Promise<void> {
 // ── Create new experiments for high-traffic pages ─────────────────────────────
 async function createNewExperiments(): Promise<void> {
   const { data: pages } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('slug, template, title, primary_keyword, metadata')
     .eq('status', 'published')
     .order('quality_score', { ascending: false })
@@ -186,7 +186,7 @@ async function createNewExperiments(): Promise<void> {
 
   // Get existing experiments to avoid duplicates
   const { data: existingExps } = await supabase
-    .from('ab_experiments')
+    .from('seo_ab_experiments')
     .select('page_slug')
     .in('status', ['new', 'running']);
   const existingSet = new Set((existingExps ?? []).map((e: any) => e.page_slug));
@@ -217,7 +217,7 @@ async function createNewExperiments(): Promise<void> {
     };
 
     if (!DRY_RUN) {
-      await supabase.from('ab_experiments').insert(experiment);
+      await supabase.from('seo_ab_experiments').insert(experiment);
     }
 
     console.log(`[ab-test] Created experiment for ${page.slug}: ${page.template} intro variant`);
@@ -235,7 +235,7 @@ async function run(): Promise<void> {
 
   // Evaluate running experiments
   const { data: experiments } = await supabase
-    .from('ab_experiments')
+    .from('seo_ab_experiments')
     .select('*')
     .in('status', ['new', 'running'])
     .limit(50);
@@ -279,12 +279,12 @@ async function run(): Promise<void> {
     );
 
     if (!DRY_RUN) {
-      await supabase.from('ab_experiments').update(updatedExp).eq('id', exp.id);
+      await supabase.from('seo_ab_experiments').update(updatedExp).eq('id', exp.id);
 
       if (significant && winner === 'test') {
         await promoteWinner({ ...exp, ...updatedExp } as ExperimentRow);
       } else if (updatedExp.status === 'insufficient_data') {
-        await supabase.from('ab_experiments').update({ status: 'archived', resolved_at: new Date().toISOString() }).eq('id', exp.id);
+        await supabase.from('seo_ab_experiments').update({ status: 'archived', resolved_at: new Date().toISOString() }).eq('id', exp.id);
         console.log(`[ab-test] Archived ${exp.page_slug}: insufficient data after threshold`);
       }
     }

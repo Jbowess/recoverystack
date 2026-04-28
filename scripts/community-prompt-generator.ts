@@ -12,7 +12,7 @@ const DRY_RUN = process.argv.includes('--dry-run') || process.env.DRY_RUN === '1
 
 async function run() {
   const { data, error } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,template,title,primary_keyword,meta_description,metadata')
     .eq('status', 'published')
     .limit(120);
@@ -61,7 +61,7 @@ async function run() {
       },
     ];
 
-    const { error: upsertError } = await supabase.from('distribution_assets').upsert(rows, { onConflict: 'page_id,channel,asset_type' });
+    const { error: upsertError } = await supabase.from('seo_distribution_assets').upsert(rows, { onConflict: 'page_id,channel,asset_type' });
     if (upsertError?.message?.includes('distribution_assets')) {
       console.log('[community-prompt-generator] distribution_assets missing - skipping persistence.');
       break;

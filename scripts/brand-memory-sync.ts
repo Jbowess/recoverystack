@@ -9,9 +9,9 @@ const DRY_RUN = process.argv.includes('--dry-run') || process.env.DRY_RUN === '1
 
 async function run() {
   const [pagesResult, assetsResult, creatorsResult] = await Promise.all([
-    supabase.from('pages').select('slug,title,body_json,metadata,updated_at').eq('status', 'published').limit(200),
-    supabase.from('distribution_assets').select('page_slug,channel,hook,payload,updated_at').limit(400),
-    supabase.from('creator_relationships').select('slug,name,partnership_fit,audience_segment,relevance_score,updated_at').limit(150),
+    supabase.from('seo_pages').select('slug,title,body_json,metadata,updated_at').eq('status', 'published').limit(200),
+    supabase.from('seo_distribution_assets').select('page_slug,channel,hook,payload,updated_at').limit(400),
+    supabase.from('seo_creator_relationships').select('slug,name,partnership_fit,audience_segment,relevance_score,updated_at').limit(150),
   ]);
 
   if (pagesResult.error) throw pagesResult.error;
@@ -83,7 +83,7 @@ async function run() {
     return;
   }
 
-  const { error } = await supabase.from('brand_memory_entries').upsert(rows, { onConflict: 'memory_key' });
+  const { error } = await supabase.from('seo_brand_memory_entries').upsert(rows, { onConflict: 'memory_key' });
   if (error?.message?.includes('brand_memory_entries')) {
     console.log('[brand-memory-sync] brand_memory_entries missing - skipping persistence.');
     return;

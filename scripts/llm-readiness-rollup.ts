@@ -92,7 +92,7 @@ function buildEntityRows(page: PageRow) {
 
 async function run() {
   const pagesResult = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,template,title,meta_description,primary_keyword,secondary_keywords,body_json,updated_at')
     .eq('status', 'published')
     .order('updated_at', { ascending: false })
@@ -117,12 +117,12 @@ async function run() {
     indexStatusResult,
     productSpecsResult,
   ] = await Promise.all([
-    supabase.from('page_query_targets').select('page_id').in('page_id', pageIds),
-    supabase.from('page_claims').select('page_id,status,confidence_score').in('page_id', pageIds),
-    supabase.from('page_visual_assets').select('page_id').in('page_id', pageIds).eq('status', 'ready'),
-    supabase.from('page_source_references').select('page_id,title,url,source_domain').in('page_id', pageIds),
-    supabase.from('page_index_status').select('page_slug,index_status').in('page_slug', pageSlugs),
-    supabase.from('product_specs').select('page_slug').in('page_slug', pageSlugs),
+    supabase.from('seo_page_query_targets').select('page_id').in('page_id', pageIds),
+    supabase.from('seo_page_claims').select('page_id,status,confidence_score').in('page_id', pageIds),
+    supabase.from('seo_page_visual_assets').select('page_id').in('page_id', pageIds).eq('status', 'ready'),
+    supabase.from('seo_page_source_references').select('page_id,title,url,source_domain').in('page_id', pageIds),
+    supabase.from('seo_page_index_status').select('page_slug,index_status').in('page_slug', pageSlugs),
+    supabase.from('seo_product_specs').select('page_slug').in('page_slug', pageSlugs),
   ]);
 
   const queryTargetsByPage = groupBy((queryTargetsResult.data ?? []) as Array<{ page_id: string }>, 'page_id');
@@ -217,7 +217,7 @@ async function run() {
       continue;
     }
 
-    await supabase.from('page_llm_scores').upsert({
+    await supabase.from('seo_page_llm_scores').upsert({
       page_id: page.id,
       page_slug: page.slug,
       score_date: new Date().toISOString().slice(0, 10),
@@ -229,9 +229,9 @@ async function run() {
       onConflict: 'page_id,score_date',
     });
 
-    await supabase.from('page_llm_observations').delete().eq('page_id', page.id).eq('status', 'open');
+    await supabase.from('seo_page_llm_observations').delete().eq('page_id', page.id).eq('status', 'open');
     if (observations.length > 0) {
-      await supabase.from('page_llm_observations').insert(
+      await supabase.from('seo_page_llm_observations').insert(
         observations.map((item) => ({
           page_id: page.id,
           page_slug: page.slug,
@@ -245,9 +245,9 @@ async function run() {
       );
     }
 
-    await supabase.from('page_entities').delete().eq('page_id', page.id).in('entity_type', ['query', 'supporting_query', 'topic']);
+    await supabase.from('seo_page_entities').delete().eq('page_id', page.id).in('entity_type', ['query', 'supporting_query', 'topic']);
     if (entityRows.length > 0) {
-      await supabase.from('page_entities').insert(
+      await supabase.from('seo_page_entities').insert(
         entityRows.map((entity) => ({
           page_id: page.id,
           page_slug: page.slug,
@@ -261,7 +261,7 @@ async function run() {
       );
     }
 
-    await supabase.from('pages').update({
+    await supabase.from('seo_pages').update({
       llm_readiness_score: score.total,
       llm_readiness_status: score.status,
       llm_last_scored_at: new Date().toISOString(),

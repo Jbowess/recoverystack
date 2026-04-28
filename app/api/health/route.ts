@@ -40,14 +40,14 @@ export async function GET() {
       { auth: { persistSession: false, autoRefreshToken: false } },
     );
 
-    const dbProbe = await supabaseAdmin.from('pages').select('id', { head: true, count: 'exact' }).limit(1);
+    const dbProbe = await supabaseAdmin.from('seo_pages').select('id', { head: true, count: 'exact' }).limit(1);
 
     if (dbProbe.error) {
       dbError = dbProbe.error.message;
     } else {
       dbConnected = true;
       const latestRunResult = await supabaseAdmin
-        .from('pipeline_runs')
+        .from('seo_pipeline_runs')
         .select('id,pipeline_name,status,started_at,finished_at,duration_ms,error_message')
         .order('started_at', { ascending: false })
         .limit(1)

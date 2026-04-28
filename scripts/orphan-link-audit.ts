@@ -78,7 +78,7 @@ function isSmartRingPage(page: PageRow): boolean {
 
 async function run() {
   const { data: pages, error } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id, slug, template, primary_keyword, secondary_keywords, pillar_id, internal_links')
     .eq('status', 'published');
 
@@ -162,7 +162,7 @@ async function run() {
 
         const updatedLinks = [...existingLinks, newLink];
         const { error: updateErr } = await supabase
-          .from('pages')
+          .from('seo_pages')
           .update({ internal_links: updatedLinks })
           .eq('id', donor.id);
 

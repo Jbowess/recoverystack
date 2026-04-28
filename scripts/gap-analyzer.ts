@@ -187,12 +187,12 @@ async function fetchTopSerp(keyword: string) {
 async function loadPendingKeywords(): Promise<KeywordTarget[]> {
   const [pagesRes, trendsRes] = await Promise.all([
     supabase
-      .from('pages')
+      .from('seo_pages')
       .select('slug,primary_keyword,status')
       .eq('status', 'draft')
       .not('primary_keyword', 'is', null)
       .limit(GAP_ANALYZER_LIMIT),
-    supabase.from('trends').select('term,status').eq('status', 'new').limit(GAP_ANALYZER_LIMIT),
+    supabase.from('seo_trends').select('term,status').eq('status', 'new').limit(GAP_ANALYZER_LIMIT),
   ]);
 
   if (pagesRes.error) throw pagesRes.error;
@@ -252,7 +252,7 @@ async function run() {
       };
 
       const { data: existingGap, error: existingGapError } = await supabase
-        .from('content_gaps')
+        .from('seo_content_gaps')
         .select('id')
         .eq('page_slug', target.pageSlug)
         .eq('keyword', target.keyword)
@@ -264,7 +264,7 @@ async function run() {
 
       if (existingGap?.id) {
         const { error } = await supabase
-          .from('content_gaps')
+          .from('seo_content_gaps')
           .update({
             missing_entities: missingEntities,
             serp_snapshot: serpSnapshot,
@@ -274,7 +274,7 @@ async function run() {
 
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('content_gaps').insert({
+        const { error } = await supabase.from('seo_content_gaps').insert({
           page_slug: target.pageSlug,
           keyword: target.keyword,
           missing_entities: missingEntities,

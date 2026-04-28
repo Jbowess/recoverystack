@@ -207,7 +207,7 @@ async function upsertConversionAggregates(rows: ConversionRow[]): Promise<void> 
       continue;
     }
 
-    await supabase.from('page_conversion_aggregates').upsert({
+    await supabase.from('seo_page_conversion_aggregates').upsert({
       page_slug: slug,
       total_revenue_usd: Math.round(agg.total_revenue_usd * 100) / 100,
       purchase_count: agg.purchase_count,
@@ -219,7 +219,7 @@ async function upsertConversionAggregates(rows: ConversionRow[]): Promise<void> 
     }, { onConflict: 'page_slug' });
 
     // Feed revenue signal into page metadata for adaptive-feedback-loop
-    await supabase.from('pages').update({
+    await supabase.from('seo_pages').update({
       metadata: {
         revenue_attribution_usd: Math.round(agg.total_revenue_usd * 100) / 100,
         conversion_count: agg.purchase_count + agg.subscription_count + agg.trial_count,
@@ -295,7 +295,7 @@ async function run(): Promise<void> {
     // Batch insert conversion rows
     for (let i = 0; i < conversionRows.length; i += 50) {
       const chunk = conversionRows.slice(i, i + 50);
-      await supabase.from('page_conversions').upsert(chunk, { onConflict: 'stripe_charge_id' });
+      await supabase.from('seo_page_conversions').upsert(chunk, { onConflict: 'stripe_charge_id' });
     }
   }
 

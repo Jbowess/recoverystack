@@ -15,7 +15,7 @@ const SITE_URL = process.env.SITE_URL ?? 'https://recoverystack.io';
 
 async function run() {
   const { data, error } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,template,title,primary_keyword,meta_description,body_json')
     .eq('status', 'published')
     .limit(120);
@@ -98,7 +98,7 @@ async function run() {
     written += rows.length;
     if (DRY_RUN) continue;
 
-    const { error: upsertError } = await supabase.from('distribution_assets').upsert(rows, {
+    const { error: upsertError } = await supabase.from('seo_distribution_assets').upsert(rows, {
       onConflict: 'page_id,channel,asset_type',
     });
     if (upsertError?.message?.includes('distribution_assets')) {

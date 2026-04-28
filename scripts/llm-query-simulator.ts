@@ -31,19 +31,19 @@ type PageScoreRow = {
 async function run() {
   const [queryTargetsResult, promptCorpusResult, pagesResult] = await Promise.all([
     supabase
-      .from('page_query_targets')
+      .from('seo_page_query_targets')
       .select('page_id,page_slug,query,normalized_query,priority,current_position')
       .order('priority', { ascending: false })
       .limit(LIMIT),
     supabase
-      .from('llm_prompt_corpus')
+      .from('seo_llm_prompt_corpus')
       .select('page_id,page_slug,prompt_text,normalized_prompt,priority')
       .eq('channel', CHANNEL)
       .eq('status', 'active')
       .order('priority', { ascending: false })
       .limit(LIMIT),
     supabase
-      .from('pages')
+      .from('seo_pages')
       .select('id,slug,llm_readiness_score')
       .eq('status', 'published')
       .limit(LIMIT),
@@ -133,7 +133,7 @@ async function run() {
       continue;
     }
 
-    const { error } = await supabase.from('llm_query_simulations').upsert(payload, {
+    const { error } = await supabase.from('seo_llm_query_simulations').upsert(payload, {
       onConflict: 'normalized_query,channel,simulated_date',
     });
 

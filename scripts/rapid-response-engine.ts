@@ -25,13 +25,13 @@ async function run() {
   const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
   const [eventsResult, pagesResult] = await Promise.all([
     supabase
-      .from('news_source_events')
+      .from('seo_news_source_events')
       .select('id,title,summary,beat,metadata,published_at')
       .gte('published_at', sevenDaysAgo)
       .order('published_at', { ascending: false })
       .limit(40),
     supabase
-      .from('pages')
+      .from('seo_pages')
       .select('id,slug,template,title,primary_keyword,meta_description,body_json,metadata,updated_at')
       .in('status', ['published', 'approved'])
       .in('template', ['news', 'trends', 'reviews', 'alternatives'])
@@ -127,7 +127,7 @@ async function run() {
     written += rows.length;
     if (DRY_RUN) continue;
 
-    const { error } = await supabase.from('distribution_assets').upsert(rows, { onConflict: 'page_id,channel,asset_type' });
+    const { error } = await supabase.from('seo_distribution_assets').upsert(rows, { onConflict: 'page_id,channel,asset_type' });
     if (error?.message?.includes('distribution_assets')) {
       console.log('[rapid-response-engine] distribution_assets missing - skipping persistence.');
       return;

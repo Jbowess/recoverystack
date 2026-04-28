@@ -298,8 +298,8 @@ function slugify(text: string): string {
 // ── Existence check ───────────────────────────────────────────────────────────
 async function slugExists(slug: string): Promise<boolean> {
   const [{ data: page }, { data: queued }] = await Promise.all([
-    supabase.from('pages').select('slug').eq('slug', slug).maybeSingle(),
-    supabase.from('keyword_queue').select('slug').eq('slug', slug).maybeSingle(),
+    supabase.from('seo_pages').select('slug').eq('slug', slug).maybeSingle(),
+    supabase.from('seo_keyword_queue').select('slug').eq('slug', slug).maybeSingle(),
   ]);
   return !!(page || queued);
 }
@@ -334,7 +334,7 @@ async function enqueue(
     source: 'buying_guide_generator',
   };
 
-  await supabase.from('keyword_queue').upsert({
+  await supabase.from('seo_keyword_queue').upsert({
     slug,
     keyword,
     template: 'guides',
@@ -346,7 +346,7 @@ async function enqueue(
     metadata: { brief_context: briefContext, pattern_id: pattern.id, category_id: cat.id },
   }, { onConflict: 'slug' });
 
-  await supabase.from('buying_guide_pages').upsert({
+  await supabase.from('seo_buying_guide_pages').upsert({
     slug,
     category_id: cat.id,
     pattern_id: pattern.id,

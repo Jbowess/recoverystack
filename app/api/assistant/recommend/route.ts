@@ -31,7 +31,7 @@ export async function POST(request: Request) {
   });
 
   const specResult = await supabaseAdmin
-    .from('product_specs')
+    .from('seo_product_specs')
     .select('slug,brand,model,price_usd,subscription_required,battery_days,compatible_platforms,page_slug,affiliate_url')
     .eq('status', 'active')
     .limit(40);
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
       url: row.affiliate_url ?? (row.page_slug ? `${process.env.SITE_URL ?? 'https://recoverystack.io'}/reviews/${row.page_slug}` : null),
     }));
 
-  await supabaseAdmin.from('tool_usage_events').insert({
+  await supabaseAdmin.from('seo_tool_usage_events').insert({
     tool_slug: 'assistant-recommend',
     event_type: 'recommendation_requested',
     metadata: {

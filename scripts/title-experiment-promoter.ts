@@ -88,7 +88,7 @@ function scoreTitleForCtr(title: string): number {
 
 async function getAverageCtr(slug: string, since: string): Promise<{ ctr: number; impressions: number }> {
   const { data } = await supabase
-    .from('page_metrics_daily')
+    .from('seo_page_metrics_daily')
     .select('clicks, impressions')
     .eq('page_slug', slug)
     .gte('date', since);
@@ -107,7 +107,7 @@ async function run() {
 
   // Fetch suggested experiments that are old enough to evaluate
   const { data: experiments, error } = await supabase
-    .from('page_title_experiments')
+    .from('seo_page_title_experiments')
     .select('id,page_id,page_slug,channel,variant,title,score,status,reason,metrics,generated_at')
     .eq('status', 'suggested')
     .lt('generated_at', cutoffDate)
@@ -132,7 +132,7 @@ async function run() {
   // Fetch pages
   const pageIds = Array.from(byPage.keys());
   const { data: pages, error: pageErr } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,title,template,metadata')
     .in('id', pageIds);
 
@@ -197,11 +197,11 @@ async function run() {
 
     const [{ error: updateErr }, { error: winnerErr }] = await Promise.all([
       supabase
-        .from('pages')
+        .from('seo_pages')
         .update({ title: winner.title, metadata: newMetadata })
         .eq('id', page.id),
       supabase
-        .from('page_title_experiments')
+        .from('seo_page_title_experiments')
         .update({ status: 'applied', selected_at: new Date().toISOString() })
         .eq('id', winner.id),
     ]);
@@ -217,7 +217,7 @@ async function run() {
     const losers = scored.slice(1).map((exp) => exp.id);
     if (losers.length > 0) {
       await supabase
-        .from('page_title_experiments')
+        .from('seo_page_title_experiments')
         .update({ status: 'superseded' })
         .in('id', losers);
     }

@@ -185,7 +185,7 @@ async function generateRoundupForWeek(weeksAgo: number): Promise<void> {
 
   // Check if roundup already exists
   const { data: existing } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id, status')
     .eq('slug', slug)
     .single();
@@ -197,7 +197,7 @@ async function generateRoundupForWeek(weeksAgo: number): Promise<void> {
 
   // Fetch published news articles from the week window
   const { data: articles, error } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id, slug, title, meta_description, beat, published_at, primary_keyword')
     .eq('status', 'published')
     .eq('template', 'news')
@@ -249,7 +249,7 @@ async function generateRoundupForWeek(weeksAgo: number): Promise<void> {
     return;
   }
 
-  const { error: insertError } = await supabase.from('pages').insert(newPage);
+  const { error: insertError } = await supabase.from('seo_pages').insert(newPage);
   if (insertError) throw insertError;
 
   console.log(`[news-roundup] Created draft roundup '${slug}' with ${newsArticles.length} articles`);

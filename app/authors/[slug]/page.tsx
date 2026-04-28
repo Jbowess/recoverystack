@@ -19,14 +19,14 @@ interface Author {
 }
 
 export async function generateStaticParams() {
-  const { data } = await supabase.from('authors').select('slug');
+  const { data } = await supabase.from('seo_authors').select('slug');
   return (data ?? []).map((a: { slug: string }) => ({ slug: a.slug }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const { data } = await supabase
-    .from('authors')
+    .from('seo_authors')
     .select('name, title, bio')
     .eq('slug', slug)
     .single();
@@ -44,7 +44,7 @@ export default async function AuthorPage({ params }: { params: Promise<{ slug: s
   const { slug } = await params;
 
   const { data } = await supabase
-    .from('authors')
+    .from('seo_authors')
     .select('*')
     .eq('slug', slug)
     .single();
@@ -54,7 +54,7 @@ export default async function AuthorPage({ params }: { params: Promise<{ slug: s
 
   // Fetch articles by this author (pages mentioning this author slug)
   const { data: articles } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('slug, template, title, published_at')
     .eq('status', 'published')
     .contains('metadata', { author_slug: slug })

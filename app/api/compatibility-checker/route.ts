@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
   const { email, pageSlug, pageTemplate, answers, score, recommendation, sourceUrl } = parsed.data;
 
-  const { error } = await supabaseAdmin.from('compatibility_checker_submissions').insert({
+  const { error } = await supabaseAdmin.from('seo_compatibility_checker_submissions').insert({
     email,
     page_slug: pageSlug,
     page_template: pageTemplate,

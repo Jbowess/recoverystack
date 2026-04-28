@@ -104,7 +104,7 @@ async function run() {
 
   // Load all published pages
   const { data: pages, error } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id, slug, template, title, meta_description, intro, primary_keyword, secondary_keywords, body_json')
     .eq('status', 'published');
 
@@ -116,7 +116,7 @@ async function run() {
 
   // Load existing embeddings to check content hashes
   const { data: existing } = await supabase
-    .from('page_embeddings')
+    .from('seo_page_embeddings')
     .select('page_slug, content_hash');
 
   const existingHashes = new Map(
@@ -159,7 +159,7 @@ async function run() {
       }));
 
       const { error: upsertErr } = await supabase
-        .from('page_embeddings')
+        .from('seo_page_embeddings')
         .upsert(upsertRows, { onConflict: 'page_slug' });
 
       if (upsertErr) {
@@ -179,7 +179,7 @@ async function run() {
   console.log('\n[embedding-sync] Running similarity analysis...');
 
   const { data: allEmbeddings } = await supabase
-    .from('page_embeddings')
+    .from('seo_page_embeddings')
     .select('page_slug')
     .limit(200);
 

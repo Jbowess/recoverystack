@@ -386,7 +386,7 @@ async function processKeyword(pageSlug: string, keyword: string): Promise<void> 
   }
 
   // Upsert to community_qa (no unique constraint — allow duplicates from different runs)
-  const { error } = await supabase.from('community_qa').insert(allRows);
+  const { error } = await supabase.from('seo_community_qa').insert(allRows);
   if (error) {
     console.warn(`[community-miner] DB write failed for "${keyword}": ${error.message}`);
     return;
@@ -396,7 +396,7 @@ async function processKeyword(pageSlug: string, keyword: string): Promise<void> 
   const { questions, positivePhrases } = aggregatePhrases(allRows);
   if (questions.length > 0 || positivePhrases.length > 0) {
     await supabase
-      .from('briefs')
+      .from('seo_briefs')
       .update({
         community_questions: questions,
         positive_sentiment_phrases: positivePhrases,
@@ -412,7 +412,7 @@ async function run(): Promise<void> {
 
   // Load draft pages that need community data
   const { data: pages } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('slug, primary_keyword')
     .eq('status', 'draft')
     .not('primary_keyword', 'is', null)
@@ -425,7 +425,7 @@ async function run(): Promise<void> {
 
   // Filter: skip recently mined keywords
   const { data: recentMined } = await supabase
-    .from('community_qa')
+    .from('seo_community_qa')
     .select('keyword')
     .gte('captured_at', cutoff);
 

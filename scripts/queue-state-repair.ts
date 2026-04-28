@@ -33,7 +33,7 @@ function hasPlaceholderDraft(page: PageRow) {
 
 async function run() {
   const { data, error } = await supabase
-    .from('keyword_queue')
+    .from('seo_keyword_queue')
     .select('id,primary_keyword,status,metadata')
     .in('status', ['generated', 'queued'])
     .order('updated_at', { ascending: false })
@@ -57,7 +57,7 @@ async function run() {
 
     if (generatedPageId) {
       const pageById = await supabase
-        .from('pages')
+        .from('seo_pages')
         .select('id,slug,status,intro,body_json')
         .eq('id', generatedPageId)
         .maybeSingle();
@@ -69,7 +69,7 @@ async function run() {
 
     if (!page && generatedSlug) {
       const pageBySlug = await supabase
-        .from('pages')
+        .from('seo_pages')
         .select('id,slug,status,intro,body_json')
         .eq('slug', generatedSlug)
         .maybeSingle();
@@ -88,7 +88,7 @@ async function run() {
 
       if (!DRY_RUN) {
         const { error: updateError } = await supabase
-          .from('keyword_queue')
+          .from('seo_keyword_queue')
           .update({ status: 'new', metadata: nextMetadata })
           .eq('id', row.id);
 
@@ -113,7 +113,7 @@ async function run() {
 
       if (!DRY_RUN) {
         const { error: updateError } = await supabase
-          .from('keyword_queue')
+          .from('seo_keyword_queue')
           .update({ status: 'queued', metadata: nextMetadata })
           .eq('id', row.id);
 

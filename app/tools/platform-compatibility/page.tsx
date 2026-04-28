@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default async function PlatformCompatibilityPage() {
   const { data, error } = await supabaseAdmin
-    .from('product_specs')
+    .from('seo_product_specs')
     .select('slug,brand,model,compatible_platforms,subscription_required,battery_days,price_usd')
     .eq('status', 'active')
     .limit(24);

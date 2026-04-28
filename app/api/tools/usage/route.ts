@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'invalid_payload' }, { status: 400 });
   }
 
-  const { error } = await supabaseAdmin.from('tool_usage_events').insert({
+  const { error } = await supabaseAdmin.from('seo_tool_usage_events').insert({
     tool_slug: body.toolSlug,
     event_type: body.eventType,
     page_slug: body.pageSlug ?? null,

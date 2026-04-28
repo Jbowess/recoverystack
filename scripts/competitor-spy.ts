@@ -141,8 +141,8 @@ async function run() {
 
   // Load existing pages + queue to avoid duplicates
   const [pagesResult, queueResult] = await Promise.all([
-    supabase.from('pages').select('primary_keyword, slug').eq('status', 'published'),
-    supabase.from('keyword_queue').select('keyword'),
+    supabase.from('seo_pages').select('primary_keyword, slug').eq('status', 'published'),
+    supabase.from('seo_keyword_queue').select('keyword'),
   ]);
 
   const existingKeywords = new Set<string>([
@@ -251,7 +251,7 @@ async function run() {
   for (let i = 0; i < toInsert.length; i += CHUNK) {
     const chunk = toInsert.slice(i, i + CHUNK);
     const { error } = await supabase
-      .from('keyword_queue')
+      .from('seo_keyword_queue')
       .upsert(chunk, { onConflict: 'keyword' });
 
     if (error) console.warn(`[competitor-spy] Chunk error: ${error.message}`);

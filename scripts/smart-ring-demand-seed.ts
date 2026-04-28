@@ -45,7 +45,7 @@ async function run() {
   }
 
   const writeRows = async (rows: typeof rowsWithNormalized | typeof baseRows) =>
-    supabase.from('keyword_queue').upsert(rows, {
+    supabase.from('seo_keyword_queue').upsert(rows, {
       onConflict: 'cluster_name,primary_keyword',
     });
 

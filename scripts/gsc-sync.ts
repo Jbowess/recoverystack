@@ -71,7 +71,7 @@ async function getGscAccessToken(): Promise<string> {
 
 async function loadMetricTargets(limit = 200): Promise<PageMetricTarget[]> {
   const { data, error } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,template,primary_keyword,search_volume')
     .in('status', ['published', 'draft'])
     .order('updated_at', { ascending: false })
@@ -189,7 +189,7 @@ async function writeMetrics(targets: PageMetricTarget[], metrics: GscSlugMetric[
     // 1. Update pages.search_volume and gsc metadata (preserves existing keyword research data
     //    only when we have real impressions to replace with)
     const { error } = await supabase
-      .from('pages')
+      .from('seo_pages')
       .update({
         search_volume: metric.impressions > 0 ? metric.impressions : (target.search_volume ?? 0),
         metadata: {
@@ -209,7 +209,7 @@ async function writeMetrics(targets: PageMetricTarget[], metrics: GscSlugMetric[
 
     // 2. Upsert into page_metrics_daily for time-series history
     const { error: dailyError } = await supabase
-      .from('page_metrics_daily')
+      .from('seo_page_metrics_daily')
       .upsert(
         {
           page_slug: target.slug,
@@ -249,12 +249,12 @@ async function detectDecayAndQueue(): Promise<number> {
   // Fetch sums for both windows in one query per window
   const [old28, new28] = await Promise.all([
     supabase
-      .from('page_metrics_daily')
+      .from('seo_page_metrics_daily')
       .select('page_slug, impressions')
       .gte('date', window1Start)
       .lte('date', window1End),
     supabase
-      .from('page_metrics_daily')
+      .from('seo_page_metrics_daily')
       .select('page_slug, impressions')
       .gte('date', window2Start)
       .lte('date', window2End),
@@ -281,7 +281,7 @@ async function detectDecayAndQueue(): Promise<number> {
 
   if (!decayed.length) return 0;
 
-  const { data: pageRows } = await supabase.from('pages').select('id,slug').in('slug', decayed);
+  const { data: pageRows } = await supabase.from('seo_pages').select('id,slug').in('slug', decayed);
   if (!pageRows?.length) return 0;
 
   // Upsert decayed slugs into content_refresh_queue (one row per page_id)
@@ -294,13 +294,13 @@ async function detectDecayAndQueue(): Promise<number> {
     search_volume_snapshot: newSums[page.slug] ?? 0,
   }));
 
-  const { error } = await supabase.from('content_refresh_queue').upsert(rows, { onConflict: 'page_id' });
+  const { error } = await supabase.from('seo_content_refresh_queue').upsert(rows, { onConflict: 'page_id' });
   if (error) {
     console.warn(`[decay] Failed to enqueue decay pages: ${error.message}`);
     return 0;
   }
 
-  await supabase.from('page_refresh_signals').upsert(
+  await supabase.from('seo_page_refresh_signals').upsert(
     pageRows.map((page) => ({
       page_id: page.id,
       page_slug: page.slug,

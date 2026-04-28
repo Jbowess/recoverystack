@@ -12,29 +12,29 @@ export const metadata: Metadata = {
 async function getEvidenceData() {
   const [trustResult, truthResult, datasetResult, mentionResult, creatorResult] = await Promise.all([
     supabaseAdmin
-      .from('editorial_trust_profiles')
+      .from('seo_editorial_trust_profiles')
       .select('slug,label,profile_type,evidence_requirements,review_steps,trust_signals')
       .eq('status', 'active')
       .order('updated_at', { ascending: false })
       .limit(6),
     supabaseAdmin
-      .from('product_truth_cards')
+      .from('seo_product_truth_cards')
       .select('product_slug,card_type,title,body,priority')
       .eq('status', 'active')
       .order('priority', { ascending: false })
       .limit(12),
     supabaseAdmin
-      .from('comparison_dataset_snapshots')
+      .from('seo_comparison_dataset_snapshots')
       .select('dataset_key,title,snapshot_date,row_count,metadata')
       .order('snapshot_date', { ascending: false })
       .limit(30),
     supabaseAdmin
-      .from('community_topic_mentions')
+      .from('seo_community_topic_mentions')
       .select('title,source_platform,topic_slug,pain_points,captured_at')
       .order('captured_at', { ascending: false })
       .limit(8),
     supabaseAdmin
-      .from('creator_relationships')
+      .from('seo_creator_relationships')
       .select('slug,name,primary_platform,partnership_fit,relevance_score')
       .order('relevance_score', { ascending: false })
       .limit(8),

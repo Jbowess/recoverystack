@@ -99,17 +99,17 @@ function buildVisualPlan(page: PageRow, targetWords: number) {
 async function run() {
   const [pagesResult, gapsResult, briefsResult] = await Promise.all([
     supabase
-      .from('pages')
+      .from('seo_pages')
       .select('id,slug,template,title,primary_keyword,secondary_keywords,metadata')
       .in('status', ['draft', 'approved', 'published'])
       .limit(250),
     supabase
-      .from('content_gaps')
+      .from('seo_content_gaps')
       .select('page_slug,keyword,serp_snapshot')
       .order('created_at', { ascending: false })
       .limit(250),
     supabase
-      .from('briefs')
+      .from('seo_briefs')
       .select('page_slug,target_word_count,required_subtopics,required_paa_answers,search_volume,keyword_difficulty')
       .order('generated_at', { ascending: false })
       .limit(250),
@@ -176,7 +176,7 @@ async function run() {
     }));
 
     if (queryRows.length > 0) {
-      const { error } = await supabase.from('page_query_targets').upsert(queryRows, {
+      const { error } = await supabase.from('seo_page_query_targets').upsert(queryRows, {
         onConflict: 'page_id,normalized_query',
       });
       if (error) throw error;
@@ -201,7 +201,7 @@ async function run() {
       );
 
     if (referenceRows.length > 0) {
-      const { error } = await supabase.from('page_source_references').upsert(referenceRows, {
+      const { error } = await supabase.from('seo_page_source_references').upsert(referenceRows, {
         onConflict: 'page_id,url',
       });
       if (error) throw error;
@@ -226,7 +226,7 @@ async function run() {
       metadata: asset.metadata,
     }));
 
-    const { error: visualError } = await supabase.from('page_visual_assets').upsert(visualPlanRows, {
+    const { error: visualError } = await supabase.from('seo_page_visual_assets').upsert(visualPlanRows, {
       onConflict: 'page_id,asset_kind,sort_order',
       ignoreDuplicates: false,
     } as any);
@@ -244,7 +244,7 @@ async function run() {
       planner_synced_at: new Date().toISOString(),
     };
 
-    await supabase.from('pages').update({ metadata: nextMetadata }).eq('id', page.id);
+    await supabase.from('seo_pages').update({ metadata: nextMetadata }).eq('id', page.id);
   }
 
   console.log(

@@ -28,11 +28,11 @@ type ConversionAggRow = {
 async function run() {
   const [assetsResult, conversionsResult] = await Promise.all([
     supabase
-      .from('distribution_assets')
+      .from('seo_distribution_assets')
       .select('id,page_slug,channel,status,asset_type,payload')
       .limit(2000),
     supabase
-      .from('page_conversion_aggregates')
+      .from('seo_page_conversion_aggregates')
       .select('page_slug,conversion_count,cta_click_count')
       .limit(2000),
   ]);
@@ -69,7 +69,7 @@ async function run() {
       continue;
     }
 
-    const { error } = await supabase.from('distribution_asset_metrics').upsert({
+    const { error } = await supabase.from('seo_distribution_asset_metrics').upsert({
       asset_id: asset.id,
       metric_date: today,
       impressions: 0,

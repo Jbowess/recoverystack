@@ -38,7 +38,7 @@ type QueueItem = {
 
 async function loadApprovedItems(): Promise<QueueItem[]> {
   const { data, error } = await supabase
-    .from('content_refresh_queue')
+    .from('seo_content_refresh_queue')
     .select('id,page_id,slug,reason,priority')
     .eq('status', 'approved')
     .order('priority', { ascending: false, nullsFirst: false })
@@ -81,7 +81,7 @@ async function run() {
 
     // Mark queue item as processing
     await supabase
-      .from('content_refresh_queue')
+      .from('seo_content_refresh_queue')
       .update({ status: 'processing', processed_at: new Date().toISOString() })
       .eq('id', item.id);
 
@@ -90,14 +90,14 @@ async function run() {
 
     if (ok) {
       await supabase
-        .from('content_refresh_queue')
+        .from('seo_content_refresh_queue')
         .update({ status: 'completed', processed_at: new Date().toISOString() })
         .eq('id', item.id);
       console.log(`[content-refresh-processor] ✓ completed slug="${item.slug}"`);
       succeeded += 1;
     } else {
       await supabase
-        .from('content_refresh_queue')
+        .from('seo_content_refresh_queue')
         .update({ status: 'failed', metadata: { error: 'content-generator exited non-zero' } })
         .eq('id', item.id);
       console.error(`[content-refresh-processor] ✗ failed slug="${item.slug}"`);

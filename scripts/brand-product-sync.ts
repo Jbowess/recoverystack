@@ -33,7 +33,7 @@ async function run() {
     return;
   }
 
-  const { error } = await supabase.from('products').upsert(PRODUCT_ROW, { onConflict: 'name' });
+  const { error } = await supabase.from('seo_products').upsert(PRODUCT_ROW, { onConflict: 'name' });
   if (error) throw error;
 
   console.log(`[brand-product-sync] upserted product: ${PRODUCT_ROW.name}`);

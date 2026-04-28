@@ -12,7 +12,7 @@ const DRY_RUN = process.argv.includes('--dry-run') || process.env.DRY_RUN === '1
 
 async function run() {
   const { data, error } = await supabase
-    .from('distribution_assets')
+    .from('seo_distribution_assets')
     .select('id,page_id,page_slug,channel,asset_type,title,summary,payload,status')
     .in('channel', ['instagram', 'short_video', 'linkedin'])
     .limit(120);
@@ -44,7 +44,7 @@ async function run() {
     generated += 1;
     if (DRY_RUN) continue;
 
-    const { error: upsertError } = await supabase.from('distribution_assets').upsert({
+    const { error: upsertError } = await supabase.from('seo_distribution_assets').upsert({
       page_id: row.page_id,
       page_slug: row.page_slug,
       page_template: 'media_pack',

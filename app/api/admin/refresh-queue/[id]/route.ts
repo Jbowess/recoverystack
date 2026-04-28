@@ -13,7 +13,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const { data: queueItem } = await supabaseAdmin
-    .from('content_refresh_queue')
+    .from('seo_content_refresh_queue')
     .select('id,page_id')
     .eq('id', id)
     .single();
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   };
 
   await supabaseAdmin
-    .from('content_refresh_queue')
+    .from('seo_content_refresh_queue')
     .update({ status: statusByAction[action], processed_at: new Date().toISOString() })
     .eq('id', id);
 

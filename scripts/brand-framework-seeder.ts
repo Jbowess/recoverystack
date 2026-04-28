@@ -64,7 +64,7 @@ async function run() {
       continue;
     }
 
-    const { error } = await supabase.from('brand_frameworks').upsert({
+    const { error } = await supabase.from('seo_brand_frameworks').upsert({
       ...framework,
       status: 'active',
       metadata: { seeded: true, ...(framework as any).metadata },

@@ -23,7 +23,7 @@ async function scheduleJobs(page: PublishedPage) {
   const publishedAt = new Date(page.published_at ?? page.updated_at);
   for (const checkpoint of CHECKPOINTS) {
     const scheduledFor = new Date(publishedAt.getTime() + checkpoint * 60 * 60 * 1000).toISOString();
-    await supabase.from('story_followup_jobs').upsert(
+    await supabase.from('seo_story_followup_jobs').upsert(
       {
         page_id: page.id,
         storyline_id: page.storyline_id,
@@ -39,7 +39,7 @@ async function scheduleJobs(page: PublishedPage) {
 }
 
 async function queueRefreshSignal(page: PublishedPage, checkpoint: number, latestEventAt: string | null) {
-  await supabase.from('page_refresh_signals').upsert(
+  await supabase.from('seo_page_refresh_signals').upsert(
     {
       page_id: page.id,
       page_slug: page.slug,
@@ -55,7 +55,7 @@ async function queueRefreshSignal(page: PublishedPage, checkpoint: number, lates
     { onConflict: 'page_id,signal_type,status' },
   );
 
-  await supabase.from('content_refresh_queue').upsert(
+  await supabase.from('seo_content_refresh_queue').upsert(
     {
       page_id: page.id,
       slug: page.slug,
@@ -69,7 +69,7 @@ async function queueRefreshSignal(page: PublishedPage, checkpoint: number, lates
 async function runDueJobs() {
   const now = new Date().toISOString();
   const { data, error } = await supabase
-    .from('story_followup_jobs')
+    .from('seo_story_followup_jobs')
     .select('id,page_id,page_slug,storyline_id,checkpoint_hours,scheduled_for,status')
     .eq('status', 'scheduled')
     .lte('scheduled_for', now)
@@ -81,9 +81,9 @@ async function runDueJobs() {
   let processed = 0;
   for (const job of data ?? []) {
     const [{ data: page }, { data: storyline }] = await Promise.all([
-      supabase.from('pages').select('id,slug,title,storyline_id,updated_at,published_at').eq('id', job.page_id).single(),
+      supabase.from('seo_pages').select('id,slug,title,storyline_id,updated_at,published_at').eq('id', job.page_id).single(),
       job.storyline_id
-        ? supabase.from('storylines').select('id,latest_event_at,update_count').eq('id', job.storyline_id).single()
+        ? supabase.from('seo_storylines').select('id,latest_event_at,update_count').eq('id', job.storyline_id).single()
         : Promise.resolve({ data: null, error: null } as any),
     ]);
 
@@ -96,7 +96,7 @@ async function runDueJobs() {
     }
 
     await supabase
-      .from('story_followup_jobs')
+      .from('seo_story_followup_jobs')
       .update({ status: 'completed', completed_at: new Date().toISOString() })
       .eq('id', job.id);
     processed += 1;
@@ -107,7 +107,7 @@ async function runDueJobs() {
 
 async function run() {
   const { data, error } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,title,storyline_id,updated_at,published_at')
     .eq('status', 'published')
     .eq('template', 'news')

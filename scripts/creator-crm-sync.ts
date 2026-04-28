@@ -20,7 +20,7 @@ async function run() {
       continue;
     }
 
-    const { error } = await supabase.from('creator_relationships').upsert({
+    const { error } = await supabase.from('seo_creator_relationships').upsert({
       ...seed,
       relationship_stage: 'identified',
       metadata: { seeded: true },

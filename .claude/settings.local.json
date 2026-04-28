@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(awk '{print $NF}')",
+      "Bash(node _rename_tables.mjs)",
+      "Bash(supabase --version)",
+      "Bash(psql --version)",
+      "Bash(npx supabase *)",
+      "Read(//c/Users/Jordan/.supabase/**)"
+    ]
+  }
+}

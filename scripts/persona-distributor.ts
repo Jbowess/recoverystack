@@ -24,7 +24,7 @@ type PageRow = {
 
 async function run() {
   const { data, error } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,title,meta_description,template,beat,intro,primary_keyword,body_json,metadata')
     .eq('status', 'published')
     .order('published_at', { ascending: false })
@@ -42,7 +42,7 @@ async function run() {
         beat: page.beat,
       };
 
-      const { error: upsertError } = await supabase.from('persona_distribution_queue').upsert(
+      const { error: upsertError } = await supabase.from('seo_persona_distribution_queue').upsert(
         {
           page_id: page.id,
           page_slug: page.slug,

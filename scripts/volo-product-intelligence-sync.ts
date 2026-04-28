@@ -20,7 +20,7 @@ async function run() {
       continue;
     }
 
-    const { error } = await supabase.from('product_truth_cards').upsert({
+    const { error } = await supabase.from('seo_product_truth_cards').upsert({
       product_slug: card.product_slug,
       card_type: card.card_type,
       title: card.title,

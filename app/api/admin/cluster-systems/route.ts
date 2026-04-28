@@ -77,7 +77,7 @@ async function reseedComponentLibrary() {
     active: true,
   }));
 
-  const { error } = await supabaseAdmin.from('component_library').upsert(payload, {
+  const { error } = await supabaseAdmin.from('seo_component_library').upsert(payload, {
     onConflict: 'cluster,name',
   });
 
@@ -86,7 +86,7 @@ async function reseedComponentLibrary() {
 
 async function enqueueTopTrends(limit: number) {
   const { data: trends, error: trendError } = await supabaseAdmin
-    .from('trends')
+    .from('seo_trends')
     .select('id,term,normalized_term,source,status,created_at,last_seen_at,trend_score,score,priority,search_volume')
     .in('status', ['new', 'queued'])
     .order('trend_score', { ascending: false, nullsFirst: false })
@@ -106,7 +106,7 @@ async function enqueueTopTrends(limit: number) {
 
   const normalizedKeywords = sorted.map((row: any) => normalizeKeyword(String(row.normalized_term ?? row.term ?? '')));
   const { data: existingRows, error: existingError } = await supabaseAdmin
-    .from('keyword_queue')
+    .from('seo_keyword_queue')
     .select('normalized_keyword')
     .in('normalized_keyword', normalizedKeywords);
   if (existingError) throw existingError;
@@ -137,7 +137,7 @@ async function enqueueTopTrends(limit: number) {
   if (!toInsert.length) return;
 
   const { error: insertError } = await supabaseAdmin
-    .from('keyword_queue')
+    .from('seo_keyword_queue')
     .upsert(toInsert, { onConflict: 'cluster_name,primary_keyword' });
   if (insertError) throw insertError;
 }

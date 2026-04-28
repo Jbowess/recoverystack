@@ -24,7 +24,7 @@ export async function GET() {
   const siteUrl = process.env.SITE_URL ?? 'https://recoverystack.io';
 
   const specResult = await supabaseAdmin
-    .from('product_specs')
+    .from('seo_product_specs')
     .select('id,slug,brand,model,category,price_aud,price_usd,affiliate_url,page_slug,subscription_required,subscription_price_usd_month,raw_specs')
     .limit(500);
 
@@ -38,26 +38,26 @@ export async function GET() {
   const [pagesResult, visualsResult, truthResult, datasetResult] = await Promise.all([
     pageSlugs.length
       ? supabaseAdmin
-          .from('pages')
+          .from('seo_pages')
           .select('slug,template,meta_description')
           .in('slug', pageSlugs)
       : Promise.resolve({ data: [], error: null }),
     pageSlugs.length
       ? supabaseAdmin
-          .from('page_visual_assets')
+          .from('seo_page_visual_assets')
           .select('page_slug,image_url,sort_order')
           .in('page_slug', pageSlugs)
           .order('sort_order', { ascending: true })
       : Promise.resolve({ data: [], error: null }),
     specs.length
       ? supabaseAdmin
-          .from('product_truth_cards')
+          .from('seo_product_truth_cards')
           .select('product_slug,card_type,title,body')
           .in('product_slug', specs.map((row) => row.slug))
           .eq('status', 'active')
       : Promise.resolve({ data: [], error: null }),
     supabaseAdmin
-      .from('comparison_dataset_snapshots')
+      .from('seo_comparison_dataset_snapshots')
       .select('dataset_key,snapshot_date,data')
       .order('snapshot_date', { ascending: false })
       .limit(30),

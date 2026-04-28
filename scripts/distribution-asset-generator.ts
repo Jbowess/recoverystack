@@ -44,7 +44,7 @@ type SnapshotRow = {
 
 async function loadPublishedPages(limit: number) {
   const modern = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,template,title,meta_description,intro,primary_keyword,body_json,metadata,published_at')
     .eq('status', 'published')
     .order('published_at', { ascending: false })
@@ -52,7 +52,7 @@ async function loadPublishedPages(limit: number) {
 
   if (modern.error?.message?.includes('metadata')) {
     const legacy = await supabase
-      .from('pages')
+      .from('seo_pages')
       .select('id,slug,template,title,meta_description,intro,primary_keyword,body_json,published_at')
       .eq('status', 'published')
       .order('published_at', { ascending: false })
@@ -146,19 +146,19 @@ function buildConversionSignals(page: DistributionPageInput, conversionMap: Map<
 async function loadEnrichment() {
   const [conversionsResult, appReviewsResult, communityResult, snapshotResult] = await Promise.all([
     supabase
-      .from('page_conversion_aggregates')
+      .from('seo_page_conversion_aggregates')
       .select('page_slug,total_revenue_usd,conversion_count,purchase_count,cta_click_count')
       .limit(500),
     supabase
-      .from('app_review_aggregates')
+      .from('seo_app_review_aggregates')
       .select('app_slug,avg_rating,positive_pct,top_pain_points,top_praised_features,top_themes')
       .limit(100),
     supabase
-      .from('community_qa')
+      .from('seo_community_qa')
       .select('page_slug,question,sentiment,user_language')
       .limit(200),
     supabase
-      .from('comparison_dataset_snapshots')
+      .from('seo_comparison_dataset_snapshots')
       .select('dataset_key,snapshot_date,data')
       .order('snapshot_date', { ascending: false })
       .limit(40),
@@ -250,7 +250,7 @@ async function run() {
       source_url: `${process.env.SITE_URL ?? 'https://recoverystack.io'}/${page.template}/${page.slug}`,
     }));
 
-    const { error: upsertError } = await supabase.from('distribution_assets').upsert(rows, {
+    const { error: upsertError } = await supabase.from('seo_distribution_assets').upsert(rows, {
       onConflict: 'page_id,channel,asset_type',
     });
 

@@ -124,7 +124,7 @@ function computeCompletenessScore(
 // ── Detect PAA gaps ───────────────────────────────────────────────────────────
 async function detectPaaGaps(cluster: ClusterData, clusterPages: PageInCluster[]): Promise<GapItem[]> {
   const { data: serpData } = await supabase
-    .from('serp_features')
+    .from('seo_serp_features')
     .select('keyword, paa_questions')
     .in('keyword', clusterPages.map((p) => p.primary_keyword));
 
@@ -157,7 +157,7 @@ async function detectPaaGaps(cluster: ClusterData, clusterPages: PageInCluster[]
 // ── Detect competitor entity gaps ─────────────────────────────────────────────
 async function detectCompetitorEntityGaps(cluster: ClusterData, clusterPages: PageInCluster[]): Promise<GapItem[]> {
   const { data: compData } = await supabase
-    .from('competitor_page_analyses')
+    .from('seo_competitor_page_analyses')
     .select('keyword, required_entities, differentiating_entities')
     .in('keyword', clusterPages.map((p) => p.primary_keyword))
     .limit(20);
@@ -196,7 +196,7 @@ async function detectCompetitorEntityGaps(cluster: ClusterData, clusterPages: Pa
 // ── Detect keyword variation gaps ─────────────────────────────────────────────
 async function detectKeywordVariationGaps(cluster: ClusterData, clusterPages: PageInCluster[]): Promise<GapItem[]> {
   const { data: queueData } = await supabase
-    .from('keyword_queue')
+    .from('seo_keyword_queue')
     .select('keyword, search_volume, difficulty')
     .ilike('keyword', `%${cluster.pillar_keyword ?? cluster.slug}%`)
     .in('status', ['new', 'in_progress'])
@@ -241,7 +241,7 @@ async function enqueueGaps(cluster: ClusterData, gaps: GapItem[]): Promise<strin
     }
 
     const { error } = await supabase
-      .from('keyword_queue')
+      .from('seo_keyword_queue')
       .upsert(
         {
           keyword: gap.suggested_keyword,
@@ -269,7 +269,7 @@ async function enqueueGaps(cluster: ClusterData, gaps: GapItem[]): Promise<strin
 async function analyzeCluster(cluster: ClusterData): Promise<CompletenessRow> {
   // Load all pages in the cluster
   const { data: pagesData } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('slug, template, primary_keyword, status, quality_score')
     .eq('cluster_slug', cluster.slug);
 
@@ -350,13 +350,13 @@ async function run(): Promise<void> {
   const cutoff = new Date(Date.now() - REFRESH_AFTER_DAYS * 86_400_000).toISOString();
 
   const { data: recentData } = await supabase
-    .from('cluster_completeness')
+    .from('seo_cluster_completeness')
     .select('cluster_slug')
     .gte('checked_at', cutoff);
   const recentClusters = new Set((recentData ?? []).map((r: any) => String(r.cluster_slug)));
 
   const { data: clustersData, error } = await supabase
-    .from('keyword_clusters')
+    .from('seo_keyword_clusters')
     .select('slug, label, pillar_keyword, target_templates')
     .eq('active', true)
     .order('priority', { ascending: false })
@@ -396,7 +396,7 @@ async function run(): Promise<void> {
 
     if (!DRY_RUN) {
       const { error: upsertError } = await supabase
-        .from('cluster_completeness')
+        .from('seo_cluster_completeness')
         .upsert(result, { onConflict: 'cluster_slug' });
 
       if (upsertError) {

@@ -52,7 +52,7 @@ export async function startPipelineRun(pipelineName: string, totalSteps: number)
 
   try {
     const { data, error } = await supabase!
-      .from('pipeline_runs')
+      .from('seo_pipeline_runs')
       .insert({
         pipeline_name: pipelineName,
         status: 'running',
@@ -84,7 +84,7 @@ export async function finishPipelineRun(
 
   try {
     const { error } = await supabase!
-      .from('pipeline_runs')
+      .from('seo_pipeline_runs')
       .update({
         status,
         finished_at: new Date().toISOString(),
@@ -111,7 +111,7 @@ export async function startPipelineStep(
 
   try {
     const { data, error } = await supabase!
-      .from('pipeline_steps')
+      .from('seo_pipeline_steps')
       .insert({
         run_id: runId,
         step_key: stepKey,
@@ -149,7 +149,7 @@ export async function finishPipelineStep(
 
   try {
     const { error } = await supabase!
-      .from('pipeline_steps')
+      .from('seo_pipeline_steps')
       .update({
         status,
         finished_at: new Date().toISOString(),

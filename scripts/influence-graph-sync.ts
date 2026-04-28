@@ -9,9 +9,9 @@ const DRY_RUN = process.argv.includes('--dry-run') || process.env.DRY_RUN === '1
 
 async function run() {
   const [creatorsResult, partnersResult, communitiesResult] = await Promise.all([
-    supabase.from('creator_relationships').select('slug,name,primary_platform,audience_segment,relevance_score,relationship_stage,partnership_fit').limit(300),
-    supabase.from('partner_contacts').select('slug,name,target_type,domain,primary_channel,audience_fit,priority,status').limit(300),
-    supabase.from('community_topic_mentions').select('topic_slug,source_platform,title,mention_count,sentiment').limit(300),
+    supabase.from('seo_creator_relationships').select('slug,name,primary_platform,audience_segment,relevance_score,relationship_stage,partnership_fit').limit(300),
+    supabase.from('seo_partner_contacts').select('slug,name,target_type,domain,primary_channel,audience_fit,priority,status').limit(300),
+    supabase.from('seo_community_topic_mentions').select('topic_slug,source_platform,title,mention_count,sentiment').limit(300),
   ]);
 
   const creators = creatorsResult.error?.message?.includes('creator_relationships') ? [] : (creatorsResult.data ?? []);
@@ -92,14 +92,14 @@ async function run() {
     return;
   }
 
-  const nodeWrite = await supabase.from('influence_graph_nodes').upsert(nodes, { onConflict: 'node_key' });
+  const nodeWrite = await supabase.from('seo_influence_graph_nodes').upsert(nodes, { onConflict: 'node_key' });
   if (nodeWrite.error?.message?.includes('influence_graph_nodes')) {
     console.log('[influence-graph-sync] influence_graph_nodes missing - skipping persistence.');
     return;
   }
   if (nodeWrite.error) throw nodeWrite.error;
 
-  const edgeWrite = await supabase.from('influence_graph_edges').upsert(edges, {
+  const edgeWrite = await supabase.from('seo_influence_graph_edges').upsert(edges, {
     onConflict: 'source_node_key,target_node_key,edge_type',
   } as never);
   if (edgeWrite.error?.message?.includes('influence_graph_edges')) {

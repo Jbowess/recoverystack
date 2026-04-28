@@ -196,29 +196,29 @@ async function getDashboardData() {
     researchDatasetRows,
     toolUsageRows,
   ] = await Promise.all([
-    supabaseAdmin.from('trends').select('*').eq('status', 'new').order('created_at', { ascending: false }).limit(100),
-    supabaseAdmin.from('pages').select('id,slug,title,template,status,updated_at,originality_score,originality_status').in('status', ['draft', 'approved']).order('updated_at', { ascending: false }).limit(100),
-    supabaseAdmin.from('pages').select('id,slug,title,template,published_at,originality_score,originality_status,llm_readiness_score,llm_readiness_status,commercial_readiness_score,commercial_readiness_status').eq('status', 'published').order('published_at', { ascending: false }).limit(100),
-    supabaseAdmin.from('pages').select('template').neq('template', ''),
-    supabaseAdmin.from('deploy_events').select('created_at,status,detail').order('created_at', { ascending: false }).limit(1),
-    supabaseAdmin.from('pipeline_runs').select('id,pipeline_name,status,started_at,finished_at,duration_ms,error_message').order('started_at', { ascending: false }).limit(1),
+    supabaseAdmin.from('seo_trends').select('*').eq('status', 'new').order('created_at', { ascending: false }).limit(100),
+    supabaseAdmin.from('seo_pages').select('id,slug,title,template,status,updated_at,originality_score,originality_status').in('status', ['draft', 'approved']).order('updated_at', { ascending: false }).limit(100),
+    supabaseAdmin.from('seo_pages').select('id,slug,title,template,published_at,originality_score,originality_status,llm_readiness_score,llm_readiness_status,commercial_readiness_score,commercial_readiness_status').eq('status', 'published').order('published_at', { ascending: false }).limit(100),
+    supabaseAdmin.from('seo_pages').select('template').neq('template', ''),
+    supabaseAdmin.from('seo_deploy_events').select('created_at,status,detail').order('created_at', { ascending: false }).limit(1),
+    supabaseAdmin.from('seo_pipeline_runs').select('id,pipeline_name,status,started_at,finished_at,duration_ms,error_message').order('started_at', { ascending: false }).limit(1),
     supabaseAdmin
-      .from('pipeline_runs')
+      .from('seo_pipeline_runs')
       .select('finished_at,status,pipeline_name')
       .eq('status', 'succeeded')
       .not('finished_at', 'is', null)
       .order('finished_at', { ascending: false })
       .limit(1),
     supabaseAdmin
-      .from('content_refresh_queue')
+      .from('seo_content_refresh_queue')
       .select('id,page_id,slug,reason,status,queued_at,processed_at,stale_days,low_traffic')
       .eq('status', 'queued')
       .order('queued_at', { ascending: false })
       .limit(100),
-    supabaseAdmin.from('trends').select('id', { count: 'exact', head: true }).eq('status', 'new'),
-    supabaseAdmin.from('pages').select('id', { count: 'exact', head: true }).in('status', ['draft', 'approved']),
-    supabaseAdmin.from('pages').select('id', { count: 'exact', head: true }).eq('status', 'published'),
-    supabaseAdmin.from('content_refresh_queue').select('id', { count: 'exact', head: true }).eq('status', 'queued'),
+    supabaseAdmin.from('seo_trends').select('id', { count: 'exact', head: true }).eq('status', 'new'),
+    supabaseAdmin.from('seo_pages').select('id', { count: 'exact', head: true }).in('status', ['draft', 'approved']),
+    supabaseAdmin.from('seo_pages').select('id', { count: 'exact', head: true }).eq('status', 'published'),
+    supabaseAdmin.from('seo_content_refresh_queue').select('id', { count: 'exact', head: true }).eq('status', 'queued'),
     getMigrationReadinessReport(),
     safeSelect('component_library', 'cluster,name,weight,active'),
     safeSelect('pages', 'originality_status,originality_score,status', 400),
@@ -276,7 +276,7 @@ async function getDashboardData() {
   const latestPipelineRun = pipelineRuns?.[0] ?? null;
   const { data: latestPipelineSteps } = latestPipelineRun
     ? await supabaseAdmin
-        .from('pipeline_steps')
+        .from('seo_pipeline_steps')
         .select('id,step_name,step_key,status,duration_ms,exit_code,error_message')
         .eq('run_id', latestPipelineRun.id)
         .order('step_index', { ascending: true })

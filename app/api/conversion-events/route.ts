@@ -24,7 +24,7 @@ export async function POST(request: Request) {
 
     const variant = resolveConversionVariant(parsed.variant ?? undefined);
 
-    const { error } = await supabaseAdmin.from('conversion_events').insert({
+    const { error } = await supabaseAdmin.from('seo_conversion_events').insert({
       slug: parsed.slug ?? null,
       page_template: parsed.pageTemplate ?? null,
       variant,

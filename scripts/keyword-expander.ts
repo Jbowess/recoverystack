@@ -126,7 +126,7 @@ async function run() {
   let existingError: { message?: string } | null = null;
 
   const normalizedResult = await supabase
-    .from('keyword_queue')
+    .from('seo_keyword_queue')
     .select('normalized_keyword');
 
   existing = normalizedResult.data as Array<{ normalized_keyword?: string | null }> | null;
@@ -134,7 +134,7 @@ async function run() {
 
   if (existingError?.message?.includes('normalized_keyword')) {
     const legacyResult = await supabase
-      .from('keyword_queue')
+      .from('seo_keyword_queue')
       .select('primary_keyword');
 
     existing = legacyResult.data as Array<{ primary_keyword?: string | null }> | null;
@@ -150,7 +150,7 @@ async function run() {
 
   // Load all content_gaps with SERP snapshot data
   const { data: gaps, error } = await supabase
-    .from('content_gaps')
+    .from('seo_content_gaps')
     .select('keyword, page_slug, serp_snapshot')
     .order('created_at', { ascending: false })
     .limit(200);
@@ -224,7 +224,7 @@ async function run() {
   for (let i = 0; i < toInsert.length; i += CHUNK) {
     const chunk = toInsert.slice(i, i + CHUNK);
     const { error: insertErr } = await supabase
-      .from('keyword_queue')
+      .from('seo_keyword_queue')
       .upsert(chunk, { onConflict: 'cluster_name,primary_keyword' });
 
     if (insertErr) {

@@ -121,7 +121,7 @@ async function run() {
 
   // Aggregate CTR + position over last 28 days
   const { data: metrics, error: metricsErr } = await supabase
-    .from('page_metrics_daily')
+    .from('seo_page_metrics_daily')
     .select('page_slug, clicks, impressions, position')
     .gte('date', since);
 
@@ -176,7 +176,7 @@ async function run() {
   const slugs = candidates.map((c) => c.slug);
 
   const { data: pageRows, error: pageErr } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id, slug, title, template, primary_keyword, metadata')
     .in('slug', slugs);
 
@@ -199,8 +199,8 @@ async function run() {
     const updatedMetadata = { ...(page.metadata ?? {}), title_variants: titleVariants };
 
     const [{ error: updateErr }, { error: experimentErr }] = await Promise.all([
-      supabase.from('pages').update({ metadata: updatedMetadata }).eq('id', page.id),
-      supabase.from('page_title_experiments').upsert(
+      supabase.from('seo_pages').update({ metadata: updatedMetadata }).eq('id', page.id),
+      supabase.from('seo_page_title_experiments').upsert(
         variants.map((title, index) => ({
           page_id: page.id,
           page_slug: page.slug,

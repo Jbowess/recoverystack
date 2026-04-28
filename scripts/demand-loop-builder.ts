@@ -16,7 +16,7 @@ async function run() {
   for (const offer of LEAD_MAGNET_SEEDS) {
     leadMagnetWrites += 1;
     if (DRY_RUN) continue;
-    const { error } = await supabase.from('lead_magnet_offers').upsert({
+    const { error } = await supabase.from('seo_lead_magnet_offers').upsert({
       ...offer,
       status: 'active',
       updated_at: new Date().toISOString(),
@@ -27,9 +27,9 @@ async function run() {
     }
   }
 
-  const pages = await supabase.from('pages').select('slug,title,primary_keyword,metadata').eq('status', 'published').limit(100);
+  const pages = await supabase.from('seo_pages').select('slug,title,primary_keyword,metadata').eq('status', 'published').limit(100);
   const pageRows = pages.error?.message?.includes('metadata')
-    ? await supabase.from('pages').select('slug,title,primary_keyword').eq('status', 'published').limit(100)
+    ? await supabase.from('seo_pages').select('slug,title,primary_keyword').eq('status', 'published').limit(100)
     : pages;
   if (pageRows.error) throw pageRows.error;
 

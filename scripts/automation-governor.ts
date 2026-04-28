@@ -16,7 +16,7 @@ async function run() {
   for (const seed of AUTOMATION_POLICY_SEEDS) {
     seeded += 1;
     if (DRY_RUN) continue;
-    const { error } = await supabase.from('automation_policies').upsert({
+    const { error } = await supabase.from('seo_automation_policies').upsert({
       ...seed,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'policy_key' });
@@ -27,7 +27,7 @@ async function run() {
   }
 
   const pipelineRuns = await supabase
-    .from('pipeline_steps')
+    .from('seo_pipeline_steps')
     .select('step_key,status,error_message')
     .eq('status', 'failed')
     .order('created_at', { ascending: false })
@@ -43,7 +43,7 @@ async function run() {
   for (const row of (pipelineRuns.data ?? []) as Array<any>) {
     retryJobs += 1;
     if (DRY_RUN) continue;
-    const { error } = await supabase.from('pipeline_retry_jobs').upsert({
+    const { error } = await supabase.from('seo_pipeline_retry_jobs').upsert({
       step_key: row.step_key,
       run_context: 'auto_recovery',
       status: 'pending',

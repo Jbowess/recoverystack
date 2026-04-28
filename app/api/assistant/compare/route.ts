@@ -20,16 +20,16 @@ export async function GET(request: Request) {
 
   const [specResult, truthResult, datasetResult] = await Promise.all([
     supabaseAdmin
-      .from('product_specs')
+      .from('seo_product_specs')
       .select('slug,brand,model,price_usd,subscription_required,battery_days,compatible_platforms,page_slug,raw_specs')
       .in('slug', slugs),
     supabaseAdmin
-      .from('product_truth_cards')
+      .from('seo_product_truth_cards')
       .select('product_slug,card_type,title,body')
       .in('product_slug', slugs)
       .eq('status', 'active'),
     supabaseAdmin
-      .from('comparison_dataset_snapshots')
+      .from('seo_comparison_dataset_snapshots')
       .select('dataset_key,snapshot_date,data')
       .order('snapshot_date', { ascending: false })
       .limit(30),

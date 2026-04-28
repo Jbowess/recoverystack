@@ -34,7 +34,7 @@ export default async function ResearchDatasetPage({
 }) {
   const { dataset } = await params;
   const { data, error } = await supabaseAdmin
-    .from('comparison_dataset_snapshots')
+    .from('seo_comparison_dataset_snapshots')
     .select('dataset_key,title,snapshot_date,row_count,data,metadata')
     .eq('dataset_key', dataset)
     .order('snapshot_date', { ascending: false })

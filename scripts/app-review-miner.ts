@@ -405,13 +405,13 @@ async function aggregateAndEnrichBriefs(reviews: ReviewRow[]): Promise<void> {
 
     if (!DRY_RUN) {
       await supabase
-        .from('app_review_aggregates')
+        .from('seo_app_review_aggregates')
         .upsert(aggregate, { onConflict: 'app_slug' });
     }
 
     // Update matching pages' briefs with product sentiment
     const { data: matchingPages } = await supabase
-      .from('pages')
+      .from('seo_pages')
       .select('slug')
       .or(`primary_keyword.ilike.%${slug}%,slug.ilike.%${slug}%`);
 
@@ -419,7 +419,7 @@ async function aggregateAndEnrichBriefs(reviews: ReviewRow[]): Promise<void> {
 
     for (const page of (matchingPages ?? []) as Array<{ slug: string }>) {
       await supabase
-        .from('briefs')
+        .from('seo_briefs')
         .update({
           product_sentiment: {
             app_slug: slug,
@@ -440,7 +440,7 @@ async function run(): Promise<void> {
 
   // Check which apps were recently scraped
   const { data: recentData } = await supabase
-    .from('app_reviews')
+    .from('seo_app_reviews')
     .select('app_slug')
     .gte('fetched_at', cutoff);
   const recentApps = new Set((recentData ?? []).map((r: any) => String(r.app_slug)));
@@ -474,7 +474,7 @@ async function run(): Promise<void> {
     for (let i = 0; i < allReviews.length; i += 50) {
       const chunk = allReviews.slice(i, i + 50);
       const { error } = await supabase
-        .from('app_reviews')
+        .from('seo_app_reviews')
         .upsert(chunk, { onConflict: 'review_key' });
       if (error) console.warn(`[app-reviews] DB write error:`, error.message);
       else saved += chunk.length;

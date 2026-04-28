@@ -208,14 +208,14 @@ async function enrichBriefs(fingerprint: FingerprintRow): Promise<void> {
   if (DRY_RUN) return;
 
   const { data: pages } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('slug')
     .eq('cluster_slug', fingerprint.cluster_slug)
     .in('status', ['draft', 'queued']);
 
   for (const page of (pages ?? []) as Array<{ slug: string }>) {
     await supabase
-      .from('briefs')
+      .from('seo_briefs')
       .update({
         structural_guidance: {
           recommended_word_count_min: fingerprint.recommended_word_count_min,
@@ -239,14 +239,14 @@ async function run(): Promise<void> {
 
   // Check which clusters were recently fingerprinted
   const { data: recentData } = await supabase
-    .from('performance_fingerprints')
+    .from('seo_performance_fingerprints')
     .select('cluster_slug')
     .gte('computed_at', cutoff);
   const recentClusters = new Set((recentData ?? []).map((r: any) => String(r.cluster_slug)));
 
   // Load published pages with performance metrics
   const { data: pagesData, error: pagesError } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select(`
       slug,
       cluster_slug,
@@ -338,7 +338,7 @@ async function run(): Promise<void> {
 
     if (!DRY_RUN) {
       const { error } = await supabase
-        .from('performance_fingerprints')
+        .from('seo_performance_fingerprints')
         .upsert(fingerprint, { onConflict: 'cluster_slug,template' });
 
       if (error) {

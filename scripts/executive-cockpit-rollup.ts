@@ -17,12 +17,12 @@ async function run() {
     riskResult,
     narrativeResult,
   ] = await Promise.all([
-    supabase.from('share_of_voice_snapshots').select('visibility_score,engagement_score,conversion_score,authority_score').eq('snapshot_date', today).limit(500),
-    supabase.from('influence_graph_nodes').select('influence_score,relationship_score,amplification_score').limit(500),
-    supabase.from('executive_attribution_rollups').select('content_influence_score,creator_influence_score,first_touch_revenue_usd,assisted_revenue_usd').eq('snapshot_date', today).limit(100),
-    supabase.from('brand_moat_snapshots').select('moat_score').eq('snapshot_date', today).maybeSingle(),
-    supabase.from('brand_risk_alerts').select('severity').eq('status', 'open').limit(500),
-    supabase.from('narrative_control_centers').select('status').eq('status', 'active').limit(50),
+    supabase.from('seo_share_of_voice_snapshots').select('visibility_score,engagement_score,conversion_score,authority_score').eq('snapshot_date', today).limit(500),
+    supabase.from('seo_influence_graph_nodes').select('influence_score,relationship_score,amplification_score').limit(500),
+    supabase.from('seo_executive_attribution_rollups').select('content_influence_score,creator_influence_score,first_touch_revenue_usd,assisted_revenue_usd').eq('snapshot_date', today).limit(100),
+    supabase.from('seo_brand_moat_snapshots').select('moat_score').eq('snapshot_date', today).maybeSingle(),
+    supabase.from('seo_brand_risk_alerts').select('severity').eq('status', 'open').limit(500),
+    supabase.from('seo_narrative_control_centers').select('status').eq('status', 'active').limit(50),
   ]);
 
   const shareRows = shareResult.error?.message?.includes('share_of_voice_snapshots') ? [] : (shareResult.data ?? []);
@@ -63,7 +63,7 @@ async function run() {
     return;
   }
 
-  const { error } = await supabase.from('executive_cockpit_snapshots').upsert(payload, { onConflict: 'snapshot_date' });
+  const { error } = await supabase.from('seo_executive_cockpit_snapshots').upsert(payload, { onConflict: 'snapshot_date' });
   if (error?.message?.includes('executive_cockpit_snapshots')) {
     console.log('[executive-cockpit-rollup] executive_cockpit_snapshots missing - skipping persistence.');
     return;

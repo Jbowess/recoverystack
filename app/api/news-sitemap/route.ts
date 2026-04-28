@@ -44,7 +44,7 @@ export async function GET() {
   // Google News sitemap: only include news template pages published in the last 48 hours.
   // Evergreen guides and other templates are excluded — Google News wants genuine news articles.
   const { data } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('slug, template, title, published_at, updated_at, primary_keyword')
     .eq('status', 'published')
     .eq('template', 'news')

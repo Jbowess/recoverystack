@@ -332,7 +332,7 @@ async function maybeUpdateQueryTargets(feedbackRows: PageFeedback[]) {
   for (const update of updates) {
     try {
       const { error } = await supabase
-        .from('page_query_targets')
+        .from('seo_page_query_targets')
         .update({
           current_ctr: update.current_ctr,
           current_position: update.current_position,
@@ -373,7 +373,7 @@ async function updatePageMetadata(feedbackRows: PageFeedback[], supportsMetadata
       },
     };
 
-    const { error } = await supabase.from('pages').update({ metadata }).eq('id', row.page.id);
+    const { error } = await supabase.from('seo_pages').update({ metadata }).eq('id', row.page.id);
     if (error) {
       console.warn(`[feedback-loop] Failed to update page metadata for ${row.page.slug}: ${error.message}`);
     }
@@ -382,7 +382,7 @@ async function updatePageMetadata(feedbackRows: PageFeedback[], supportsMetadata
 
 async function loadPublishedPages(): Promise<PublishedPagesResult> {
   const withMetadata = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,template,title,intro,primary_keyword,metadata,body_json,internal_links')
     .eq('status', 'published')
     .limit(500);
@@ -400,7 +400,7 @@ async function loadPublishedPages(): Promise<PublishedPagesResult> {
 
   console.warn('[feedback-loop] pages.metadata column missing - falling back to compatibility mode.');
   const withoutMetadata = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,template,title,intro,primary_keyword,body_json,internal_links')
     .eq('status', 'published')
     .limit(500);
@@ -415,7 +415,7 @@ async function loadPublishedPages(): Promise<PublishedPagesResult> {
 
 async function loadMetrics(metricsSince: string) {
   const result = await supabase
-    .from('page_metrics_daily')
+    .from('seo_page_metrics_daily')
     .select('page_slug,clicks,impressions,ctr,position')
     .gte('date', metricsSince)
     .limit(10000);
@@ -433,7 +433,7 @@ async function loadMetrics(metricsSince: string) {
 
 async function loadConversions(conversionsSince: string) {
   const result = await supabase
-    .from('conversion_events')
+    .from('seo_conversion_events')
     .select('slug,cta')
     .gte('created_at', conversionsSince)
     .limit(10000);
@@ -451,7 +451,7 @@ async function loadConversions(conversionsSince: string) {
 
 async function loadQualityScores() {
   const result = await supabase
-    .from('page_quality_scores')
+    .from('seo_page_quality_scores')
     .select('page_id,total_score,created_at')
     .eq('score_type', 'seo_quality')
     .order('created_at', { ascending: false })
@@ -470,7 +470,7 @@ async function loadQualityScores() {
 
 async function updateComponentWeights(feedbackRows: PageFeedback[]) {
   const { data, error } = await supabase
-    .from('component_library')
+    .from('seo_component_library')
     .select('id,cluster,name,weight,active');
 
   if (error) throw error;
@@ -507,7 +507,7 @@ async function updateComponentWeights(feedbackRows: PageFeedback[]) {
     if (Math.abs(nextWeight - row.weight) < 0.02) continue;
 
     const { error: updateError } = await supabase
-      .from('component_library')
+      .from('seo_component_library')
       .update({ weight: round(nextWeight, 3) })
       .eq('id', componentId);
 

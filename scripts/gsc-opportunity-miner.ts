@@ -140,7 +140,7 @@ async function loadGscQueryData(): Promise<GscQueryRow[]> {
 
 async function loadPublishedPages(): Promise<PageRecord[]> {
   const { data } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id, slug, template, primary_keyword, metadata, clicks, impressions, avg_position, avg_ctr')
     .eq('status', 'published');
   return (data ?? []) as PageRecord[];
@@ -257,7 +257,7 @@ async function run(): Promise<void> {
 
     const suggestedTemplate = inferTemplate(orphan.query);
 
-    const { error: orphanError } = await supabase.from('gsc_impression_orphans').upsert({
+    const { error: orphanError } = await supabase.from('seo_gsc_impression_orphans').upsert({
       query: orphan.query,
       impressions: orphan.impressions,
       clicks: orphan.clicks,
@@ -292,13 +292,13 @@ async function run(): Promise<void> {
         },
       };
 
-      let { error: queueError } = await supabase.from('keyword_queue').upsert({
+      let { error: queueError } = await supabase.from('seo_keyword_queue').upsert({
         ...baseQueueRow,
         normalized_keyword: orphan.query.toLowerCase().trim(),
       }, { onConflict: 'cluster_name,primary_keyword' });
 
       if (queueError?.message?.includes('normalized_keyword')) {
-        ({ error: queueError } = await supabase.from('keyword_queue').upsert(baseQueueRow, {
+        ({ error: queueError } = await supabase.from('seo_keyword_queue').upsert(baseQueueRow, {
           onConflict: 'cluster_name,primary_keyword',
         }));
       }
@@ -307,7 +307,7 @@ async function run(): Promise<void> {
 
       // Mark orphan as enqueued
       await supabase
-        .from('gsc_impression_orphans')
+        .from('seo_gsc_impression_orphans')
         .update({ enqueued: true, enqueued_at: new Date().toISOString() })
         .eq('query', orphan.query);
     }
@@ -317,7 +317,7 @@ async function run(): Promise<void> {
   let positionPushFlagged = 0;
   for (const { page, query } of positionPushCandidates) {
     const { error } = await supabase
-      .from('pages')
+      .from('seo_pages')
       .update({
         metadata: {
           ...page.metadata,
@@ -337,7 +337,7 @@ async function run(): Promise<void> {
   let ctrFlagged = 0;
   for (const { page, query, expectedCtrValue } of ctrUnderperformers) {
     const { error } = await supabase
-      .from('pages')
+      .from('seo_pages')
       .update({
         metadata: {
           ...page.metadata,

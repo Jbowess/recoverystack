@@ -16,7 +16,7 @@ type EntityRow = {
 async function run() {
   const today = new Date().toISOString().slice(0, 10);
   const { data: entities, error } = await supabase
-    .from('topic_entities')
+    .from('seo_topic_entities')
     .select('id,canonical_name')
     .eq('active', true)
     .order('canonical_name', { ascending: true });
@@ -27,9 +27,9 @@ async function run() {
 
   for (const entity of (entities ?? []) as EntityRow[]) {
     const [{ count: eventCount }, { data: storylineRows }] = await Promise.all([
-      supabase.from('news_event_entities').select('id', { count: 'exact', head: true }).eq('entity_id', entity.id),
+      supabase.from('seo_news_event_entities').select('id', { count: 'exact', head: true }).eq('entity_id', entity.id),
       supabase
-        .from('storylines')
+        .from('seo_storylines')
         .select('id')
         .eq('canonical_entity_id', entity.id),
     ]);
@@ -40,8 +40,8 @@ async function run() {
 
     if (storylineIds.length > 0) {
       const [{ count: allPages }, { count: newsPages }] = await Promise.all([
-        supabase.from('pages').select('id', { count: 'exact', head: true }).in('storyline_id', storylineIds),
-        supabase.from('pages').select('id', { count: 'exact', head: true }).eq('template', 'news').in('storyline_id', storylineIds),
+        supabase.from('seo_pages').select('id', { count: 'exact', head: true }).in('storyline_id', storylineIds),
+        supabase.from('seo_pages').select('id', { count: 'exact', head: true }).eq('template', 'news').in('storyline_id', storylineIds),
       ]);
       pageCount = allPages ?? 0;
       newsPageCount = newsPages ?? 0;
@@ -54,7 +54,7 @@ async function run() {
       (eventCount ?? 0) * 4 + storylineCount * 8 + newsPageCount * 10 + pageCount * 3,
     );
 
-    await supabase.from('entity_coverage_daily').upsert(
+    await supabase.from('seo_entity_coverage_daily').upsert(
       {
         entity_id: entity.id,
         date: today,
@@ -67,7 +67,7 @@ async function run() {
       { onConflict: 'entity_id,date' },
     );
 
-    await supabase.from('topic_entities').update({ authority_score: authorityScore }).eq('id', entity.id);
+    await supabase.from('seo_topic_entities').update({ authority_score: authorityScore }).eq('id', entity.id);
     upserts += 1;
   }
 

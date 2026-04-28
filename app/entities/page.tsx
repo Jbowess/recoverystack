@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default async function EntityIndexPage() {
   const { data, error } = await supabaseAdmin
-    .from('topic_entities')
+    .from('seo_topic_entities')
     .select('slug,canonical_name,entity_type,authority_score,metadata')
     .eq('active', true)
     .in('slug', BRAND_ENTITY_SEEDS.map((seed) => seed.slug))

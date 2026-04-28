@@ -12,8 +12,8 @@ const DRY_RUN = process.argv.includes('--dry-run') || process.env.DRY_RUN === '1
 
 async function run() {
   const [conversions, distributionMetrics] = await Promise.all([
-    supabase.from('page_conversion_aggregates').select('page_slug,total_revenue_usd,conversion_count,cta_click_count').limit(1000),
-    supabase.from('distribution_asset_metrics').select('asset_id,clicks,conversions').limit(1000),
+    supabase.from('seo_page_conversion_aggregates').select('page_slug,total_revenue_usd,conversion_count,cta_click_count').limit(1000),
+    supabase.from('seo_distribution_asset_metrics').select('asset_id,clicks,conversions').limit(1000),
   ]);
 
   if (conversions.error) throw conversions.error;
@@ -45,7 +45,7 @@ async function run() {
 
     experimentsWritten += 1;
     if (DRY_RUN) continue;
-    const { error } = await supabase.from('conversion_experiments').upsert(payload, {
+    const { error } = await supabase.from('seo_conversion_experiments').upsert(payload, {
       onConflict: 'page_slug,experiment_type',
     } as any);
     if (error?.message?.includes('conversion_experiments')) {

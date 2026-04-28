@@ -49,14 +49,14 @@ function assertClusterConstraints(pageSlug: string, links: Array<{ template?: st
 
 async function run() {
   const { data: pages, error } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,template,primary_keyword,secondary_keywords,pillar_id,internal_links,status,published_at,updated_at')
     .eq('status', 'published');
 
   if (error) throw error;
 
   const { data: queryTargets } = await supabase
-    .from('page_query_targets')
+    .from('seo_page_query_targets')
     .select('page_id,query')
     .order('priority', { ascending: false });
 
@@ -157,7 +157,7 @@ async function run() {
 
     updates += 1;
     if (!isDryRun && !isVerifyMode) {
-      await supabase.from('pages').update({ internal_links, needs_revalidation: true }).eq('id', page.pageId);
+      await supabase.from('seo_pages').update({ internal_links, needs_revalidation: true }).eq('id', page.pageId);
     }
   }
 
@@ -173,7 +173,7 @@ async function run() {
       console.warn(`[linker] Page '${page.slug}' has missing pillar (${page.pillar_id ?? 'null'}). Reassigning to fallback pillar '${fallbackPillar.slug}'.`);
 
       if (!isDryRun && !isVerifyMode) {
-        await supabase.from('pages').update({ pillar_id: fallbackPillar.pageId, needs_revalidation: true }).eq('id', page.pageId);
+        await supabase.from('seo_pages').update({ pillar_id: fallbackPillar.pageId, needs_revalidation: true }).eq('id', page.pageId);
       }
 
       const links = buildClusterLinks(page, all, fallbackPillar.slug);
@@ -185,7 +185,7 @@ async function run() {
 
       updates += 1;
       if (!isDryRun && !isVerifyMode) {
-        await supabase.from('pages').update({ internal_links: validLinks, needs_revalidation: true }).eq('id', page.pageId);
+        await supabase.from('seo_pages').update({ internal_links: validLinks, needs_revalidation: true }).eq('id', page.pageId);
       }
       continue;
     }
@@ -198,7 +198,7 @@ async function run() {
 
     updates += 1;
     if (!isDryRun && !isVerifyMode) {
-      await supabase.from('pages').update({ internal_links, needs_revalidation: true }).eq('id', page.pageId);
+      await supabase.from('seo_pages').update({ internal_links, needs_revalidation: true }).eq('id', page.pageId);
     }
   }
 
@@ -210,7 +210,7 @@ async function run() {
 
     updates += 1;
     if (!isDryRun && !isVerifyMode) {
-      await supabase.from('pages').update({ internal_links: down, needs_revalidation: true }).eq('id', pillar.pageId);
+      await supabase.from('seo_pages').update({ internal_links: down, needs_revalidation: true }).eq('id', pillar.pageId);
     }
   }
 

@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
 
     // Upsert to avoid duplicates — update source/template if they resubscribe
     const { error } = await supabaseAdmin
-      .from('newsletter_subscribers')
+      .from('seo_newsletter_subscribers')
       .upsert(
         {
           email: email.toLowerCase(),

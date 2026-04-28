@@ -18,7 +18,7 @@ async function run() {
   }
 
   const { data: assets, error } = await supabase
-    .from('page_visual_assets')
+    .from('seo_page_visual_assets')
     .select('id,page_id,page_slug,asset_kind,metadata')
     .eq('status', 'planned')
     .neq('asset_kind', 'hero')
@@ -33,7 +33,7 @@ async function run() {
 
   const pageIds = Array.from(new Set(assets.map((asset) => asset.page_id)));
   const { data: pages } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,template,metadata')
     .in('id', pageIds);
 
@@ -51,7 +51,7 @@ async function run() {
     if (!imageUrl) continue;
 
     await supabase
-      .from('page_visual_assets')
+      .from('seo_page_visual_assets')
       .update({
         image_url: imageUrl,
         alt_text: typeof asset.metadata?.alt_text === 'string' ? asset.metadata.alt_text : `${page.slug} ${asset.asset_kind} visual`,

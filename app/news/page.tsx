@@ -54,7 +54,7 @@ type NewsPage = {
 
 async function getNewsPages(beat?: string) {
   let query = supabaseAdmin
-    .from('pages')
+    .from('seo_pages')
     .select('slug, title, meta_description, published_at, beat, news_format')
     .eq('status', 'published')
     .eq('template', 'news')
@@ -71,7 +71,7 @@ async function getNewsPages(beat?: string) {
 
 async function getAvailableBeats(): Promise<string[]> {
   const { data } = await supabaseAdmin
-    .from('pages')
+    .from('seo_pages')
     .select('beat')
     .eq('status', 'published')
     .eq('template', 'news')

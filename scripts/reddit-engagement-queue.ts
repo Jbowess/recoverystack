@@ -77,7 +77,7 @@ function buildFollowupDraft(page: PageRow, qa: CommunityQaRow): string {
 
 async function run(): Promise<void> {
   const { data: qaRows, error: qaError } = await supabase
-    .from('community_qa')
+    .from('seo_community_qa')
     .select('id,keyword,page_slug,source,source_url,question,best_answer,upvotes,reply_count,sentiment,user_language,relevance_score')
     .eq('source', 'reddit')
     .not('page_slug', 'is', null)
@@ -101,7 +101,7 @@ async function run(): Promise<void> {
 
   const pageSlugs = [...new Set(qaRows.map((r) => r.page_slug).filter(Boolean))] as string[];
   const { data: pages, error: pageError } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,template,title,meta_description,primary_keyword,intro')
     .eq('status', 'published')
     .in('slug', pageSlugs);
@@ -187,7 +187,7 @@ async function run(): Promise<void> {
         },
       ];
 
-      const { error } = await supabase.from('distribution_assets').upsert(rows, {
+      const { error } = await supabase.from('seo_distribution_assets').upsert(rows, {
         onConflict: 'page_id,channel,asset_type',
       });
 

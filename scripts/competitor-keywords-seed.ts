@@ -119,8 +119,8 @@ function slugify(text: string): string {
 
 async function getExistingPrimaryKeywords(keywords: string[]): Promise<Set<string>> {
   const [{ data: pages }, { data: queued }] = await Promise.all([
-    supabase.from('pages').select('primary_keyword').in('primary_keyword', keywords),
-    supabase.from('keyword_queue').select('primary_keyword').in('primary_keyword', keywords),
+    supabase.from('seo_pages').select('primary_keyword').in('primary_keyword', keywords),
+    supabase.from('seo_keyword_queue').select('primary_keyword').in('primary_keyword', keywords),
   ]);
   const existing = new Set<string>();
   for (const row of [...(pages ?? []), ...(queued ?? [])]) {
@@ -146,7 +146,7 @@ async function run(): Promise<void> {
     console.log(`[competitor-seed] ${entry.pattern}: "${entry.keyword}" (priority=${entry.priority})`);
 
     if (!DRY_RUN) {
-      await supabase.from('keyword_queue').upsert({
+      await supabase.from('seo_keyword_queue').upsert({
         cluster_name: entry.cluster_name,
         primary_keyword: entry.keyword,
         template_id: entry.template_id,

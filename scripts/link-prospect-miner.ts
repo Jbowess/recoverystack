@@ -145,7 +145,7 @@ async function fetchAhrefsBacklinks(targetDomain: string): Promise<BacklinkItem[
 // ── Check if domain already links to us ───────────────────────────────────────
 async function domainAlreadyLinksToUs(domain: string): Promise<boolean> {
   const { data } = await supabase
-    .from('backlinks')
+    .from('seo_backlinks')
     .select('id')
     .ilike('referring_domain', `%${domain}%`)
     .limit(1);
@@ -156,7 +156,7 @@ async function run(): Promise<void> {
   const cutoff = new Date(Date.now() - REFRESH_AFTER_DAYS * 86_400_000).toISOString();
 
   const { data: recentData } = await supabase
-    .from('link_prospects')
+    .from('seo_link_prospects')
     .select('referring_domain')
     .gte('discovered_at', cutoff);
   const recentDomains = new Set((recentData ?? []).map((r: any) => String(r.referring_domain)));
@@ -233,7 +233,7 @@ async function run(): Promise<void> {
   if (!DRY_RUN) {
     for (let i = 0; i < prospects.length; i += 50) {
       const chunk = prospects.slice(i, i + 50);
-      const { error } = await supabase.from('link_prospects').upsert(chunk, { onConflict: 'prospect_key' });
+      const { error } = await supabase.from('seo_link_prospects').upsert(chunk, { onConflict: 'prospect_key' });
       if (error) console.warn(`[link-prospects] DB write error:`, error.message);
     }
   }

@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'status must be "draft", "approved", or "published"' }, { status: 400 });
   }
 
-  const { data: pages, error: pagesError } = await supabaseAdmin.from('pages').select('*').in('id', pageIds);
+  const { data: pages, error: pagesError } = await supabaseAdmin.from('seo_pages').select('*').in('id', pageIds);
   if (pagesError) return NextResponse.json({ error: pagesError.message }, { status: 500 });
   if (!pages || pages.length === 0) return NextResponse.json({ error: 'No pages found' }, { status: 404 });
 
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     for (const page of pages) {
       const { schemaOrg } = validatePageForPublish(page as any);
       const { error } = await supabaseAdmin
-        .from('pages')
+        .from('seo_pages')
         .update({ ...buildPublishUpdate(page as any), schema_org: schemaOrg })
         .eq('id', page.id);
 
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   }
 
   const update: Record<string, unknown> = { status };
-  const { data, error } = await supabaseAdmin.from('pages').update(update).in('id', pageIds).select('id,slug,template,status');
+  const { data, error } = await supabaseAdmin.from('seo_pages').update(update).in('id', pageIds).select('id,slug,template,status');
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

@@ -144,7 +144,7 @@ async function seedPages() {
   const pillar = PAGE_SEEDS[0];
 
   const { data: pillarRow, error: pillarError } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .upsert(
       {
         slug: pillar.slug,
@@ -183,7 +183,7 @@ async function seedPages() {
     published_at: new Date().toISOString(),
   }));
 
-  const { error: clusterError } = await supabase.from('pages').upsert(clusterRows, { onConflict: 'slug' });
+  const { error: clusterError } = await supabase.from('seo_pages').upsert(clusterRows, { onConflict: 'slug' });
   if (clusterError) throw new Error(`Unable to upsert cluster pages: ${clusterError.message}`);
 
   console.log(`Seeded pages (idempotent upsert): ${PAGE_SEEDS.length}`);
@@ -192,14 +192,14 @@ async function seedPages() {
 async function seedProducts() {
   const now = new Date().toISOString();
   const rows = PRODUCT_SEEDS.map((product) => ({ ...product, last_scraped: now }));
-  const { error } = await supabase.from('products').upsert(rows, { onConflict: 'name' });
+  const { error } = await supabase.from('seo_products').upsert(rows, { onConflict: 'name' });
   if (error) throw new Error(`Unable to seed products: ${error.message}`);
 
   console.log(`Seeded products (idempotent upsert): ${PRODUCT_SEEDS.length}`);
 }
 
 async function seedTrends() {
-  const { error } = await supabase.from('trends').upsert(TREND_SEEDS, { onConflict: 'term' });
+  const { error } = await supabase.from('seo_trends').upsert(TREND_SEEDS, { onConflict: 'term' });
   if (error) throw new Error(`Unable to seed trends: ${error.message}`);
 
   console.log(`Seeded trends (idempotent upsert): ${TREND_SEEDS.length}`);

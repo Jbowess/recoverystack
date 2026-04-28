@@ -13,7 +13,7 @@ const DRY_RUN = process.argv.includes('--dry-run') || process.env.DRY_RUN === '1
 
 async function run() {
   const { data, error } = await supabase
-    .from('distribution_assets')
+    .from('seo_distribution_assets')
     .select('page_id,page_slug,title,summary,payload,cta_url')
     .eq('channel', 'affiliate_outreach')
     .eq('asset_type', 'creator_brief')
@@ -34,7 +34,7 @@ async function run() {
       const thesis = String(asset.payload?.strongest_claim ?? asset.summary ?? 'RecoveryStack turns buyer confusion into a clearer decision.');
       const objection = String(asset.payload?.strongest_objection ?? 'Most buyers still anchor on the wrong decision variable.');
 
-      const { error: upsertError } = await supabase.from('outreach_queue').upsert({
+      const { error: upsertError } = await supabase.from('seo_outreach_queue').upsert({
         page_id: asset.page_id,
         page_slug: asset.page_slug,
         channel: 'affiliate_outreach',

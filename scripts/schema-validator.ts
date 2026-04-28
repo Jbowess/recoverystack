@@ -212,13 +212,13 @@ async function run(): Promise<void> {
   const cutoff = new Date(Date.now() - REFRESH_AFTER_DAYS * 86_400_000).toISOString();
 
   const { data: recentData } = await supabase
-    .from('schema_validation_results')
+    .from('seo_schema_validation_results')
     .select('page_slug')
     .gte('validated_at', cutoff);
   const recentSlugs = new Set((recentData ?? []).map((r: any) => String(r.page_slug)));
 
   const { data: pages, error } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('slug, template, title, schema_org, published_at')
     .eq('status', 'published')
     .not('schema_org', 'is', null)
@@ -258,7 +258,7 @@ async function run(): Promise<void> {
 
     if (DRY_RUN) continue;
 
-    await supabase.from('schema_validation_results').upsert({
+    await supabase.from('seo_schema_validation_results').upsert({
       page_slug: page.slug,
       template: page.template,
       error_count: errors.length,
@@ -269,12 +269,12 @@ async function run(): Promise<void> {
 
     // Flag pages with errors in metadata
     if (errors.length > 0) {
-      await supabase.from('pages').update({
+      await supabase.from('seo_pages').update({
         metadata: { schema_errors: errors.map((e) => e.message), schema_validated_at: new Date().toISOString() },
       }).eq('slug', page.slug);
 
       // Enqueue fixable errors for content refresh
-      await supabase.from('content_refresh_queue').upsert({
+      await supabase.from('seo_content_refresh_queue').upsert({
         page_slug: page.slug,
         reason: `schema_errors:${errors.map((e) => e.schema_type).join(',')}`,
         priority: 'high',

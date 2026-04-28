@@ -25,7 +25,7 @@ export const supabase: any = url && publicKey
 
 export async function getAllPublishedSlugs() {
   const { data } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('template,slug,updated_at')
     .eq('status', 'published')
     .limit(50000);
@@ -35,7 +35,7 @@ export async function getAllPublishedSlugs() {
 
 export async function getPageByTemplateAndSlug(template: TemplateType, slug: string) {
   const { data } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('*')
     .eq('template', template)
     .eq('slug', slug)
@@ -46,13 +46,13 @@ export async function getPageByTemplateAndSlug(template: TemplateType, slug: str
 }
 
 export async function getPageById(id: string) {
-  const { data } = await supabase.from('pages').select('*').eq('id', id).single();
+  const { data } = await supabase.from('seo_pages').select('*').eq('id', id).single();
   return (data ?? null) as PageRecord | null;
 }
 
 export async function getSiblingPages(template: TemplateType, pillarId: string, currentId: string) {
   const { data } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,template,title,primary_keyword,pillar_id')
     .eq('template', template)
     .eq('status', 'published')

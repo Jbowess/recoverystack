@@ -344,15 +344,15 @@ function buildUseCaseSpec(c: CompetitorDef, useCase: string): PageSpec {
 // ── Check if page/keyword already exists ──────────────────────────────────────
 async function slugExists(slug: string): Promise<boolean> {
   const [{ data: page }, { data: queued }] = await Promise.all([
-    supabase.from('pages').select('slug').eq('slug', slug).single(),
-    supabase.from('keyword_queue').select('slug').eq('slug', slug).single(),
+    supabase.from('seo_pages').select('slug').eq('slug', slug).single(),
+    supabase.from('seo_keyword_queue').select('slug').eq('slug', slug).single(),
   ]);
   return !!(page || queued);
 }
 
 // ── Enqueue a page spec ───────────────────────────────────────────────────────
 async function enqueuePageSpec(spec: PageSpec): Promise<void> {
-  await supabase.from('keyword_queue').upsert({
+  await supabase.from('seo_keyword_queue').upsert({
     slug: spec.slug,
     keyword: spec.primary_keyword,
     template: spec.template,
@@ -370,7 +370,7 @@ async function enqueuePageSpec(spec: PageSpec): Promise<void> {
   }, { onConflict: 'slug' });
 
   // Record in competitor_brand_pages tracking table
-  await supabase.from('competitor_brand_pages').upsert({
+  await supabase.from('seo_competitor_brand_pages').upsert({
     slug: spec.slug,
     competitor_domain: spec.competitor_domain,
     page_type: spec.page_type,

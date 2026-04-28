@@ -421,7 +421,7 @@ function buildTocItems(page: PageRecord): Array<{ id: string; text: string }> {
 
 async function loadSupportingVisuals(pageId: string) {
   const { data } = await supabaseAdmin
-    .from('page_visual_assets')
+    .from('seo_page_visual_assets')
     .select('id,image_url,alt_text,asset_kind')
     .eq('page_id', pageId)
     .eq('status', 'ready')

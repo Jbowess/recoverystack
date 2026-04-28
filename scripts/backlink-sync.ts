@@ -162,7 +162,7 @@ async function run() {
   console.log(`[backlink-sync] Processing ${backlinks.length} backlink(s)...`);
 
   const { error } = await supabase
-    .from('backlinks')
+    .from('seo_backlinks')
     .upsert(backlinks, { onConflict: 'referring_url' });
 
   if (error) {

@@ -169,7 +169,7 @@ async function run() {
   for (const target of targets) {
     const result = await scrapePrice(target);
 
-    const { error } = await supabase.from('price_snapshots').upsert(
+    const { error } = await supabase.from('seo_price_snapshots').upsert(
       {
         retailer: target.retailer,
         product_name: target.product_name,

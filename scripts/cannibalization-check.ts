@@ -35,7 +35,7 @@ type PageRow = {
 
 async function run() {
   const { data, error } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,template,primary_keyword,search_volume,metadata')
     .eq('status', 'published')
     .not('primary_keyword', 'is', null)
@@ -82,7 +82,7 @@ async function run() {
 
     // Log to admin_audit_log (non-blocking)
     try {
-      await supabase.from('admin_audit_log').insert({
+      await supabase.from('seo_admin_audit_log').insert({
         action: 'cannibalization_detected',
         actor: 'system',
         target_type: 'keyword',

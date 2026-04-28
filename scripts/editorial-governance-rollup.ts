@@ -10,14 +10,14 @@ const supabase = createClient(
 
 async function run() {
   const modern = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('slug,template,body_json,metadata')
     .in('status', ['draft', 'approved', 'published'])
     .limit(200);
 
   const result = modern.error?.message?.includes('metadata')
     ? await supabase
-        .from('pages')
+        .from('seo_pages')
         .select('slug,template,body_json')
         .in('status', ['draft', 'approved', 'published'])
         .limit(200)

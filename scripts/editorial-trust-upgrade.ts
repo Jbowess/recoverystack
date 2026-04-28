@@ -15,7 +15,7 @@ const DRY_RUN = process.argv.includes('--dry-run') || process.env.DRY_RUN === '1
 
 async function loadPages(limit: number) {
   const modern = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,template,primary_keyword,metadata,body_json,status,updated_at')
     .in('status', ['draft', 'approved', 'published'])
     .order('updated_at', { ascending: false })
@@ -23,7 +23,7 @@ async function loadPages(limit: number) {
 
   if (modern.error?.message?.includes('metadata')) {
     const legacy = await supabase
-      .from('pages')
+      .from('seo_pages')
       .select('id,slug,template,primary_keyword,body_json,status,updated_at')
       .in('status', ['draft', 'approved', 'published'])
       .order('updated_at', { ascending: false })
@@ -38,12 +38,12 @@ async function loadPages(limit: number) {
 }
 
 async function run() {
-  const metadataProbe = await supabase.from('pages').select('metadata').limit(1);
+  const metadataProbe = await supabase.from('seo_pages').select('metadata').limit(1);
   const supportsPageMetadata = !metadataProbe.error;
 
   if (!DRY_RUN) {
     for (const seed of EDITORIAL_TRUST_SEEDS) {
-      const { error } = await supabase.from('editorial_trust_profiles').upsert({
+      const { error } = await supabase.from('seo_editorial_trust_profiles').upsert({
         slug: seed.slug,
         label: seed.label,
         profile_type: seed.profileType,
@@ -99,7 +99,7 @@ async function run() {
           },
         };
 
-    const { error } = await supabase.from('pages').update(updatePayload).eq('id', page.id);
+    const { error } = await supabase.from('seo_pages').update(updatePayload).eq('id', page.id);
 
     if (error) {
       console.warn(`[editorial-trust-upgrade] ${page.slug}: ${error.message}`);

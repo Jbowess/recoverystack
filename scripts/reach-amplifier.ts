@@ -185,7 +185,7 @@ function rewriteForChannel(asset: AssetMetricRow, channel: DistributionChannel, 
 
 async function loadCandidateAssets() {
   const { data, error } = await supabase
-    .from('distribution_assets')
+    .from('seo_distribution_assets')
     .select('id,page_id,page_slug,channel,asset_type,title,hook,summary,body,cta_url,payload,status')
     .in('status', ['approved', 'published', 'draft'])
     .order('created_at', { ascending: false })
@@ -244,7 +244,7 @@ async function run() {
     return;
   }
 
-  const { error: upsertError } = await supabase.from('distribution_assets').upsert(amplifiedRows, {
+  const { error: upsertError } = await supabase.from('seo_distribution_assets').upsert(amplifiedRows, {
     onConflict: 'page_id,channel,asset_type',
   });
   if (upsertError?.message?.includes('distribution_assets')) {
@@ -254,7 +254,7 @@ async function run() {
   if (upsertError) throw upsertError;
 
   const { data: persistedAssets, error: persistedError } = await supabase
-    .from('distribution_assets')
+    .from('seo_distribution_assets')
     .select('id,page_id,page_slug,channel,asset_type,title,hook,summary,body,cta_url,payload')
     .in('page_slug', Array.from(new Set(amplifiedRows.map((row) => row.page_slug))))
     .in('asset_type', amplifiedRows.map((row) => row.asset_type))
@@ -268,7 +268,7 @@ async function run() {
 
   const queueRows = ((persistedAssets ?? []) as DistributionAssetRow[]).map((row) => buildPublicationQueueRecord(row));
 
-  const { error: queueError } = await supabase.from('channel_publication_queue').upsert(queueRows, {
+  const { error: queueError } = await supabase.from('seo_channel_publication_queue').upsert(queueRows, {
     onConflict: 'distribution_asset_id,channel',
   });
   if (queueError?.message?.includes('channel_publication_queue')) {

@@ -11,7 +11,7 @@ const isDryRun = process.argv.includes('--dry-run') || process.env.DRY_RUN === '
 
 async function insertDeployEvent(payload: { status: 'ok' | 'error'; detail: string }) {
   try {
-    const { error } = await supabase.from('deploy_events').insert(payload);
+    const { error } = await supabase.from('seo_deploy_events').insert(payload);
     if (error) {
       console.warn(`[telemetry] deploy_events insert failed: ${error.message}`);
     }
@@ -54,7 +54,7 @@ function sleep(ms: number) {
 
 async function run() {
   const { data: changed } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,template,title,status,updated_at,published_at,needs_revalidation')
     .eq('status', 'published')
     .eq('needs_revalidation', true)
@@ -78,7 +78,7 @@ async function run() {
         await revalidateSlug(page.slug, page.template);
         if (!isDryRun) {
           const { error: deployUpdateError } = await supabase
-            .from('pages')
+            .from('seo_pages')
             .update({ needs_revalidation: false, last_deployed_at: new Date().toISOString() })
             .eq('id', page.id);
 
@@ -117,7 +117,7 @@ async function run() {
     }));
 
     const { error: feedError } = await supabase
-      .from('published_links_feed')
+      .from('seo_published_links_feed')
       .upsert(rows, { onConflict: 'slug' });
 
     if (feedError) {

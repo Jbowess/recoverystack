@@ -28,7 +28,7 @@ const OVERWRITE_ALL = process.argv.includes('--all');
 async function run() {
   // Select only columns confirmed to exist in the live DB (metadata added by migration 0023)
   const query = supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id, slug, template, title, meta_title, meta_description, h1, intro, body_json, pillar_id, primary_keyword, secondary_keywords, internal_links, schema_org, status, published_at, updated_at')
     .eq('status', 'published');
 
@@ -62,7 +62,7 @@ async function run() {
 
       if (!DRY_RUN) {
         const { error: updateErr } = await supabase
-          .from('pages')
+          .from('seo_pages')
           .update({ schema_org: schemaOrg })
           .eq('id', page.id);
         if (updateErr) throw updateErr;

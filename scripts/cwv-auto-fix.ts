@@ -106,7 +106,7 @@ async function penaliseComponent(componentName: string, penaltyFactor: number, t
 
   // Reduce component weight in component_library
   const { data } = await supabase
-    .from('component_library')
+    .from('seo_component_library')
     .select('id, weight')
     .ilike('component_name', `%${componentName}%`)
     .eq('template', template)
@@ -117,7 +117,7 @@ async function penaliseComponent(componentName: string, penaltyFactor: number, t
   const currentWeight = (data as any).weight ?? 1.0;
   const newWeight = Math.max(0.1, currentWeight * penaltyFactor);
 
-  await supabase.from('component_library').update({ weight: newWeight }).eq('id', (data as any).id);
+  await supabase.from('seo_component_library').update({ weight: newWeight }).eq('id', (data as any).id);
   console.log(`  Penalised ${componentName} (${template}): ${currentWeight.toFixed(2)} → ${newWeight.toFixed(2)}`);
 }
 
@@ -238,7 +238,7 @@ async function run(): Promise<void> {
 
     if (!DRY_RUN && fixes.length > 0) {
       for (const fix of fixes) {
-        await supabase.from('cwv_fixes').upsert({
+        await supabase.from('seo_cwv_fixes').upsert({
           ...fix,
           page_slug: metric.page_slug,
         }, { onConflict: 'page_slug,metric' });
@@ -275,7 +275,7 @@ async function run(): Promise<void> {
 
       const median = (arr: number[]) => { const s = [...arr].sort((a, b) => a - b); return s[Math.floor(s.length / 2)] ?? null; };
 
-      await supabase.from('cwv_health_snapshots').upsert({
+      await supabase.from('seo_cwv_health_snapshots').upsert({
         snapshot_date: new Date().toISOString().split('T')[0],
         pages_measured: rows.length,
         pages_with_issues: (metrics ?? []).length,

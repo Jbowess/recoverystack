@@ -27,7 +27,7 @@ type AuditEntry = {
  */
 export async function logAdminAction(entry: AuditEntry): Promise<void> {
   try {
-    const { error } = await supabaseAdmin.from('admin_audit_log').insert({
+    const { error } = await supabaseAdmin.from('seo_admin_audit_log').insert({
       action: entry.action,
       actor: entry.actor ?? 'admin',
       target_type: entry.target_type ?? null,

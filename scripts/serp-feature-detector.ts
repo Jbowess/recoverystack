@@ -258,13 +258,13 @@ async function run(): Promise<void> {
   // Load draft pages + keyword_queue entries not recently scanned
   const [pagesResult, queueResult] = await Promise.all([
     supabase
-      .from('pages')
+      .from('seo_pages')
       .select('slug, primary_keyword')
       .eq('status', 'draft')
       .not('primary_keyword', 'is', null)
       .limit(LIMIT),
     supabase
-      .from('keyword_queue')
+      .from('seo_keyword_queue')
       .select('keyword, normalized_keyword')
       .in('status', ['new', 'in_progress'])
       .limit(LIMIT),
@@ -291,7 +291,7 @@ async function run(): Promise<void> {
 
   // Filter: skip recently scanned
   const { data: recentScans } = await supabase
-    .from('serp_features')
+    .from('seo_serp_features')
     .select('keyword')
     .gte('queried_at', cutoff);
 
@@ -312,7 +312,7 @@ async function run(): Promise<void> {
 
     if (entry.page_slug) features.page_slug = entry.page_slug;
 
-    const { error } = await supabase.from('serp_features').upsert(features, { onConflict: 'keyword' });
+    const { error } = await supabase.from('seo_serp_features').upsert(features, { onConflict: 'keyword' });
     if (error) {
       console.warn(`[serp-features] DB write failed for "${entry.keyword}": ${error.message}`);
       continue;
@@ -321,7 +321,7 @@ async function run(): Promise<void> {
     // Update content_gaps row with serp_features summary
     if (entry.page_slug) {
       await supabase
-        .from('content_gaps')
+        .from('seo_content_gaps')
         .update({
           serp_features: {
             has_featured_snippet: features.has_featured_snippet,
@@ -339,7 +339,7 @@ async function run(): Promise<void> {
     // Update brief with SERP feature hints
     if (entry.page_slug) {
       await supabase
-        .from('briefs')
+        .from('seo_briefs')
         .update({
           recommended_format: features.recommended_format,
           serp_has_featured_snippet: features.has_featured_snippet,

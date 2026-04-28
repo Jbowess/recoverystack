@@ -18,10 +18,10 @@ function topicFor(page: any) {
 
 async function run() {
   const [pagesResult, socialResult, conversionsResult, creatorsResult] = await Promise.all([
-    supabase.from('pages').select('slug,title,template,primary_keyword,quality_score,originality_score').eq('status', 'published').limit(300),
-    supabase.from('social_channel_metrics').select('channel,impressions,clicks,engagements,conversions').limit(2500),
-    supabase.from('page_conversion_aggregates').select('page_slug,conversion_count,cta_click_count').limit(1000),
-    supabase.from('creator_relationships').select('relevance_score,relationship_stage').limit(300),
+    supabase.from('seo_pages').select('slug,title,template,primary_keyword,quality_score,originality_score').eq('status', 'published').limit(300),
+    supabase.from('seo_social_channel_metrics').select('channel,impressions,clicks,engagements,conversions').limit(2500),
+    supabase.from('seo_page_conversion_aggregates').select('page_slug,conversion_count,cta_click_count').limit(1000),
+    supabase.from('seo_creator_relationships').select('relevance_score,relationship_stage').limit(300),
   ]);
 
   if (pagesResult.error) throw pagesResult.error;
@@ -70,7 +70,7 @@ async function run() {
     return;
   }
 
-  const { error } = await supabase.from('share_of_voice_snapshots').upsert(rows, {
+  const { error } = await supabase.from('seo_share_of_voice_snapshots').upsert(rows, {
     onConflict: 'snapshot_date,market_slug,topic_slug,channel',
   } as never);
   if (error?.message?.includes('share_of_voice_snapshots')) {

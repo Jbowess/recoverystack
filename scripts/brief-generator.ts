@@ -96,7 +96,7 @@ async function loadEnrichmentData(pageSlug: string, keyword: string, clusterSlug
   ] = await Promise.all([
     // SERP features
     supabase
-      .from('serp_features')
+      .from('seo_serp_features')
       .select('recommended_format,has_featured_snippet,featured_snippet_type,featured_snippet_text,paa_questions,paa_count,has_video_carousel,has_news_results,avg_serp_word_count')
       .eq('keyword', keyword)
       .limit(1)
@@ -104,7 +104,7 @@ async function loadEnrichmentData(pageSlug: string, keyword: string, clusterSlug
 
     // Competitor TF-IDF entities
     supabase
-      .from('competitor_page_analyses')
+      .from('seo_competitor_page_analyses')
       .select('required_entities,differentiating_entities,h2_headings,faq_count,avg_word_count,schema_types')
       .eq('keyword', keyword)
       .order('position', { ascending: true })
@@ -112,7 +112,7 @@ async function loadEnrichmentData(pageSlug: string, keyword: string, clusterSlug
 
     // Community Q&A
     supabase
-      .from('community_qa')
+      .from('seo_community_qa')
       .select('question,answer_snippet,source_platform,vote_score,sentiment')
       .or(`page_slug.eq.${pageSlug},keyword.ilike.%${keyword.split(' ').slice(0, 3).join(' ')}%`)
       .order('vote_score', { ascending: false })
@@ -120,7 +120,7 @@ async function loadEnrichmentData(pageSlug: string, keyword: string, clusterSlug
 
     // Authoritative keyword volume
     supabase
-      .from('keyword_volume_data')
+      .from('seo_keyword_volume_data')
       .select('search_volume,keyword_difficulty,cpc_usd,search_intent,parent_keyword')
       .eq('keyword', keyword)
       .limit(1)
@@ -129,7 +129,7 @@ async function loadEnrichmentData(pageSlug: string, keyword: string, clusterSlug
     // Performance fingerprint for the cluster
     clusterSlug
       ? supabase
-          .from('performance_fingerprints')
+          .from('seo_performance_fingerprints')
           .select('recommended_word_count_min,recommended_word_count_max,faq_usage_rate,table_usage_rate,median_h2_count,h2_patterns,common_schema_types,median_internal_links,avg_position')
           .eq('cluster_slug', clusterSlug)
           .limit(1)
@@ -138,14 +138,14 @@ async function loadEnrichmentData(pageSlug: string, keyword: string, clusterSlug
 
     // Product specs
     supabase
-      .from('product_specs')
+      .from('seo_product_specs')
       .select('slug,brand,model,price_usd,battery_life_hours,weight_grams,sensors,health_metrics,subscription_required,subscription_price_usd_month')
       .or(`page_slug.eq.${pageSlug},slug.ilike.%${keyword.split(' ').slice(0, 2).join('-')}%`)
       .limit(3),
 
     // Clinical trials
     supabase
-      .from('clinical_trials')
+      .from('seo_clinical_trials')
       .select('nct_id,title,status,phase,sponsor_name,significance_score,primary_outcomes,completion_date')
       .contains('page_slugs', [pageSlug])
       .order('significance_score', { ascending: false })
@@ -153,7 +153,7 @@ async function loadEnrichmentData(pageSlug: string, keyword: string, clusterSlug
 
     // App review aggregates
     supabase
-      .from('app_review_aggregates')
+      .from('seo_app_review_aggregates')
       .select('app_slug,avg_rating,positive_pct,top_pain_points,top_praised_features,top_themes')
       .or(`app_slug.ilike.%${keyword.split(' ')[0]}%`)
       .limit(3),
@@ -330,7 +330,7 @@ async function generateBrief(gap: ContentGapRow): Promise<void> {
     const normalizedKeyword = gap.keyword.trim().toLowerCase();
 
     const normalizedLookup = await supabase
-      .from('keyword_queue')
+      .from('seo_keyword_queue')
       .select('real_search_volume,keyword_difficulty,metadata')
       .eq('normalized_keyword', normalizedKeyword)
       .order('created_at', { ascending: false })
@@ -339,7 +339,7 @@ async function generateBrief(gap: ContentGapRow): Promise<void> {
 
     if (normalizedLookup.error?.message?.includes('normalized_keyword')) {
       const legacyLookup = await supabase
-        .from('keyword_queue')
+        .from('seo_keyword_queue')
         .select('real_search_volume,keyword_difficulty,metadata')
         .eq('primary_keyword', gap.keyword)
         .order('created_at', { ascending: false })
@@ -395,7 +395,7 @@ async function generateBrief(gap: ContentGapRow): Promise<void> {
     ]),
   ].slice(0, 5);
 
-  const { error } = await supabase.from('briefs').upsert(
+  const { error } = await supabase.from('seo_briefs').upsert(
     {
       page_slug: gap.page_slug,
       keyword: gap.keyword,
@@ -441,7 +441,7 @@ async function generateBrief(gap: ContentGapRow): Promise<void> {
 async function run() {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data: gaps, error } = await supabase
-    .from('content_gaps')
+    .from('seo_content_gaps')
     .select('id, page_slug, keyword, cluster_slug, serp_snapshot, serp_features')
     .gte('created_at', since)
     .order('created_at', { ascending: false })

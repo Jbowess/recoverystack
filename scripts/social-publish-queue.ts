@@ -16,7 +16,7 @@ const ALLOWED_CHANNELS = getFreeApiChannels();
 
 async function run() {
   const { data, error } = await supabase
-    .from('distribution_assets')
+    .from('seo_distribution_assets')
     .select('id,page_id,page_slug,channel,asset_type,title,hook,summary,body,cta_url,payload,status')
     .in('status', ['draft', 'approved'])
     .in('channel', ALLOWED_CHANNELS)
@@ -40,7 +40,7 @@ async function run() {
       continue;
     }
 
-    const { error: upsertError } = await supabase.from('channel_publication_queue').upsert(row, {
+    const { error: upsertError } = await supabase.from('seo_channel_publication_queue').upsert(row, {
       onConflict: 'distribution_asset_id,channel',
     });
 

@@ -24,7 +24,7 @@ function num(value: unknown) {
 
 async function run() {
   const queueResult = await supabase
-    .from('channel_publication_queue')
+    .from('seo_channel_publication_queue')
     .select('id,distribution_asset_id,page_slug,channel,performance_snapshot')
     .in('publish_status', ['posted', 'approved', 'scheduled'])
     .limit(200);
@@ -74,7 +74,7 @@ async function run() {
       continue;
     }
 
-    const { error } = await supabase.from('social_channel_metrics').upsert(metricRow, {
+    const { error } = await supabase.from('seo_social_channel_metrics').upsert(metricRow, {
       onConflict: 'publication_queue_id,metric_date',
     });
     if (error) {
@@ -86,7 +86,7 @@ async function run() {
       continue;
     }
 
-    const { error: metricUpdateError } = await supabase.from('distribution_asset_metrics').upsert({
+    const { error: metricUpdateError } = await supabase.from('seo_distribution_asset_metrics').upsert({
       asset_id: row.distribution_asset_id,
       metric_date: metricRow.metric_date,
       impressions: metricRow.impressions,

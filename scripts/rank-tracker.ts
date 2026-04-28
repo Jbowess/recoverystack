@@ -225,7 +225,7 @@ async function computeDeltas(keyword: string, currentPosition: number | null): P
   const d28ago = new Date(now - 28 * 86_400_000).toISOString();
 
   const { data } = await supabase
-    .from('rank_history')
+    .from('seo_rank_history')
     .select('position, checked_at')
     .eq('keyword', keyword)
     .gte('checked_at', d28ago)
@@ -253,14 +253,14 @@ async function run(): Promise<void> {
   // ── Load target keywords from pages + keyword_queue ────────────────────────
   const [pagesResult, queueResult] = await Promise.all([
     supabase
-      .from('pages')
+      .from('seo_pages')
       .select('slug, primary_keyword, metadata')
       .eq('status', 'published')
       .not('primary_keyword', 'is', null)
       .order('quality_score', { ascending: false })
       .limit(LIMIT),
     supabase
-      .from('keyword_volume_data')
+      .from('seo_keyword_volume_data')
       .select('keyword, search_volume_monthly')
       .order('search_volume_monthly', { ascending: false })
       .limit(LIMIT),
@@ -306,13 +306,13 @@ async function run(): Promise<void> {
         };
 
         if (!DRY_RUN) {
-          await supabase.from('rank_history').insert(row);
+          await supabase.from('seo_rank_history').insert(row);
 
           // Update page metadata with current position
           if (result.page_slug || entry.page_slug) {
             const slug = result.page_slug ?? entry.page_slug!;
             await supabase
-              .from('pages')
+              .from('seo_pages')
               .update({
                 metadata: {
                   current_position: result.position,
@@ -355,11 +355,11 @@ async function run(): Promise<void> {
       };
 
       if (!DRY_RUN) {
-        await supabase.from('rank_history').insert(row);
+        await supabase.from('seo_rank_history').insert(row);
 
         if (result.page_slug || entry.page_slug) {
           const slug = result.page_slug ?? entry.page_slug!;
-          await supabase.from('pages').update({
+          await supabase.from('seo_pages').update({
             metadata: {
               current_position: result.position,
               position_delta_7d: delta7d,

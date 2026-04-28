@@ -11,8 +11,8 @@ const supabase = createClient(
 async function run() {
   const since = new Date(Date.now() - 28 * 86_400_000).toISOString().slice(0, 10);
   const [metrics, pages] = await Promise.all([
-    supabase.from('page_metrics_daily').select('page_slug,clicks,impressions,position').gte('date', since).limit(5000),
-    supabase.from('pages').select('slug,title,template,primary_keyword').eq('status', 'published').limit(1000),
+    supabase.from('seo_page_metrics_daily').select('page_slug,clicks,impressions,position').gte('date', since).limit(5000),
+    supabase.from('seo_pages').select('slug,title,template,primary_keyword').eq('status', 'published').limit(1000),
   ]);
 
   if (metrics.error?.message?.includes('page_metrics_daily')) {

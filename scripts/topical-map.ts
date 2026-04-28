@@ -46,7 +46,7 @@ interface ClusterRow {
 async function run() {
   // Load all published pages with pillar_id + template
   const { data: pages, error: pagesErr } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('pillar_id, template')
     .eq('status', 'published');
 
@@ -54,7 +54,7 @@ async function run() {
 
   // Load all keyword clusters
   const { data: clusters, error: clustersErr } = await supabase
-    .from('keyword_clusters')
+    .from('seo_keyword_clusters')
     .select('id, name, topic');
 
   if (clustersErr) {
@@ -100,7 +100,7 @@ async function run() {
     const missingTemplates = TEMPLATES.filter((t) => counts[t] === 0);
 
     // Upsert into cluster_coverage
-    const { error: upsertErr } = await supabase.from('cluster_coverage').upsert(
+    const { error: upsertErr } = await supabase.from('seo_cluster_coverage').upsert(
       {
         cluster_name: cluster.name,
         guides_count: counts.guides,
@@ -130,7 +130,7 @@ async function run() {
         const keyword = `${cluster.topic ?? cluster.name} ${template}`;
 
         const { error: kqErr } = await supabase
-          .from('keyword_queue')
+          .from('seo_keyword_queue')
           .upsert(
             {
               cluster_name: buildClusterName(cluster.name),

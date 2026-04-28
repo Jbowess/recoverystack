@@ -42,7 +42,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.redirect(new URL('/admin?error=invalid_action', req.url), { status: 302 });
   }
 
-  const { data: page } = await supabaseAdmin.from('pages').select('id,slug,template,status,intro,body_json').eq('id', id).single();
+  const { data: page } = await supabaseAdmin.from('seo_pages').select('id,slug,template,status,intro,body_json').eq('id', id).single();
   if (!page) {
     return NextResponse.redirect(new URL('/admin?error=page_not_found', req.url), { status: 302 });
   }
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     revalidatePath(`/${page.template}/${page.slug}`);
 
     await supabaseAdmin
-      .from('content_refresh_queue')
+      .from('seo_content_refresh_queue')
       .update({ status: 'completed', processed_at: new Date().toISOString() })
       .eq('page_id', page.id)
       .in('status', ['approved', 'queued']);

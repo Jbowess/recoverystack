@@ -43,9 +43,11 @@ create table if not exists narrative_message_frames (
   message text not null,
   status text not null default 'active' check (status in ('active', 'testing', 'retired')),
   metadata jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now(),
-  unique(narrative_key, frame_key, coalesce(channel, ''), frame_type)
+  created_at timestamptz not null default now()
 );
+
+create unique index if not exists uq_narrative_message_frames
+  on narrative_message_frames (narrative_key, frame_key, coalesce(channel, ''), frame_type);
 
 create table if not exists share_of_voice_snapshots (
   snapshot_date date not null,
@@ -122,9 +124,11 @@ create table if not exists campaign_asset_map (
   asset_type text,
   role text not null default 'supporting',
   metadata jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now(),
-  unique(campaign_key, coalesce(asset_id, '00000000-0000-0000-0000-000000000000'::uuid), coalesce(page_slug, ''), coalesce(asset_channel, ''), coalesce(asset_type, ''))
+  created_at timestamptz not null default now()
 );
+
+create unique index if not exists uq_campaign_asset_map
+  on campaign_asset_map (campaign_key, coalesce(asset_id, '00000000-0000-0000-0000-000000000000'::uuid), coalesce(page_slug, ''), coalesce(asset_channel, ''), coalesce(asset_type, ''));
 
 create table if not exists executive_attribution_rollups (
   snapshot_date date not null,

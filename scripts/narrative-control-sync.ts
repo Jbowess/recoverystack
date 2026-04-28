@@ -9,8 +9,8 @@ const DRY_RUN = process.argv.includes('--dry-run') || process.env.DRY_RUN === '1
 
 async function run() {
   const [voiceResult, memoryResult] = await Promise.all([
-    supabase.from('brand_voice_profiles').select('slug,label,tone_rules,banned_phrases,required_frames,example_lines').limit(50),
-    supabase.from('brand_memory_entries').select('memory_type,body,priority').eq('memory_type', 'claim').order('priority', { ascending: false }).limit(30),
+    supabase.from('seo_brand_voice_profiles').select('slug,label,tone_rules,banned_phrases,required_frames,example_lines').limit(50),
+    supabase.from('seo_brand_memory_entries').select('memory_type,body,priority').eq('memory_type', 'claim').order('priority', { ascending: false }).limit(30),
   ]);
 
   const voice = voiceResult.error?.message?.includes('brand_voice_profiles') ? [] : (voiceResult.data ?? []);
@@ -51,14 +51,14 @@ async function run() {
     return;
   }
 
-  const centerWrite = await supabase.from('narrative_control_centers').upsert(payload.centers, { onConflict: 'narrative_key' });
+  const centerWrite = await supabase.from('seo_narrative_control_centers').upsert(payload.centers, { onConflict: 'narrative_key' });
   if (centerWrite.error?.message?.includes('narrative_control_centers')) {
     console.log('[narrative-control-sync] narrative_control_centers missing - skipping persistence.');
     return;
   }
   if (centerWrite.error) throw centerWrite.error;
 
-  const frameWrite = await supabase.from('narrative_message_frames').upsert(payload.frames, {
+  const frameWrite = await supabase.from('seo_narrative_message_frames').upsert(payload.frames, {
     onConflict: 'narrative_key,frame_key,channel,frame_type',
   } as never);
   if (frameWrite.error?.message?.includes('narrative_message_frames')) {

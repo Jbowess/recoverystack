@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default async function ResearchIndexPage() {
   const { data, error } = await supabaseAdmin
-    .from('comparison_dataset_snapshots')
+    .from('seo_comparison_dataset_snapshots')
     .select('dataset_key,title,snapshot_date,row_count,metadata')
     .order('snapshot_date', { ascending: false })
     .limit(40);

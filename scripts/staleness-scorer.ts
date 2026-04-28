@@ -87,7 +87,7 @@ async function scoreProductObsolescence(page: PageRow): Promise<{ score: number;
 
   // Find product specs mentioned in this page
   const { data: specs } = await supabase
-    .from('product_specs')
+    .from('seo_product_specs')
     .select('slug, model, brand, release_date, discontinued')
     .eq('discontinued', false);
 
@@ -104,7 +104,7 @@ async function scoreProductObsolescence(page: PageRow): Promise<{ score: number;
 
   // Check if any newer versions exist for mentioned brands
   const { data: newerSpecs } = await supabase
-    .from('product_specs')
+    .from('seo_product_specs')
     .select('slug, model, brand, release_date')
     .not('release_date', 'is', null)
     .order('release_date', { ascending: false });
@@ -137,7 +137,7 @@ async function scoreProductObsolescence(page: PageRow): Promise<{ score: number;
 // ── Score: position decay ─────────────────────────────────────────────────────
 async function scorePositionDecay(page: PageRow): Promise<{ score: number; reason: string | null }> {
   const { data } = await supabase
-    .from('rank_history')
+    .from('seo_rank_history')
     .select('position, checked_at')
     .eq('keyword', page.primary_keyword ?? '')
     .order('checked_at', { ascending: false })
@@ -192,7 +192,7 @@ async function scoreSupersededResearch(page: PageRow): Promise<{ score: number; 
   if (!page.primary_keyword) return { score: 0, reason: null };
 
   const { data } = await supabase
-    .from('clinical_trials')
+    .from('seo_clinical_trials')
     .select('title, status, completion_date, significance_score')
     .contains('page_slugs', [page.slug])
     .eq('status', 'COMPLETED')
@@ -259,7 +259,7 @@ async function scorePage(page: PageRow): Promise<StalenessResult> {
 
 async function run(): Promise<void> {
   const { data: pages, error } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('slug, template, title, primary_keyword, updated_at, published_at, metadata, body_json')
     .eq('status', 'published')
     .order('updated_at', { ascending: true }) // oldest first
@@ -282,9 +282,9 @@ async function run(): Promise<void> {
 
     if (DRY_RUN) continue;
 
-    await supabase.from('page_staleness_scores').upsert(result, { onConflict: 'page_slug' });
+    await supabase.from('seo_page_staleness_scores').upsert(result, { onConflict: 'page_slug' });
 
-    await supabase.from('pages').update({
+    await supabase.from('seo_pages').update({
       metadata: {
         ...(page.metadata ?? {}),
         staleness_score: result.staleness_score,
@@ -295,7 +295,7 @@ async function run(): Promise<void> {
     }).eq('slug', page.slug);
 
     if (result.staleness_score >= ENQUEUE_STALENESS_THRESHOLD) {
-      await supabase.from('content_refresh_queue').upsert({
+      await supabase.from('seo_content_refresh_queue').upsert({
         page_slug: page.slug,
         reason: result.staleness_reasons.join(' | '),
         priority: result.refresh_priority,

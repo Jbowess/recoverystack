@@ -22,7 +22,7 @@ function scoreWinner(asset: any) {
 
 async function run() {
   const { data, error } = await supabase
-    .from('distribution_assets')
+    .from('seo_distribution_assets')
     .select('id,page_id,page_slug,page_template,channel,asset_type,title,hook,summary,body,cta_url,payload,status')
     .in('status', ['approved', 'published'])
     .order('created_at', { ascending: false })
@@ -142,7 +142,7 @@ async function run() {
     written += rows.length;
     if (DRY_RUN) continue;
 
-    const { error: upsertError } = await supabase.from('distribution_assets').upsert(rows, {
+    const { error: upsertError } = await supabase.from('seo_distribution_assets').upsert(rows, {
       onConflict: 'page_id,channel,asset_type',
     });
     if (upsertError?.message?.includes('distribution_assets')) {

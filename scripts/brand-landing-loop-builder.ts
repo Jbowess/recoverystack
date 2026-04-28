@@ -17,7 +17,7 @@ function trim(value: string | null | undefined, fallback = '') {
 
 async function run() {
   const { data, error } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,template,title,primary_keyword,meta_description,metadata')
     .eq('status', 'published')
     .limit(220);
@@ -57,7 +57,7 @@ async function run() {
     updated += 1;
     if (DRY_RUN) continue;
 
-    const { error: updateError } = await supabase.from('pages').update({ metadata }).eq('id', page.id);
+    const { error: updateError } = await supabase.from('seo_pages').update({ metadata }).eq('id', page.id);
     if (updateError) throw updateError;
   }
 

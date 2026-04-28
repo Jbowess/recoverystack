@@ -10,12 +10,12 @@ export async function GET() {
 
   const [datasetsResult, entityResult] = await Promise.all([
     supabaseAdmin
-      .from('comparison_dataset_snapshots')
+      .from('seo_comparison_dataset_snapshots')
       .select('dataset_key,title,snapshot_date,row_count,metadata')
       .order('snapshot_date', { ascending: false })
       .limit(40),
     supabaseAdmin
-      .from('topic_entities')
+      .from('seo_topic_entities')
       .select('slug,canonical_name,entity_type,metadata')
       .eq('active', true)
       .in('slug', BRAND_ENTITY_SEEDS.map((seed) => seed.slug))

@@ -323,8 +323,8 @@ function buildBriefContext(cat: CategoryDef, mod: Modifier, keyword: string): Re
 // ── Existence check ───────────────────────────────────────────────────────────
 async function slugExists(slug: string): Promise<boolean> {
   const [{ data: page }, { data: queued }] = await Promise.all([
-    supabase.from('pages').select('slug').eq('slug', slug).maybeSingle(),
-    supabase.from('keyword_queue').select('slug').eq('slug', slug).maybeSingle(),
+    supabase.from('seo_pages').select('slug').eq('slug', slug).maybeSingle(),
+    supabase.from('seo_keyword_queue').select('slug').eq('slug', slug).maybeSingle(),
   ]);
   return !!(page || queued);
 }
@@ -342,7 +342,7 @@ async function enqueue(
   const priority = cat.base_priority + mod.priority_boost;
   const briefContext = buildBriefContext(cat, mod, keyword);
 
-  await supabase.from('keyword_queue').upsert({
+  await supabase.from('seo_keyword_queue').upsert({
     slug,
     keyword,
     template,
@@ -354,7 +354,7 @@ async function enqueue(
     metadata: { brief_context: briefContext, category_id: cat.id, modifier_id: mod.id },
   }, { onConflict: 'slug' });
 
-  await supabase.from('use_case_pages').upsert({
+  await supabase.from('seo_use_case_pages').upsert({
     slug,
     category_id: cat.id,
     modifier_id: mod.id,

@@ -12,7 +12,7 @@ const DRY_RUN = process.argv.includes('--dry-run') || process.env.DRY_RUN === '1
 
 async function run() {
   const { data, error } = await supabase
-    .from('distribution_assets')
+    .from('seo_distribution_assets')
     .select('id,page_id,page_slug,title,hook,summary,payload')
     .eq('channel', 'short_video')
     .in('asset_type', ['short_script', 'objection_script'])
@@ -131,7 +131,7 @@ async function run() {
     written += rows.length;
     if (DRY_RUN) continue;
 
-    const { error: upsertError } = await supabase.from('distribution_assets').upsert(rows, { onConflict: 'page_id,channel,asset_type' });
+    const { error: upsertError } = await supabase.from('seo_distribution_assets').upsert(rows, { onConflict: 'page_id,channel,asset_type' });
     if (upsertError?.message?.includes('distribution_assets')) {
       console.log('[video-package-generator] distribution_assets missing - skipping persistence.');
       break;

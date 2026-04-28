@@ -26,7 +26,7 @@ function groupCount<T extends { page_id?: string | null }>(rows: T[]) {
 
 async function run() {
   const pagesResult = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,template,title,meta_description,primary_keyword,body_json,metadata')
     .eq('status', 'published')
     .order('updated_at', { ascending: false })
@@ -38,11 +38,11 @@ async function run() {
   const pageSlugs = pages.map((page) => page.slug);
 
   const [refsResult, visualsResult, queriesResult, claimsResult, productsResult] = await Promise.all([
-    supabase.from('page_source_references').select('page_id').in('page_id', pageIds),
-    supabase.from('page_visual_assets').select('page_id').in('page_id', pageIds).eq('status', 'ready'),
-    supabase.from('page_query_targets').select('page_id').in('page_id', pageIds),
-    supabase.from('page_claims').select('page_id').in('page_id', pageIds),
-    supabase.from('product_specs').select('page_slug').in('page_slug', pageSlugs),
+    supabase.from('seo_page_source_references').select('page_id').in('page_id', pageIds),
+    supabase.from('seo_page_visual_assets').select('page_id').in('page_id', pageIds).eq('status', 'ready'),
+    supabase.from('seo_page_query_targets').select('page_id').in('page_id', pageIds),
+    supabase.from('seo_page_claims').select('page_id').in('page_id', pageIds),
+    supabase.from('seo_product_specs').select('page_slug').in('page_slug', pageSlugs),
   ]);
 
   if (refsResult.error) throw refsResult.error;
@@ -80,7 +80,7 @@ async function run() {
       continue;
     }
 
-    const write = await supabase.from('commercial_page_audits').upsert({
+    const write = await supabase.from('seo_commercial_page_audits').upsert({
       page_id: page.id,
       page_slug: page.slug,
       template: page.template,
@@ -99,7 +99,7 @@ async function run() {
 
     if (write.error) throw write.error;
 
-    const update = await supabase.from('pages').update({
+    const update = await supabase.from('seo_pages').update({
       commercial_readiness_score: audit.score,
       commercial_readiness_status: audit.status,
       commercial_last_audited_at: new Date().toISOString(),

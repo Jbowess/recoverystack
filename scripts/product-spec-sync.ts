@@ -615,12 +615,12 @@ async function run(): Promise<void> {
   let saved = 0;
   for (const record of records) {
     let { error } = await supabase
-      .from('product_specs')
+      .from('seo_product_specs')
       .upsert(toModernProductSpecRecord(record), { onConflict: 'slug' });
 
     if (error?.message?.includes('product_type') || error?.message?.includes('product_specs')) {
       ({ error } = await supabase
-        .from('product_specs')
+        .from('seo_product_specs')
         .upsert(toLegacyProductSpecRecord(record), { onConflict: 'slug' }));
     }
 
@@ -632,7 +632,7 @@ async function run(): Promise<void> {
     if (record.page_slug) {
       // Update the brief with product spec context for content generation
       await supabase
-        .from('briefs')
+        .from('seo_briefs')
         .update({
           product_specs: {
             slug: record.slug,

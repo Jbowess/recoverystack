@@ -42,7 +42,7 @@ function normalizeDomain(url: string | null | undefined) {
 
 async function loadPublishedPages(limit: number) {
   const modern = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,template,title,meta_description,intro,primary_keyword,body_json,metadata,published_at')
     .eq('status', 'published')
     .order('published_at', { ascending: false })
@@ -50,7 +50,7 @@ async function loadPublishedPages(limit: number) {
 
   if (modern.error?.message?.includes('metadata')) {
     const legacy = await supabase
-      .from('pages')
+      .from('seo_pages')
       .select('id,slug,template,title,meta_description,intro,primary_keyword,body_json,published_at')
       .eq('status', 'published')
       .order('published_at', { ascending: false })
@@ -67,7 +67,7 @@ async function loadPublishedPages(limit: number) {
 async function run() {
   const [pages, productsResult] = await Promise.all([
     loadPublishedPages(LIMIT),
-    supabase.from('products').select('name,brand,affiliate_url').limit(100),
+    supabase.from('seo_products').select('name,brand,affiliate_url').limit(100),
   ]);
 
   if (productsResult.error) throw productsResult.error;
@@ -131,7 +131,7 @@ async function run() {
         continue;
       }
 
-      const { error: upsertError } = await supabase.from('outreach_queue').upsert(row, {
+      const { error: upsertError } = await supabase.from('seo_outreach_queue').upsert(row, {
         onConflict: 'page_slug,channel,target_name',
       });
 
@@ -178,7 +178,7 @@ async function run() {
           continue;
         }
 
-        const { error: upsertError } = await supabase.from('outreach_queue').upsert(row, {
+        const { error: upsertError } = await supabase.from('seo_outreach_queue').upsert(row, {
           onConflict: 'page_slug,channel,target_name',
         });
 

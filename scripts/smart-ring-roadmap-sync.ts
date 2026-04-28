@@ -14,7 +14,7 @@ const supabase = createClient(
 const DRY_RUN = process.argv.includes('--dry-run') || process.env.DRY_RUN === '1';
 
 async function supportsNormalizedKeyword() {
-  const result = await supabase.from('keyword_queue').select('normalized_keyword').limit(1);
+  const result = await supabase.from('seo_keyword_queue').select('normalized_keyword').limit(1);
   return !result.error;
 }
 
@@ -43,7 +43,7 @@ async function run() {
 
     roadmapWrites += 1;
     if (!DRY_RUN && roadmapTableAvailable) {
-      const { error } = await supabase.from('growth_roadmap_items').upsert(roadmapRow, { onConflict: 'slug' });
+      const { error } = await supabase.from('seo_growth_roadmap_items').upsert(roadmapRow, { onConflict: 'slug' });
       if (error) {
         if (error.message.includes('growth_roadmap_items')) {
           roadmapTableAvailable = false;
@@ -80,7 +80,7 @@ async function run() {
       continue;
     }
 
-    const { error } = await supabase.from('keyword_queue').upsert(queueRow, {
+    const { error } = await supabase.from('seo_keyword_queue').upsert(queueRow, {
       onConflict: 'cluster_name,primary_keyword',
     });
 

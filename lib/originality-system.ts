@@ -484,18 +484,18 @@ export async function persistOriginalityAssessment(
     created_at: now,
   };
 
-  const snapshotWrite = await supabase.from('page_originality_scores').insert(row);
+  const snapshotWrite = await supabase.from('seo_page_originality_scores').insert(row);
   if (snapshotWrite.error && !snapshotWrite.error.message.includes('page_originality_scores')) {
     throw snapshotWrite.error;
   }
 
-  const blockDelete = await supabase.from('content_block_fingerprints').delete().eq('page_slug', page.slug);
+  const blockDelete = await supabase.from('seo_content_block_fingerprints').delete().eq('page_slug', page.slug);
   if (blockDelete.error && !blockDelete.error.message.includes('content_block_fingerprints')) {
     throw blockDelete.error;
   }
 
   if (assessment.blockFingerprints.length > 0) {
-    const blockInsert = await supabase.from('content_block_fingerprints').insert(
+    const blockInsert = await supabase.from('seo_content_block_fingerprints').insert(
       assessment.blockFingerprints.map((block) => ({
         page_id: page.id,
         page_slug: page.slug,
@@ -515,7 +515,7 @@ export async function persistOriginalityAssessment(
   }
 
   const pageUpdate = await supabase
-    .from('pages')
+    .from('seo_pages')
     .update({
       originality_score: assessment.totalScore,
       originality_status: assessment.status,

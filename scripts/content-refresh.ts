@@ -94,7 +94,7 @@ function shouldQueueForRefresh(page: PageForRefreshCheck, nowMs: number, gsc?: G
 
 async function loadRefreshCandidates(limit = 500): Promise<PageForRefreshCheck[]> {
   const { data, error } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,template,status,updated_at,published_at,created_at,search_volume')
     .in('status', ['published', 'draft'])
     .order('updated_at', { ascending: true })
@@ -122,7 +122,7 @@ async function getWeeklyDeltas(slug: string): Promise<{
   impressionDropPct: number | null;
 } | null> {
   const { data, error } = await supabase
-    .from('page_metrics_daily')
+    .from('seo_page_metrics_daily')
     .select('date,position,clicks,impressions,ctr')
     .eq('page_slug', slug)
     .order('date', { ascending: false })
@@ -199,7 +199,7 @@ async function enqueueRefresh(
   };
 
   const { error } = await supabase
-    .from('content_refresh_queue')
+    .from('seo_content_refresh_queue')
     .upsert(payload, { onConflict: 'page_id' });
 
   if (error) throw error;

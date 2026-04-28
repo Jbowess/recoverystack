@@ -112,21 +112,21 @@ async function run() {
 
   const [assetsResult, metricsResult, pagesResult, briefsResult] = await Promise.all([
     supabase
-      .from('distribution_assets')
+      .from('seo_distribution_assets')
       .select('id,page_id,page_slug,channel,asset_type,title,hook,payload')
       .limit(500),
     supabase
-      .from('distribution_asset_metrics')
+      .from('seo_distribution_asset_metrics')
       .select('asset_id,clicks,engagements,conversions')
       .gte('metric_date', since)
       .limit(2000),
     supabase
-      .from('pages')
+      .from('seo_pages')
       .select('id,slug,title,template,primary_keyword')
       .in('status', ['draft', 'approved', 'published'])
       .limit(500),
     supabase
-      .from('briefs')
+      .from('seo_briefs')
       .select('page_slug,keyword,required_subtopics,competitor_weaknesses')
       .limit(500),
   ]);
@@ -186,7 +186,7 @@ async function run() {
     if (titleCandidate && winner.metrics.clicks >= 3) {
       titleSuggestions += 1;
       if (!DRY_RUN) {
-        await supabase.from('page_title_experiments').upsert({
+        await supabase.from('seo_page_title_experiments').upsert({
           page_id: page.id,
           page_slug: page.slug,
           channel: 'organic_search',
@@ -212,7 +212,7 @@ async function run() {
     if (keywordCandidate) {
       keywordSuggestions += 1;
       if (!DRY_RUN) {
-        await supabase.from('keyword_queue').upsert({
+        await supabase.from('seo_keyword_queue').upsert({
           cluster_name: buildClusterName(`${page.slug}-repurposing-feedback`),
           primary_keyword: keywordCandidate,
           normalized_keyword: normalizeKeyword(keywordCandidate),
@@ -253,7 +253,7 @@ async function run() {
 
       briefUpdates += 1;
       if (!DRY_RUN) {
-        await supabase.from('briefs').update({
+        await supabase.from('seo_briefs').update({
           required_subtopics: nextSubtopics,
           competitor_weaknesses: nextWeaknesses,
         }).eq('page_slug', page.slug);

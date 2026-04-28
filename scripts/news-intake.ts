@@ -82,7 +82,7 @@ async function ensureFeedSeed() {
     metadata: {},
   }));
 
-  const { error } = await supabase.from('news_source_feeds').upsert(rows, {
+  const { error } = await supabase.from('seo_news_source_feeds').upsert(rows, {
     onConflict: 'slug',
   });
 
@@ -176,7 +176,7 @@ async function ingestFeed(feed: FeedRow) {
       extraction: bundle.extraction,
     });
 
-    const { error } = await supabase.from('news_source_events').upsert(
+    const { error } = await supabase.from('seo_news_source_events').upsert(
       {
         feed_id: feed.id,
         source_type: feed.source_type,
@@ -215,7 +215,7 @@ async function ingestFeed(feed: FeedRow) {
   }
 
   await supabase
-    .from('news_source_feeds')
+    .from('seo_news_source_feeds')
     .update({ last_polled_at: new Date().toISOString(), last_success_at: new Date().toISOString() })
     .eq('id', feed.id);
 
@@ -319,7 +319,7 @@ async function ingestPreprintFeeds(): Promise<void> {
 
         const eventKey = `preprint:${feed.source_domain}:${Buffer.from(rawUrl).toString('base64').slice(0, 32)}`;
 
-        const { error } = await supabase.from('news_source_events').upsert(
+        const { error } = await supabase.from('seo_news_source_events').upsert(
           {
             source_type: 'research',
             beat: inferred.beat ?? feed.beat,
@@ -378,7 +378,7 @@ async function run() {
   await ensureFeedSeed();
 
   const { data, error } = await supabase
-    .from('news_source_feeds')
+    .from('seo_news_source_feeds')
     .select('id,slug,name,source_type,beat,source_url,site_url,priority,active')
     .eq('active', true)
     .order('priority', { ascending: false });
@@ -396,7 +396,7 @@ async function run() {
   await ingestPreprintFeeds();
 
   const { count } = await supabase
-    .from('news_source_events')
+    .from('seo_news_source_events')
     .select('id', { count: 'exact', head: true })
     .in('status', ['new', 'ready']);
 

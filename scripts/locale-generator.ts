@@ -253,7 +253,7 @@ async function run(): Promise<void> {
 
   // Find top-performing pages eligible for localisation
   const { data: pages } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('slug, template, title, meta_description, primary_keyword, body_json, metadata')
     .eq('status', 'published')
     .gte('quality_score', MIN_QUALITY_SCORE)
@@ -274,7 +274,7 @@ async function run(): Promise<void> {
     for (const locale of targetLocales) {
       // Check if locale variant exists
       const { data: existing } = await supabase
-        .from('page_locales')
+        .from('seo_page_locales')
         .select('id')
         .eq('page_slug', page.slug)
         .eq('locale', locale.code)
@@ -302,7 +302,7 @@ async function run(): Promise<void> {
 
       if (DRY_RUN) continue;
 
-      await supabase.from('page_locales').upsert({
+      await supabase.from('seo_page_locales').upsert({
         page_slug: page.slug,
         locale: locale.code,
         locale_name: locale.name,

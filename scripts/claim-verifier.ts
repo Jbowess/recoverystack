@@ -59,13 +59,13 @@ async function processPage(page: PageRow) {
 
   const [referencesResult, eventsResult] = await Promise.all([
     supabase
-      .from('page_source_references')
+      .from('seo_page_source_references')
       .select('id,title,url,source_domain,evidence_level')
       .eq('page_id', page.id)
       .limit(20),
     page.storyline_id
       ? supabase
-          .from('storyline_events')
+          .from('seo_storyline_events')
           .select(`
             news_source_events (
               id,title,summary,url,source_domain,extraction
@@ -75,7 +75,7 @@ async function processPage(page: PageRow) {
           .limit(10)
       : page.source_event_id
         ? supabase
-            .from('news_source_events')
+            .from('seo_news_source_events')
             .select('id,title,summary,url,source_domain,extraction')
             .eq('id', page.source_event_id)
             .limit(1)
@@ -115,7 +115,7 @@ async function processPage(page: PageRow) {
     if (status === 'verified') verified += 1;
 
     const { data: claimRow, error } = await supabase
-      .from('page_claims')
+      .from('seo_page_claims')
       .upsert(
         {
           page_id: page.id,
@@ -137,10 +137,10 @@ async function processPage(page: PageRow) {
 
     if (error || !claimRow) continue;
 
-    await supabase.from('claim_evidence_links').delete().eq('page_claim_id', claimRow.id);
+    await supabase.from('seo_claim_evidence_links').delete().eq('page_claim_id', claimRow.id);
 
     for (const evidence of evidences) {
-      await supabase.from('claim_evidence_links').insert({
+      await supabase.from('seo_claim_evidence_links').insert({
         page_claim_id: claimRow.id,
         ...(evidence.kind === 'source_event' ? { event_id: evidence.id } : { source_reference_id: evidence.id }),
         evidence_url: evidence.url,
@@ -153,7 +153,7 @@ async function processPage(page: PageRow) {
   }
 
   await supabase
-    .from('pages')
+    .from('seo_pages')
     .update({
       metadata: {
         ...(page.metadata ?? {}),
@@ -170,7 +170,7 @@ async function processPage(page: PageRow) {
 
 async function run() {
   const { data, error } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,title,template,body_json,metadata,source_event_id,storyline_id,published_at')
     .in('status', ['approved', 'published'])
     .in('template', ['news', 'reviews', 'alternatives', 'guides'])

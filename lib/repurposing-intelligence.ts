@@ -580,7 +580,7 @@ export function buildRepurposingPacket(page: DistributionPageInput, peers: Asset
 
 export async function loadRecentAssetPeers(supabase: SupabaseClient, limit = 250): Promise<AssetPeer[]> {
   const { data, error } = await supabase
-    .from('distribution_assets')
+    .from('seo_distribution_assets')
     .select('channel,asset_type,hook,payload')
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -601,7 +601,7 @@ export async function persistRepurposingPacket(
   page: DistributionPageInput,
   packet: RepurposingPacket,
 ) {
-  const packetWrite = await supabase.from('repurposing_packets').upsert({
+  const packetWrite = await supabase.from('seo_repurposing_packets').upsert({
     page_id: page.id,
     page_slug: page.slug,
     packet_version: 'v1_campaign_engine',
@@ -621,11 +621,11 @@ export async function persistRepurposingPacket(
   });
   if (packetWrite.error && !packetWrite.error.message.includes('repurposing_packets')) throw packetWrite.error;
 
-  const deleteAtoms = await supabase.from('content_atoms').delete().eq('page_slug', page.slug);
+  const deleteAtoms = await supabase.from('seo_content_atoms').delete().eq('page_slug', page.slug);
   if (deleteAtoms.error && !deleteAtoms.error.message.includes('content_atoms')) throw deleteAtoms.error;
 
   if (packet.atoms.length > 0) {
-    const insertAtoms = await supabase.from('content_atoms').insert(
+    const insertAtoms = await supabase.from('seo_content_atoms').insert(
       packet.atoms.map((atom) => ({
         page_id: page.id,
         page_slug: page.slug,
@@ -643,11 +643,11 @@ export async function persistRepurposingPacket(
     if (insertAtoms.error && !insertAtoms.error.message.includes('content_atoms')) throw insertAtoms.error;
   }
 
-  const deleteHooks = await supabase.from('channel_hook_library').delete().eq('page_slug', page.slug);
+  const deleteHooks = await supabase.from('seo_channel_hook_library').delete().eq('page_slug', page.slug);
   if (deleteHooks.error && !deleteHooks.error.message.includes('channel_hook_library')) throw deleteHooks.error;
 
   if (packet.hooks.length > 0) {
-    const insertHooks = await supabase.from('channel_hook_library').insert(
+    const insertHooks = await supabase.from('seo_channel_hook_library').insert(
       packet.hooks.map((hook) => ({
         page_id: page.id,
         page_slug: page.slug,
@@ -664,7 +664,7 @@ export async function persistRepurposingPacket(
     if (insertHooks.error && !insertHooks.error.message.includes('channel_hook_library')) throw insertHooks.error;
   }
 
-  const deleteOriginality = await supabase.from('repurposing_originality_scores').delete().eq('page_slug', page.slug);
+  const deleteOriginality = await supabase.from('seo_repurposing_originality_scores').delete().eq('page_slug', page.slug);
   if (deleteOriginality.error && !deleteOriginality.error.message.includes('repurposing_originality_scores')) throw deleteOriginality.error;
 
   const originalityRows = packet.assets.map((asset) => ({
@@ -683,7 +683,7 @@ export async function persistRepurposingPacket(
     },
   }));
   if (originalityRows.length > 0) {
-    const insertOriginality = await supabase.from('repurposing_originality_scores').insert(originalityRows);
+    const insertOriginality = await supabase.from('seo_repurposing_originality_scores').insert(originalityRows);
     if (insertOriginality.error && !insertOriginality.error.message.includes('repurposing_originality_scores')) throw insertOriginality.error;
   }
 }
@@ -716,13 +716,13 @@ export async function promotePacketAssets(
     source_url: `${siteUrl}/${page.template}/${page.slug}`,
   }));
 
-  const upsertAssets = await supabase.from('distribution_assets').upsert(assetRows, {
+  const upsertAssets = await supabase.from('seo_distribution_assets').upsert(assetRows, {
     onConflict: 'page_id,channel,asset_type',
   });
   if (upsertAssets.error && !upsertAssets.error.message.includes('distribution_assets')) throw upsertAssets.error;
 
   const freshAssets = await supabase
-    .from('distribution_assets')
+    .from('seo_distribution_assets')
     .select('id,page_id,page_slug,channel,asset_type,title,hook,summary,body,cta_url,payload')
     .eq('page_slug', page.slug)
     .in('channel', promoted.map((asset) => asset.channel))
@@ -757,7 +757,7 @@ export async function promotePacketAssets(
   }));
 
   if (queueRows.length > 0) {
-    const upsertQueue = await supabase.from('channel_publication_queue').upsert(queueRows, {
+    const upsertQueue = await supabase.from('seo_channel_publication_queue').upsert(queueRows, {
       onConflict: 'distribution_asset_id,channel',
     });
     if (upsertQueue.error && !upsertQueue.error.message.includes('channel_publication_queue')) throw upsertQueue.error;

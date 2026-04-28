@@ -53,7 +53,7 @@ export async function GET(request: Request) {
   );
 
   let query = supabase
-    .from('pages')
+    .from('seo_pages')
     .select('slug, title, meta_description, published_at, updated_at, beat, news_format, metadata')
     .eq('status', 'published')
     .eq('template', 'news')

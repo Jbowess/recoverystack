@@ -67,8 +67,8 @@ interface GapRow {
 async function run() {
   // Load all existing pages + keyword_queue slugs/keywords to avoid duplication
   const [pagesResult, queueResult] = await Promise.all([
-    supabase.from('pages').select('slug, primary_keyword').eq('status', 'published'),
-    supabase.from('keyword_queue').select('normalized_keyword'),
+    supabase.from('seo_pages').select('slug, primary_keyword').eq('status', 'published'),
+    supabase.from('seo_keyword_queue').select('normalized_keyword'),
   ]);
 
   const existingKeywords = new Set<string>([
@@ -88,7 +88,7 @@ async function run() {
 
   // Load all content_gaps with PAA data
   const { data: gaps, error } = await supabase
-    .from('content_gaps')
+    .from('seo_content_gaps')
     .select('keyword, page_slug, serp_snapshot')
     .not('serp_snapshot', 'is', null)
     .order('created_at', { ascending: false })
@@ -162,7 +162,7 @@ async function run() {
   for (let i = 0; i < toInsert.length; i += CHUNK) {
     const chunk = toInsert.slice(i, i + CHUNK);
     const { error: upsertErr } = await supabase
-      .from('keyword_queue')
+      .from('seo_keyword_queue')
       .upsert(chunk, { onConflict: 'cluster_name,primary_keyword' });
 
     if (upsertErr) {

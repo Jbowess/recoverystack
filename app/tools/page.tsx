@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default async function ToolsIndexPage() {
   const { data } = await supabaseAdmin
-    .from('tool_idea_queue')
+    .from('seo_tool_idea_queue')
     .select('title,idea_type,status,page_slug')
     .order('priority', { ascending: false })
     .limit(6);

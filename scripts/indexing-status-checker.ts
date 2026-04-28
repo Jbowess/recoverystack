@@ -149,7 +149,7 @@ async function run() {
 
   // Fetch published pages, prioritising ones never checked or checked longest ago
   const { data: pages, error } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id, slug, template, metadata')
     .eq('status', 'published')
     .order('updated_at', { ascending: true })
@@ -181,7 +181,7 @@ async function run() {
       index_checked_at: new Date().toISOString(),
     };
 
-    await supabase.from('pages').update({ metadata: updatedMeta }).eq('id', page.id);
+    await supabase.from('seo_pages').update({ metadata: updatedMeta }).eq('id', page.id);
 
     // Count for summary
     switch (result.indexStatus) {

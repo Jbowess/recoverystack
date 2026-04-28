@@ -159,7 +159,7 @@ function countReferences(bodyJson: Record<string, unknown> | null): number {
 async function diffPage(slug: string): Promise<DiffResult> {
   // Load published page
   const { data: publishedPage } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id, slug, template, body_json, metadata, quality_score')
     .eq('slug', slug)
     .eq('status', 'published')
@@ -167,7 +167,7 @@ async function diffPage(slug: string): Promise<DiffResult> {
 
   // Load latest draft for this slug
   const { data: draft } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id, slug, template, body_json, metadata, quality_score')
     .eq('slug', slug)
     .eq('status', 'draft')
@@ -232,7 +232,7 @@ async function diffPage(slug: string): Promise<DiffResult> {
 
   // Check required entities from brief
   const { data: brief } = await supabase
-    .from('briefs')
+    .from('seo_briefs')
     .select('required_entities')
     .eq('page_slug', slug)
     .single();
@@ -293,7 +293,7 @@ async function run(): Promise<void> {
   } else if (ALL_PENDING) {
     // Find draft pages that have a corresponding published version
     const { data } = await supabase
-      .from('pages')
+      .from('seo_pages')
       .select('slug')
       .eq('status', 'draft')
       .limit(50);
@@ -301,7 +301,7 @@ async function run(): Promise<void> {
   } else {
     // Default: check pages in content_refresh_queue
     const { data } = await supabase
-      .from('content_refresh_queue')
+      .from('seo_content_refresh_queue')
       .select('page_slug')
       .eq('status', 'pending')
       .limit(20);
@@ -326,17 +326,17 @@ async function run(): Promise<void> {
     );
 
     if (!DRY_RUN) {
-      await supabase.from('content_diffs').upsert(result, { onConflict: 'page_slug' });
+      await supabase.from('seo_content_diffs').upsert(result, { onConflict: 'page_slug' });
 
       if (result.action === 'block') {
         // Prevent refresh from proceeding
-        await supabase.from('content_refresh_queue').update({
+        await supabase.from('seo_content_refresh_queue').update({
           status: 'blocked',
           block_reason: result.failure_reasons.join(' | '),
         }).eq('page_slug', slug);
         blocked++;
       } else if (result.action === 'flag_for_review') {
-        await supabase.from('content_refresh_queue').update({
+        await supabase.from('seo_content_refresh_queue').update({
           status: 'needs_review',
           block_reason: result.failure_reasons.join(' | '),
         }).eq('page_slug', slug);

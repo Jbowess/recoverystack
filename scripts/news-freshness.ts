@@ -20,7 +20,7 @@ type PageRow = {
 };
 
 async function queueSignal(page: PageRow, signalType: string, severity: number, detail: string, metadata: Record<string, unknown>) {
-  await supabase.from('page_refresh_signals').upsert(
+  await supabase.from('seo_page_refresh_signals').upsert(
     {
       page_id: page.id,
       page_slug: page.slug,
@@ -36,7 +36,7 @@ async function queueSignal(page: PageRow, signalType: string, severity: number, 
 
 async function run() {
   const { data, error } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,template,title,updated_at,published_at,storyline_id,last_verified_at')
     .eq('status', 'published')
     .in('template', ['news', 'trends'])
@@ -52,7 +52,7 @@ async function run() {
 
     if (page.storyline_id) {
       const { data: latestStory } = await supabase
-        .from('storylines')
+        .from('seo_storylines')
         .select('id,title,latest_event_at,update_count,freshness_score')
         .eq('id', page.storyline_id)
         .single();

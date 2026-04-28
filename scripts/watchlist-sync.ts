@@ -10,7 +10,7 @@ const supabase = createClient(
 );
 
 async function run() {
-  const { data: entities } = await supabase.from('topic_entities').select('id,slug').eq('active', true);
+  const { data: entities } = await supabase.from('seo_topic_entities').select('id,slug').eq('active', true);
   const entityBySlug = new Map((entities ?? []).map((row: any) => [String(row.slug), String(row.id)]));
 
   const rows = DEFAULT_WATCHLIST_SEEDS.map((seed) => ({
@@ -27,7 +27,7 @@ async function run() {
     metadata: seed.metadata ?? {},
   }));
 
-  const { error } = await supabase.from('source_watchlists').upsert(rows, { onConflict: 'slug' });
+  const { error } = await supabase.from('seo_source_watchlists').upsert(rows, { onConflict: 'slug' });
   if (error) throw error;
 
   console.log(`[watchlist-sync] watchlists=${rows.length}`);

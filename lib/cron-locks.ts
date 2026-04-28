@@ -33,7 +33,7 @@ export async function acquireCronLock(
   const now = Date.now();
 
   const { data: existing } = await supabase
-    .from('cron_locks')
+    .from('seo_cron_locks')
     .select('lock_data')
     .eq('lock_name', lockName)
     .single();
@@ -46,11 +46,11 @@ export async function acquireCronLock(
       return { acquired: false, reason: 'running', lock: lockData };
     }
 
-    await supabase.from('cron_locks').delete().eq('lock_name', lockName);
+    await supabase.from('seo_cron_locks').delete().eq('lock_name', lockName);
   }
 
   const payload: CronLockData = { startedAt: now, createdBy };
-  const { error } = await supabase.from('cron_locks').insert({ lock_name: lockName, lock_data: payload });
+  const { error } = await supabase.from('seo_cron_locks').insert({ lock_name: lockName, lock_data: payload });
 
   if (error) {
     return { acquired: false, reason: 'running', lock: null };
@@ -61,5 +61,5 @@ export async function acquireCronLock(
 
 export async function releaseCronLock(lockName: string) {
   const supabase = getSupabase();
-  await supabase.from('cron_locks').delete().eq('lock_name', lockName);
+  await supabase.from('seo_cron_locks').delete().eq('lock_name', lockName);
 }

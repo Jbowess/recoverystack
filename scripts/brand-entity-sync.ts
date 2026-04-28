@@ -44,7 +44,7 @@ async function run() {
     }
 
     const { data, error } = await supabase
-      .from('topic_entities')
+      .from('seo_topic_entities')
       .upsert(
         {
           slug: seed.slug,
@@ -79,7 +79,7 @@ async function run() {
       confidence_score: seed.confidenceScore,
     }));
 
-    const aliasWrite = await supabase.from('topic_entity_aliases').upsert(aliases, {
+    const aliasWrite = await supabase.from('seo_topic_entity_aliases').upsert(aliases, {
       onConflict: 'entity_id,normalized_alias',
     });
 
@@ -87,7 +87,7 @@ async function run() {
   }
 
   const { data: pages, error: pageError } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,title,meta_description,intro,primary_keyword,body_json')
     .in('status', ['draft', 'approved', 'published'])
     .order('updated_at', { ascending: false })
@@ -96,7 +96,7 @@ async function run() {
   if (pageError) throw pageError;
 
   if (!DRY_RUN) {
-    const cleanup = await supabase.from('page_entities').delete().in('entity_key', BRAND_ENTITY_SEEDS.map((seed) => seed.slug));
+    const cleanup = await supabase.from('seo_page_entities').delete().in('entity_key', BRAND_ENTITY_SEEDS.map((seed) => seed.slug));
     if (cleanup.error) throw cleanup.error;
   }
 
@@ -149,7 +149,7 @@ async function run() {
       },
     }));
 
-    const write = await supabase.from('page_entities').upsert(rows, {
+    const write = await supabase.from('seo_page_entities').upsert(rows, {
       onConflict: 'page_id,entity_key',
     });
 

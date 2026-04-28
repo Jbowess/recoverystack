@@ -12,7 +12,7 @@ export async function GET() {
 
   try {
     const { data, error } = await supabaseAdmin
-      .from('pages')
+      .from('seo_pages')
       .select('title,template,slug,meta_description')
       .eq('status', 'published')
       .order('updated_at', { ascending: false })

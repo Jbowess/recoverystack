@@ -24,7 +24,7 @@ export default async function EntityDetailPage({
   const { slug } = await params;
 
   const entityResult = await supabaseAdmin
-    .from('topic_entities')
+    .from('seo_topic_entities')
     .select('id,slug,canonical_name,entity_type,authority_score,metadata')
     .eq('slug', slug)
     .eq('active', true)
@@ -37,19 +37,19 @@ export default async function EntityDetailPage({
 
   const [aliasResult, relatedPageResult, storylineResult] = await Promise.all([
     supabaseAdmin
-      .from('topic_entity_aliases')
+      .from('seo_topic_entity_aliases')
       .select('alias')
       .eq('entity_id', entity.id)
       .order('confidence_score', { ascending: false })
       .limit(12),
     supabaseAdmin
-      .from('page_entities')
+      .from('seo_page_entities')
       .select('page_slug,salience_score,is_primary,pages!inner(title,template,meta_description)')
       .eq('entity_key', slug)
       .order('salience_score', { ascending: false })
       .limit(10),
     supabaseAdmin
-      .from('storylines')
+      .from('seo_storylines')
       .select('slug,title,status,latest_event_at')
       .eq('canonical_entity_id', entity.id)
       .order('latest_event_at', { ascending: false })

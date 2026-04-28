@@ -29,12 +29,12 @@ async function run() {
   const today = new Date().toISOString().slice(0, 10);
   const [simResult, entityResult] = await Promise.all([
     supabase
-      .from('llm_query_simulations')
+      .from('seo_llm_query_simulations')
       .select('channel,matched_page_slug,confidence_score,result_status,metadata')
       .eq('simulated_date', today)
       .limit(LIMIT),
     supabase
-      .from('page_entities')
+      .from('seo_page_entities')
       .select('page_slug,entity_key,is_primary')
       .limit(LIMIT),
   ]);
@@ -108,7 +108,7 @@ async function run() {
     return;
   }
 
-  const { error } = await supabase.from('llm_recommendation_share_snapshots').upsert(rows, {
+  const { error } = await supabase.from('seo_llm_recommendation_share_snapshots').upsert(rows, {
     onConflict: 'snapshot_date,channel,entity_key,page_slug',
   } as never);
 

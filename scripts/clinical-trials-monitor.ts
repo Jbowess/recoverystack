@@ -201,8 +201,8 @@ async function resolveEntityLinks(trial: CtStudy): Promise<{ entity_ids: string[
   ].map((t) => t.toLowerCase());
 
   const [entityResult, pageResult] = await Promise.all([
-    supabase.from('topic_entities').select('id, slug, label').eq('active', true),
-    supabase.from('pages').select('slug, primary_keyword, secondary_keywords').eq('status', 'published'),
+    supabase.from('seo_topic_entities').select('id, slug, label').eq('active', true),
+    supabase.from('seo_pages').select('slug, primary_keyword, secondary_keywords').eq('status', 'published'),
   ]);
 
   const entity_ids: string[] = [];
@@ -298,7 +298,7 @@ async function enrichBriefs(trials: TrialRow[]): Promise<void> {
     if (DRY_RUN) continue;
 
     await supabase
-      .from('briefs')
+      .from('seo_briefs')
       .update({ upcoming_research: upcomingResearch })
       .eq('page_slug', slug);
   }
@@ -309,7 +309,7 @@ async function run(): Promise<void> {
 
   // Load recently fetched NCT IDs to skip
   const { data: recentData } = await supabase
-    .from('clinical_trials')
+    .from('seo_clinical_trials')
     .select('nct_id')
     .gte('fetched_at', cutoff);
   const recentIds = new Set((recentData ?? []).map((r: any) => String(r.nct_id)));
@@ -349,7 +349,7 @@ async function run(): Promise<void> {
   let saved = 0;
   for (const trial of allTrials) {
     const { error } = await supabase
-      .from('clinical_trials')
+      .from('seo_clinical_trials')
       .upsert(trial, { onConflict: 'nct_id' });
 
     if (error) {

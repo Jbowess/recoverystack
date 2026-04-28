@@ -14,7 +14,7 @@ const LOOKBACK_DAYS = Number(process.env.EMAIL_DIGEST_LOOKBACK_DAYS ?? 7);
 
 async function loadDigestPages(since: string) {
   const modern = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id,slug,template,title,meta_description,intro,primary_keyword,body_json,metadata,published_at')
     .eq('status', 'published')
     .gte('published_at', since)
@@ -23,7 +23,7 @@ async function loadDigestPages(since: string) {
 
   if (modern.error?.message?.includes('metadata')) {
     const legacy = await supabase
-      .from('pages')
+      .from('seo_pages')
       .select('id,slug,template,title,meta_description,intro,primary_keyword,body_json,published_at')
       .eq('status', 'published')
       .gte('published_at', since)
@@ -56,7 +56,7 @@ async function run() {
     return;
   }
 
-  const { error: upsertError } = await supabase.from('email_digest_issues').upsert({
+  const { error: upsertError } = await supabase.from('seo_email_digest_issues').upsert({
     issue_date: issueDate,
     status: 'draft',
     subject,

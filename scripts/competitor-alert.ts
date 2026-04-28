@@ -58,7 +58,7 @@ async function detectNewCompetitorPages(): Promise<AlertRow[]> {
   const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
 
   const { data } = await supabase
-    .from('competitor_page_analyses')
+    .from('seo_competitor_page_analyses')
     .select('keyword, competitor_url, competitor_domain, word_count, fetched_at')
     .gte('fetched_at', since);
 
@@ -69,7 +69,7 @@ async function detectNewCompetitorPages(): Promise<AlertRow[]> {
   for (const row of data as Array<{ keyword: string; competitor_url: string; competitor_domain: string; word_count: number; fetched_at: string }>) {
     // Check if we have a page for this keyword
     const { data: ourPage } = await supabase
-      .from('pages')
+      .from('seo_pages')
       .select('slug')
       .or(`primary_keyword.ilike.%${row.keyword}%,slug.ilike.%${row.keyword.split(' ').join('-')}%`)
       .limit(1)
@@ -82,7 +82,7 @@ async function detectNewCompetitorPages(): Promise<AlertRow[]> {
 
     // Check if we already have this alert
     const { data: existing } = await supabase
-      .from('competitor_alerts')
+      .from('seo_competitor_alerts')
       .select('id')
       .eq('alert_key', alertKey)
       .gte('detected_at', since)
@@ -115,7 +115,7 @@ async function detectNewCompetitorPages(): Promise<AlertRow[]> {
 async function detectPositionGains(): Promise<AlertRow[]> {
   // Get rank history for competitors (non-our-pages)
   const { data: rankData } = await supabase
-    .from('rank_history')
+    .from('seo_rank_history')
     .select('keyword, ranking_url, position, is_our_page, checked_at')
     .eq('is_our_page', false)
     .lte('position', 5)
@@ -132,7 +132,7 @@ async function detectPositionGains(): Promise<AlertRow[]> {
 
     // Check if this keyword is one of ours
     const { data: ourPage } = await supabase
-      .from('pages')
+      .from('seo_pages')
       .select('slug, metadata')
       .or(`primary_keyword.ilike.%${rank.keyword}%`)
       .limit(1)
@@ -145,7 +145,7 @@ async function detectPositionGains(): Promise<AlertRow[]> {
 
     // Check if this competitor jumped significantly
     const { data: previousRank } = await supabase
-      .from('rank_history')
+      .from('seo_rank_history')
       .select('position')
       .eq('keyword', rank.keyword)
       .ilike('ranking_url', `%${domain}%`)
@@ -188,7 +188,7 @@ async function detectPositionGains(): Promise<AlertRow[]> {
 // ── Detect content surges ─────────────────────────────────────────────────────
 async function detectContentSurges(): Promise<AlertRow[]> {
   const { data } = await supabase
-    .from('competitor_page_analyses')
+    .from('seo_competitor_page_analyses')
     .select('keyword, competitor_domain, competitor_url, word_count, fetched_at')
     .gte('fetched_at', new Date(Date.now() - 3 * 86_400_000).toISOString())
     .gte('word_count', 2000);
@@ -198,7 +198,7 @@ async function detectContentSurges(): Promise<AlertRow[]> {
   for (const row of (data ?? []) as Array<{ keyword: string; competitor_domain: string; competitor_url: string; word_count: number }>) {
     // Find our page word count for comparison
     const { data: ourPage } = await supabase
-      .from('pages')
+      .from('seo_pages')
       .select('slug, metadata')
       .or(`primary_keyword.ilike.%${row.keyword}%`)
       .limit(1)
@@ -263,11 +263,11 @@ async function run(): Promise<void> {
 
   if (!DRY_RUN) {
     for (const alert of allAlerts) {
-      await supabase.from('competitor_alerts').upsert(alert, { onConflict: 'alert_key' });
+      await supabase.from('seo_competitor_alerts').upsert(alert, { onConflict: 'alert_key' });
 
       // Enqueue affected pages for refresh
       if ((alert.severity === 'critical' || alert.severity === 'high') && alert.page_slug) {
-        await supabase.from('content_refresh_queue').upsert({
+        await supabase.from('seo_content_refresh_queue').upsert({
           page_slug: alert.page_slug,
           reason: `competitor_alert:${alert.alert_type}:${alert.competitor_domain}`,
           priority: alert.severity === 'critical' ? 'high' : 'medium',

@@ -87,7 +87,7 @@ export default async function BeatPage({ params }: { params: Promise<{ beat: str
   if (!meta) notFound();
 
   const { data } = await supabaseAdmin
-    .from('pages')
+    .from('seo_pages')
     .select('slug, title, meta_description, published_at, news_format')
     .eq('status', 'published')
     .eq('template', 'news')

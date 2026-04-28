@@ -305,7 +305,7 @@ function runScript(script: string, args: string[] = []) {
 
 async function loadQueueCandidates(bucket: 'evergreen' | 'discovery', limit: number): Promise<QueueRow[]> {
   const query = supabase
-    .from('keyword_queue')
+    .from('seo_keyword_queue')
     .select('id,cluster_name,intent,primary_keyword,template_id,priority,source,status,score,metadata,last_generated_at')
     .in('status', ['new', 'queued'])
     .order('priority', { ascending: false, nullsFirst: false })
@@ -323,7 +323,7 @@ async function loadQueueCandidates(bucket: 'evergreen' | 'discovery', limit: num
 
 async function loadExistingPageKeywordSlugs(limit = 500): Promise<Set<string>> {
   const { data, error } = await withRetries('load existing page keywords', () =>
-    supabase.from('pages').select('primary_keyword,template').not('primary_keyword', 'is', null).limit(limit),
+    supabase.from('seo_pages').select('primary_keyword,template').not('primary_keyword', 'is', null).limit(limit),
   );
 
   if (error) throw error;
@@ -345,21 +345,21 @@ async function markQueueStatus(ids: string[], status: QueueRow['status'], metada
   if (!metadataPatch) {
     const payload: Record<string, unknown> = { status };
     if (status === 'generated') payload.last_generated_at = new Date().toISOString();
-    const { error } = await supabase.from('keyword_queue').update(payload).in('id', ids);
+    const { error } = await supabase.from('seo_keyword_queue').update(payload).in('id', ids);
     if (error) throw error;
     return;
   }
 
   // Per-row metadata updates when patch is dynamic.
   for (const id of ids) {
-    const { data, error: fetchError } = await supabase.from('keyword_queue').select('metadata').eq('id', id).single();
+    const { data, error: fetchError } = await supabase.from('seo_keyword_queue').select('metadata').eq('id', id).single();
     if (fetchError) throw fetchError;
 
     const metadata = { ...((data?.metadata as Record<string, unknown> | null) ?? {}), ...metadataPatch };
     const payload: Record<string, unknown> = { status, metadata };
     if (status === 'generated') payload.last_generated_at = new Date().toISOString();
 
-    const { error } = await supabase.from('keyword_queue').update(payload).eq('id', id);
+    const { error } = await supabase.from('seo_keyword_queue').update(payload).eq('id', id);
     if (error) throw error;
   }
 }
@@ -506,7 +506,7 @@ async function run() {
     try {
       const { data, error } = await withRetries(`upsert page ${seed.slug}`, () =>
         supabase
-          .from('pages')
+          .from('seo_pages')
           .upsert(
             {
               slug: seed.slug,
@@ -543,7 +543,7 @@ async function run() {
       };
 
       const { error: queueUpdateError } = await supabase
-        .from('keyword_queue')
+        .from('seo_keyword_queue')
         .update({ status: 'generated', metadata, last_generated_at: new Date().toISOString() })
         .eq('id', seed.queueId);
 
@@ -556,7 +556,7 @@ async function run() {
       failedSeeds.push(seed);
 
       const { error: requeueError } = await supabase
-        .from('keyword_queue')
+        .from('seo_keyword_queue')
         .update({
           status: 'new',
           metadata: {
@@ -588,7 +588,7 @@ async function run() {
         skipped_at: nowIso,
       };
 
-      const { error } = await supabase.from('keyword_queue').update({ status: 'skipped', metadata }).eq('id', row.id);
+      const { error } = await supabase.from('seo_keyword_queue').update({ status: 'skipped', metadata }).eq('id', row.id);
       if (error) throw error;
     }
   }

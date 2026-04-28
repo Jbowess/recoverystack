@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     prefersNoScreen: Boolean(body.prefersNoScreen),
   });
 
-  const { error } = await supabaseAdmin.from('tool_usage_events').insert({
+  const { error } = await supabaseAdmin.from('seo_tool_usage_events').insert({
     tool_slug: 'smart-ring-fit',
     event_type: 'quiz_completed',
     metadata: {

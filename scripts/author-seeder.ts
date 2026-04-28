@@ -231,7 +231,7 @@ async function run(): Promise<void> {
 
   if (!DRY_RUN) {
     for (const author of AUTHOR_SEEDS) {
-      const { error } = await supabase.from('authors').upsert({
+      const { error } = await supabase.from('seo_authors').upsert({
         slug: author.slug,
         name: author.name,
         title: author.title,
@@ -266,7 +266,7 @@ async function run(): Promise<void> {
 
   if (ASSIGN_PAGES || DRY_RUN) {
     const { data: pages } = await supabase
-      .from('pages')
+      .from('seo_pages')
       .select('slug, template, primary_keyword, metadata')
       .in('status', ['published', 'draft'])
       .is('metadata->author_slug', null);
@@ -307,7 +307,7 @@ async function run(): Promise<void> {
         continue;
       }
 
-      await supabase.from('pages').update({
+      await supabase.from('seo_pages').update({
         metadata: { ...(page.metadata ?? {}), ...authorMeta },
       }).eq('slug', page.slug);
     }

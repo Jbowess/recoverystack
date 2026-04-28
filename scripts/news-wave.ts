@@ -61,7 +61,7 @@ async function loadCandidateEvents(): Promise<SourceEvent[]> {
 
   // Primary path: use news_source_events with high relevance scores
   const { data: events, error } = await supabase
-    .from('news_source_events')
+    .from('seo_news_source_events')
     .select(`
       id,
       title,
@@ -125,7 +125,7 @@ async function loadFallbackFromTrends(): Promise<SourceEvent[]> {
   const windowStart = new Date(Date.now() - VELOCITY_WINDOW_H * 60 * 60 * 1000).toISOString();
 
   const { data: observations, error } = await supabase
-    .from('trend_observations')
+    .from('seo_trend_observations')
     .select('normalized_term, trend_id')
     .gte('observed_at', windowStart);
 
@@ -149,7 +149,7 @@ async function loadFallbackFromTrends(): Promise<SourceEvent[]> {
   if (!hotTerms.length) return [];
 
   const { data: trends } = await supabase
-    .from('trends')
+    .from('seo_trends')
     .select('id, term, normalized_term, trend_score, last_seen_at')
     .in('normalized_term', hotTerms)
     .neq('status', 'blocked')
@@ -177,7 +177,7 @@ async function loadFallbackFromTrends(): Promise<SourceEvent[]> {
 async function isOnNewsCooldown(primaryKeyword: string): Promise<boolean> {
   const cutoff = new Date(Date.now() - NEWS_COOLDOWN_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const { data } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id')
     .eq('template', 'news')
     .ilike('primary_keyword', primaryKeyword)
@@ -221,7 +221,7 @@ async function enqueueNewsPage(event: SourceEvent): Promise<boolean> {
   const slug = slugify(`${event.title}-${newsFormat}`);
 
   const { data: existing } = await supabase
-    .from('pages')
+    .from('seo_pages')
     .select('id')
     .eq('slug', slug)
     .limit(1);
@@ -241,7 +241,7 @@ async function enqueueNewsPage(event: SourceEvent): Promise<boolean> {
     return true;
   }
 
-  const { error } = await supabase.from('pages').insert({
+  const { error } = await supabase.from('seo_pages').insert({
     slug,
     template: 'news',
     content_type: 'news',

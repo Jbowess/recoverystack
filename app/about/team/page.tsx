@@ -22,7 +22,7 @@ interface Author {
 
 export default async function TeamPage() {
   const { data: authors } = await supabase
-    .from('authors')
+    .from('seo_authors')
     .select('*')
     .order('name', { ascending: true });
 
